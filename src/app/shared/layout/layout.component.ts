@@ -159,6 +159,7 @@ export class LayoutComponent {
   menuItems: MenuItem[] = [
     { label: 'Dashboard', icon: '🏠', route: '/dashboard' },
     { label: 'Relatórios', icon: '📊', route: '/reports' },
+    { label: 'Gosac/Pontta', icon: '🔗', route: '/gosac-pontta' },
     { label: 'Usuários', icon: '👥', route: '/usuarios' },
     { label: 'Configurações', icon: '⚙️', route: '/configuracoes' },
   ];

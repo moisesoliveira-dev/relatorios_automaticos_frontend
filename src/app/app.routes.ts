@@ -61,6 +61,10 @@ export const routes: Routes = [
                 loadComponent: () => import('./features/settings/settings.component').then(m => m.SettingsComponent)
             },
             {
+                path: 'gosac-pontta',
+                loadComponent: () => import('./features/gosac-pontta/gosac-pontta.component').then(m => m.GosacPonttaComponent)
+            },
+            {
                 path: '',
                 redirectTo: 'dashboard',
                 pathMatch: 'full'
