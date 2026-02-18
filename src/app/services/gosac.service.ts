@@ -24,16 +24,28 @@ export interface GosacTicket {
     [key: string]: any;
 }
 
+export interface SalesOrder {
+    id: string;
+    ponttaId: string;
+    code: string;
+    customerName: string;
+}
+
 export interface GosacGroup {
     id: string;
     gosacTicketId: number;
     gosacContactId: number;
     gosacTicketName: string;
-    ponttaOccurrenceId: number | null;
-    ponttaOccurrenceName: string | null;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
+    salesOrders: SalesOrder[];
+}
+
+export interface SalesOrderSearchResult {
+    ponttaId: string;
+    code: string;
+    customerName: string;
 }
 
 @Injectable({
@@ -58,8 +70,6 @@ export class GosacService {
         gosacTicketId: number;
         gosacContactId: number;
         gosacTicketName: string;
-        ponttaOccurrenceId?: number;
-        ponttaOccurrenceName?: string;
     }): Observable<GosacGroup> {
         return this.http.post<GosacGroup>(`${this.apiUrl}/groups`, data);
     }
@@ -67,8 +77,6 @@ export class GosacService {
     updateGroup(
         id: string,
         data: {
-            ponttaOccurrenceId?: number;
-            ponttaOccurrenceName?: string;
             isActive?: boolean;
         },
     ): Observable<GosacGroup> {
@@ -81,5 +89,20 @@ export class GosacService {
 
     deleteGroup(id: string): Observable<void> {
         return this.http.delete<void>(`${this.apiUrl}/groups/${id}`);
+    }
+
+    // Sales Orders
+    searchSalesOrders(query: string): Observable<SalesOrderSearchResult[]> {
+        return this.http.get<SalesOrderSearchResult[]>(`${this.apiUrl}/sales-orders/search`, {
+            params: { q: query },
+        });
+    }
+
+    linkSalesOrder(groupId: string, data: { ponttaId: string; code: string; customerName: string }): Observable<any> {
+        return this.http.post(`${this.apiUrl}/groups/${groupId}/sales-orders`, data);
+    }
+
+    unlinkSalesOrder(groupId: string, salesOrderId: string): Observable<void> {
+        return this.http.delete<void>(`${this.apiUrl}/groups/${groupId}/sales-orders/${salesOrderId}`);
     }
 }

@@ -1,7 +1,7 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, ElementRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { GosacService, GosacTicket, GosacGroup } from '../../services/gosac.service';
+import { GosacService, GosacTicket, GosacGroup, SalesOrderSearchResult } from '../../services/gosac.service';
 
 @Component({
     selector: 'app-gosac-pontta',
@@ -15,7 +15,7 @@ import { GosacService, GosacTicket, GosacGroup } from '../../services/gosac.serv
           <span>🔗</span>
           Gosac / Pontta
         </h1>
-        <p class="text-slate-500 mt-2">Integração entre GOSAC e Pontta — associe grupos e gerencie webhooks</p>
+        <p class="text-slate-500 mt-2">Integração entre GOSAC e Pontta — associe grupos e gerencie pedidos de venda</p>
       </div>
 
       <!-- Sub-tabs -->
@@ -166,47 +166,83 @@ import { GosacService, GosacTicket, GosacGroup } from '../../services/gosac.serv
                         <tr>
                           <th class="px-5 py-3">Ticket GOSAC</th>
                           <th class="px-5 py-3">Nome</th>
-                          <th class="px-5 py-3">Ocorrência Pontta</th>
+                          <th class="px-5 py-3">Pedidos de Venda</th>
                           <th class="px-5 py-3">Status</th>
                           <th class="px-5 py-3 text-right">Ações</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-100">
                         @for (group of groups(); track group.id) {
-                          <tr class="hover:bg-slate-50 transition-colors">
+                          <tr class="hover:bg-slate-50/50 transition-colors align-top">
                             <td class="px-5 py-3 text-sm font-mono text-slate-700">
                               #{{ group.gosacTicketId }}
                             </td>
                             <td class="px-5 py-3 text-sm text-slate-800">
                               {{ group.gosacTicketName }}
                             </td>
-                            <td class="px-5 py-3 text-sm">
-                              @if (editingGroupId() === group.id) {
-                                <div class="flex items-center gap-2">
-                                  <input
-                                    type="number"
-                                    [(ngModel)]="editPonttaId"
-                                    placeholder="ID Pontta"
-                                    class="w-24 px-2 py-1 border border-slate-300 rounded text-sm"
-                                  />
-                                  <input
-                                    type="text"
-                                    [(ngModel)]="editPonttaName"
-                                    placeholder="Nome (opcional)"
-                                    class="w-40 px-2 py-1 border border-slate-300 rounded text-sm"
-                                  />
-                                  <button (click)="saveGroupEdit(group.id)" class="text-green-600 hover:text-green-800">✅</button>
-                                  <button (click)="cancelEdit()" class="text-red-600 hover:text-red-800">❌</button>
+                            <td class="px-4 py-3 text-sm" style="min-width: 260px">
+                              <!-- Já tem PV vinculado: mostra a tag -->
+                              @if ((group.salesOrders || []).length > 0) {
+                                @for (so of group.salesOrders; track so.id) {
+                                  <span class="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs border border-purple-200 max-w-full">
+                                    <span class="font-medium">{{ so.code }}</span>
+                                    <span class="text-purple-400">—</span>
+                                    <span class="truncate" [title]="so.customerName">{{ abbreviate(so.customerName, 25) }}</span>
+                                    <button
+                                      (click)="unlinkSalesOrder(group, so.id)"
+                                      class="ml-0.5 text-purple-400 hover:text-red-500 transition-colors flex-shrink-0 text-base leading-none"
+                                      title="Desvincular"
+                                    >×</button>
+                                  </span>
+                                }
+                              } @else if (soSearchGroupId() === group.id) {
+                                <!-- Campo de busca ativo -->
+                                <div (click)="$event.stopPropagation()">
+                                  <div class="flex items-center gap-1 mb-1">
+                                    <input
+                                      type="text"
+                                      [(ngModel)]="soSearchQuery"
+                                      (ngModelChange)="onSoSearchInput($event)"
+                                      (keyup.escape)="closeSoSearch()"
+                                      placeholder="Pesquisar PV..."
+                                      class="flex-1 px-2 py-1 border border-purple-300 rounded text-xs focus:ring-1 focus:ring-purple-500 focus:border-transparent outline-none"
+                                      autofocus
+                                    />
+                                    <button (click)="closeSoSearch()" class="text-slate-400 hover:text-slate-600 text-xs px-1">✕</button>
+                                  </div>
+                                  @if (soSearching()) {
+                                    <div class="py-2 text-center text-xs text-slate-400">
+                                      <svg class="w-3 h-3 animate-spin inline mr-1 text-purple-500" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                      </svg>
+                                      Buscando...
+                                    </div>
+                                  } @else if (soSearchResults().length > 0) {
+                                    <div class="border border-slate-200 rounded-md overflow-hidden max-h-40 overflow-y-auto">
+                                      @for (result of soSearchResults(); track result.ponttaId) {
+                                        <button
+                                          (click)="linkSalesOrder(group, result)"
+                                          class="w-full text-left px-2 py-1.5 text-xs hover:bg-purple-50 transition-colors border-b border-slate-100 last:border-0"
+                                        >
+                                          <span class="font-medium text-purple-700">{{ result.code }}</span>
+                                          <span class="text-slate-400 mx-1">—</span>
+                                          <span class="text-slate-600">{{ abbreviate(result.customerName, 30) }}</span>
+                                        </button>
+                                      }
+                                    </div>
+                                  } @else if (soSearchQuery.length >= 2) {
+                                    <div class="py-2 text-center text-xs text-slate-400">Nenhum pedido encontrado</div>
+                                  }
                                 </div>
                               } @else {
-                                @if (group.ponttaOccurrenceId) {
-                                  <span class="text-purple-700 font-medium">#{{ group.ponttaOccurrenceId }}</span>
-                                  @if (group.ponttaOccurrenceName) {
-                                    <span class="text-slate-500 ml-1">— {{ group.ponttaOccurrenceName }}</span>
-                                  }
-                                } @else {
-                                  <span class="text-slate-400 italic">Não associado</span>
-                                }
+                                <!-- Botão para abrir busca -->
+                                <button
+                                  (click)="openSoSearch(group.id, $event)"
+                                  class="inline-flex items-center gap-1 px-2 py-1 text-xs text-purple-600 hover:bg-purple-50 rounded-md border border-dashed border-purple-300 transition-colors"
+                                >
+                                  ➕ Vincular PV
+                                </button>
                               }
                             </td>
                             <td class="px-5 py-3">
@@ -223,13 +259,6 @@ import { GosacService, GosacTicket, GosacGroup } from '../../services/gosac.serv
                             </td>
                             <td class="px-5 py-3 text-right">
                               <div class="flex items-center justify-end gap-1">
-                                <button
-                                  (click)="startEdit(group)"
-                                  class="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
-                                  title="Editar associação Pontta"
-                                >
-                                  ✏️
-                                </button>
                                 <button
                                   (click)="deleteGroup(group)"
                                   class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
@@ -263,7 +292,7 @@ import { GosacService, GosacTicket, GosacGroup } from '../../services/gosac.serv
   `,
 })
 export class GosacPonttaComponent implements OnInit {
-    // Sub-tabs definition — easy to extend
+    // Sub-tabs definition
     subTabs = [
         { id: 'grupos', icon: '👥', label: 'Grupos' },
         { id: 'webhooks', icon: '🔔', label: 'Webhooks' },
@@ -271,7 +300,7 @@ export class GosacPonttaComponent implements OnInit {
 
     activeTab = signal<string>('grupos');
 
-    // Search state
+    // Ticket search state
     searchQuery = '';
     searching = signal(false);
     searchError = signal<string>('');
@@ -281,16 +310,32 @@ export class GosacPonttaComponent implements OnInit {
     groups = signal<GosacGroup[]>([]);
     loadingGroups = signal(false);
 
-    // Inline editing
-    editingGroupId = signal<string | null>(null);
-    editPonttaId: number | null = null;
-    editPonttaName = '';
+    // Sales order search state (per group)
+    soSearchGroupId = signal<string | null>(null);
+    soSearchQuery = '';
+    soSearching = signal(false);
+    soSearchResults = signal<SalesOrderSearchResult[]>([]);
+    private soSearchTimeout: any = null;
 
-    constructor(private gosacService: GosacService) { }
+    constructor(
+        private gosacService: GosacService,
+        private elementRef: ElementRef,
+    ) { }
 
     ngOnInit(): void {
         this.loadGroups();
     }
+
+    @HostListener('document:click', ['$event'])
+    onDocumentClick(event: Event): void {
+        if (!this.soSearchGroupId()) return;
+        // Close if click is outside the host component entirely
+        if (!this.elementRef.nativeElement.contains(event.target as Node)) {
+            this.closeSoSearch();
+        }
+    }
+
+    // ----- Ticket Search -----
 
     searchTickets(): void {
         const q = this.searchQuery.trim();
@@ -314,6 +359,8 @@ export class GosacPonttaComponent implements OnInit {
             },
         });
     }
+
+    // ----- Groups -----
 
     loadGroups(): void {
         this.loadingGroups.set(true);
@@ -343,6 +390,8 @@ export class GosacPonttaComponent implements OnInit {
             })
             .subscribe({
                 next: (group) => {
+                    // Ensure new group has salesOrders array
+                    if (!group.salesOrders) group.salesOrders = [];
                     this.groups.set([group, ...this.groups()]);
                 },
                 error: (err) => {
@@ -354,42 +403,16 @@ export class GosacPonttaComponent implements OnInit {
     toggleGroup(group: GosacGroup): void {
         this.gosacService.toggleGroup(group.id).subscribe({
             next: (updated) => {
+                // Preserve sales orders from current state since toggle may not return them
+                const currentGroup = this.groups().find(g => g.id === updated.id);
+                if (!updated.salesOrders && currentGroup) {
+                    updated.salesOrders = currentGroup.salesOrders;
+                }
                 this.groups.set(
                     this.groups().map((g) => (g.id === updated.id ? updated : g)),
                 );
             },
         });
-    }
-
-    startEdit(group: GosacGroup): void {
-        this.editingGroupId.set(group.id);
-        this.editPonttaId = group.ponttaOccurrenceId;
-        this.editPonttaName = group.ponttaOccurrenceName || '';
-    }
-
-    cancelEdit(): void {
-        this.editingGroupId.set(null);
-        this.editPonttaId = null;
-        this.editPonttaName = '';
-    }
-
-    saveGroupEdit(groupId: string): void {
-        this.gosacService
-            .updateGroup(groupId, {
-                ponttaOccurrenceId: this.editPonttaId ?? undefined,
-                ponttaOccurrenceName: this.editPonttaName || undefined,
-            })
-            .subscribe({
-                next: (updated) => {
-                    this.groups.set(
-                        this.groups().map((g) => (g.id === updated.id ? updated : g)),
-                    );
-                    this.cancelEdit();
-                },
-                error: (err) => {
-                    alert(err.error?.message || 'Erro ao atualizar grupo');
-                },
-            });
     }
 
     deleteGroup(group: GosacGroup): void {
@@ -403,5 +426,116 @@ export class GosacPonttaComponent implements OnInit {
                 alert(err.error?.message || 'Erro ao remover grupo');
             },
         });
+    }
+
+    // ----- Sales Order Search & Link -----
+
+    openSoSearch(groupId: string, event?: Event): void {
+        event?.stopPropagation();
+        this.soSearchGroupId.set(groupId);
+        this.soSearchQuery = '';
+        this.soSearchResults.set([]);
+    }
+
+    closeSoSearch(): void {
+        this.soSearchGroupId.set(null);
+        this.soSearchQuery = '';
+        this.soSearchResults.set([]);
+        if (this.soSearchTimeout) {
+            clearTimeout(this.soSearchTimeout);
+            this.soSearchTimeout = null;
+        }
+    }
+
+    onSoSearchInput(query: string): void {
+        if (this.soSearchTimeout) {
+            clearTimeout(this.soSearchTimeout);
+        }
+
+        if (query.trim().length < 2) {
+            this.soSearchResults.set([]);
+            return;
+        }
+
+        // Debounce 400ms
+        this.soSearchTimeout = setTimeout(() => {
+            this.soSearching.set(true);
+            this.soSearchResults.set([]);
+            this.gosacService.searchSalesOrders(query.trim()).subscribe({
+                next: (results) => {
+                    this.soSearchResults.set(results);
+                    this.soSearching.set(false);
+                },
+                error: () => {
+                    this.soSearchResults.set([]);
+                    this.soSearching.set(false);
+                },
+            });
+        }, 400);
+    }
+
+    isSoAlreadyLinked(group: GosacGroup, ponttaId: string): boolean {
+        return (group.salesOrders || []).some((so) => so.ponttaId === ponttaId);
+    }
+
+    linkSalesOrder(group: GosacGroup, result: SalesOrderSearchResult): void {
+        if (this.isSoAlreadyLinked(group, result.ponttaId)) return;
+
+        this.gosacService
+            .linkSalesOrder(group.id, {
+                ponttaId: result.ponttaId,
+                code: result.code,
+                customerName: result.customerName,
+            })
+            .subscribe({
+                next: (link) => {
+                    // Add the linked sales order to the group locally
+                    const updatedGroups = this.groups().map((g) => {
+                        if (g.id === group.id) {
+                            const salesOrders = [...(g.salesOrders || [])];
+                            salesOrders.push({
+                                id: link.id || link.salesOrder?.id || '',
+                                ponttaId: result.ponttaId,
+                                code: result.code,
+                                customerName: result.customerName,
+                            });
+                            return { ...g, salesOrders };
+                        }
+                        return g;
+                    });
+                    this.groups.set(updatedGroups);
+                    this.closeSoSearch();
+                },
+                error: (err) => {
+                    alert(err.error?.message || 'Erro ao vincular pedido de venda');
+                },
+            });
+    }
+
+    unlinkSalesOrder(group: GosacGroup, salesOrderId: string): void {
+        this.gosacService.unlinkSalesOrder(group.id, salesOrderId).subscribe({
+            next: () => {
+                const updatedGroups = this.groups().map((g) => {
+                    if (g.id === group.id) {
+                        return {
+                            ...g,
+                            salesOrders: (g.salesOrders || []).filter((so) => so.id !== salesOrderId),
+                        };
+                    }
+                    return g;
+                });
+                this.groups.set(updatedGroups);
+            },
+            error: (err) => {
+                alert(err.error?.message || 'Erro ao desvincular pedido de venda');
+            },
+        });
+    }
+
+    // ----- Helpers -----
+
+    abbreviate(text: string, maxLen: number): string {
+        if (!text) return '';
+        return text.length > maxLen ? text.substring(0, maxLen) + '...' : text;
     }
 }
