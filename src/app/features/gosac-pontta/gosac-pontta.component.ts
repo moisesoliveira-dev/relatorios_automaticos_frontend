@@ -334,9 +334,11 @@ export class GosacPonttaComponent implements OnInit {
 
     addTicketAsGroup(ticket: GosacTicket): void {
         const name = ticket.contact?.name || `Ticket #${ticket.id}`;
+        const contactId = ticket.contact?.id || ticket['contactId'] || 0;
         this.gosacService
             .createGroup({
                 gosacTicketId: ticket.id,
+                gosacContactId: contactId,
                 gosacTicketName: name,
             })
             .subscribe({

@@ -5,6 +5,7 @@ import { environment } from '../../environments/environment';
 
 export interface GosacTicket {
     id: number;
+    contactId: number;
     contact?: {
         id: number;
         name: string;
@@ -26,6 +27,7 @@ export interface GosacTicket {
 export interface GosacGroup {
     id: string;
     gosacTicketId: number;
+    gosacContactId: number;
     gosacTicketName: string;
     ponttaOccurrenceId: number | null;
     ponttaOccurrenceName: string | null;
@@ -54,6 +56,7 @@ export class GosacService {
 
     createGroup(data: {
         gosacTicketId: number;
+        gosacContactId: number;
         gosacTicketName: string;
         ponttaOccurrenceId?: number;
         ponttaOccurrenceName?: string;
