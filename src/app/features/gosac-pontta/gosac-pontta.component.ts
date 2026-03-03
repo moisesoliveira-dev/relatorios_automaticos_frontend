@@ -233,6 +233,10 @@ import { GosacService, GosacTicket, GosacGroup, SalesOrderSearchResult } from '.
                                       </svg>
                                       Buscando...
                                     </div>
+                                  } @else if (soSearchError()) {
+                                    <div class="py-2 px-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded">
+                                      ❌ {{ soSearchError() }}
+                                    </div>
                                   } @else if (soSearchResults().length > 0) {
                                     <div class="border border-slate-200 rounded-md overflow-hidden max-h-40 overflow-y-auto">
                                       @for (result of soSearchResults(); track result.ponttaId) {
@@ -330,230 +334,231 @@ export class GosacPonttaComponent implements OnInit {
   soSearchQuery = '';
   soSearching = signal(false);
   soSearchResults = signal<SalesOrderSearchResult[]>([]);
-  private soSearchTimeout: any = null;
-
-  constructor(
-    private gosacService: GosacService,
-    private elementRef: ElementRef,
+  soSearchError = signal<string>('');
   ) { }
 
-  ngOnInit(): void {
-    this.loadGroups();
+ngOnInit(): void {
+  this.loadGroups();
+}
+
+@HostListener('document:click', ['$event'])
+onDocumentClick(event: Event): void {
+  if(!this.soSearchGroupId()) return;
+  // Close if click is outside the host component entirely
+  if(!this.elementRef.nativeElement.contains(event.target as Node)) {
+  this.closeSoSearch();
+}
   }
 
-  @HostListener('document:click', ['$event'])
-  onDocumentClick(event: Event): void {
-    if (!this.soSearchGroupId()) return;
-    // Close if click is outside the host component entirely
-    if (!this.elementRef.nativeElement.contains(event.target as Node)) {
-      this.closeSoSearch();
-    }
-  }
+// ----- Ticket Search -----
 
-  // ----- Ticket Search -----
+searchTickets(): void {
+  const q = this.searchQuery.trim();
+  if(!q) return;
 
-  searchTickets(): void {
-    const q = this.searchQuery.trim();
-    if (!q) return;
+  this.searching.set(true);
+  this.searchError.set('');
+  this.searchResults.set([]);
 
-    this.searching.set(true);
-    this.searchError.set('');
-    this.searchResults.set([]);
+  this.gosacService.searchTickets(q).subscribe({
+    next: (res) => {
+      this.searchResults.set(res.tickets || []);
+      this.searching.set(false);
+      if ((res.tickets || []).length === 0) {
+        this.searchError.set('Nenhum ticket encontrado para essa pesquisa.');
+      }
+    },
+    error: (err) => {
+      this.searchError.set(err.error?.message || 'Erro ao pesquisar tickets no GOSAC');
+      this.searching.set(false);
+    },
+  });
+}
 
-    this.gosacService.searchTickets(q).subscribe({
-      next: (res) => {
-        this.searchResults.set(res.tickets || []);
-        this.searching.set(false);
-        if ((res.tickets || []).length === 0) {
-          this.searchError.set('Nenhum ticket encontrado para essa pesquisa.');
-        }
+// ----- Groups -----
+
+loadGroups(): void {
+  this.loadingGroups.set(true);
+  this.gosacService.findAllGroups().subscribe({
+    next: (groups) => {
+      this.groups.set(groups);
+      this.loadingGroups.set(false);
+    },
+    error: () => {
+      this.loadingGroups.set(false);
+    },
+  });
+}
+
+isTicketAlreadyAdded(ticketId: number): boolean {
+  return this.groups().some((g) => g.gosacTicketId === ticketId);
+}
+
+addTicketAsGroup(ticket: GosacTicket): void {
+  const name = ticket.contact?.name || `Ticket #${ticket.id}`;
+  const contactId = ticket.contact?.id || ticket['contactId'] || 0;
+  this.gosacService
+    .createGroup({
+      gosacTicketId: ticket.id,
+      gosacContactId: contactId,
+      gosacTicketName: name,
+    })
+    .subscribe({
+      next: (group) => {
+        // Ensure new group has salesOrders array
+        if (!group.salesOrders) group.salesOrders = [];
+        this.groups.set([group, ...this.groups()]);
       },
       error: (err) => {
-        this.searchError.set(err.error?.message || 'Erro ao pesquisar tickets no GOSAC');
-        this.searching.set(false);
+        alert(err.error?.message || 'Erro ao cadastrar grupo');
       },
     });
+}
+
+toggleGroup(group: GosacGroup): void {
+  this.gosacService.toggleGroup(group.id).subscribe({
+    next: (updated) => {
+      // Preserve sales orders from current state since toggle may not return them
+      const currentGroup = this.groups().find(g => g.id === updated.id);
+      if (!updated.salesOrders && currentGroup) {
+        updated.salesOrders = currentGroup.salesOrders;
+      }
+      this.groups.set(
+        this.groups().map((g) => (g.id === updated.id ? updated : g)),
+      );
+    },
+  });
+}
+
+deleteGroup(group: GosacGroup): void {
+  if(!confirm(`Deseja remover o grupo "${group.gosacTicketName}"?`)) return;
+
+this.gosacService.deleteGroup(group.id).subscribe({
+  next: () => {
+    this.groups.set(this.groups().filter((g) => g.id !== group.id));
+  },
+  error: (err) => {
+    alert(err.error?.message || 'Erro ao remover grupo');
+  },
+});
   }
 
-  // ----- Groups -----
+// ----- Sales Order Search & Link -----
 
-  loadGroups(): void {
-    this.loadingGroups.set(true);
-    this.gosacService.findAllGroups().subscribe({
-      next: (groups) => {
-        this.groups.set(groups);
-        this.loadingGroups.set(false);
-      },
-      error: () => {
-        this.loadingGroups.set(false);
-      },
-    });
-  }
-
-  isTicketAlreadyAdded(ticketId: number): boolean {
-    return this.groups().some((g) => g.gosacTicketId === ticketId);
-  }
-
-  addTicketAsGroup(ticket: GosacTicket): void {
-    const name = ticket.contact?.name || `Ticket #${ticket.id}`;
-    const contactId = ticket.contact?.id || ticket['contactId'] || 0;
-    this.gosacService
-      .createGroup({
-        gosacTicketId: ticket.id,
-        gosacContactId: contactId,
-        gosacTicketName: name,
-      })
-      .subscribe({
-        next: (group) => {
-          // Ensure new group has salesOrders array
-          if (!group.salesOrders) group.salesOrders = [];
-          this.groups.set([group, ...this.groups()]);
-        },
-        error: (err) => {
-          alert(err.error?.message || 'Erro ao cadastrar grupo');
-        },
-      });
-  }
-
-  toggleGroup(group: GosacGroup): void {
-    this.gosacService.toggleGroup(group.id).subscribe({
-      next: (updated) => {
-        // Preserve sales orders from current state since toggle may not return them
-        const currentGroup = this.groups().find(g => g.id === updated.id);
-        if (!updated.salesOrders && currentGroup) {
-          updated.salesOrders = currentGroup.salesOrders;
-        }
-        this.groups.set(
-          this.groups().map((g) => (g.id === updated.id ? updated : g)),
-        );
-      },
-    });
-  }
-
-  deleteGroup(group: GosacGroup): void {
-    if (!confirm(`Deseja remover o grupo "${group.gosacTicketName}"?`)) return;
-
-    this.gosacService.deleteGroup(group.id).subscribe({
-      next: () => {
-        this.groups.set(this.groups().filter((g) => g.id !== group.id));
-      },
-      error: (err) => {
-        alert(err.error?.message || 'Erro ao remover grupo');
-      },
-    });
-  }
-
-  // ----- Sales Order Search & Link -----
-
-  openSoSearch(groupId: string, event?: Event): void {
-    event?.stopPropagation();
+openSoSearch(groupId: string, event ?: Event): void {
+  event?.stopPropagation();
     this.soSearchGroupId.set(groupId);
-    this.soSearchQuery = '';
-    this.soSearchResults.set([]);
+  this.soSearchQuery = '';
+  this.soSearchResults.set([]);
+}
+
+closeSoSearch(): void {
+  this.soSearchGroupId.set(null);
+  this.soSearchQuery = '';
+  this.soSearchResults.set([]);
+  this.soSearchError.set('');
+  if(this.soSearchTimeout) {
+  clearTimeout(this.soSearchTimeout);
+  this.soSearchTimeout = null;
+}
   }
 
-  closeSoSearch(): void {
-    this.soSearchGroupId.set(null);
-    this.soSearchQuery = '';
-    this.soSearchResults.set([]);
-    if (this.soSearchTimeout) {
-      clearTimeout(this.soSearchTimeout);
-      this.soSearchTimeout = null;
-    }
-  }
+onSoSearchInput(query: string): void {
+  if(this.soSearchTimeout) {
+  clearTimeout(this.soSearchTimeout);
+}
 
-  onSoSearchInput(query: string): void {
-    if (this.soSearchTimeout) {
-      clearTimeout(this.soSearchTimeout);
-    }
+if (query.trim().length < 2) {
+  this.soSearchResults.set([]);
+  this.soSearchError.set('');
+  return;
+}
 
-    if (query.trim().length < 2) {
+// Debounce 400ms
+this.soSearchTimeout = setTimeout(() => {
+  this.soSearching.set(true);
+  this.soSearchResults.set([]);
+  this.soSearchError.set('');
+  this.gosacService.searchSalesOrders(query.trim()).subscribe({
+    next: (results) => {
+      this.soSearchResults.set(results);
+      this.soSearching.set(false);
+    },
+    error: (err) => {
+      const msg = err?.error?.message || 'Erro ao buscar pedidos de venda';
+      this.soSearchError.set(msg);
       this.soSearchResults.set([]);
-      return;
-    }
-
-    // Debounce 400ms
-    this.soSearchTimeout = setTimeout(() => {
-      this.soSearching.set(true);
-      this.soSearchResults.set([]);
-      this.gosacService.searchSalesOrders(query.trim()).subscribe({
-        next: (results) => {
-          this.soSearchResults.set(results);
-          this.soSearching.set(false);
-        },
-        error: () => {
-          this.soSearchResults.set([]);
-          this.soSearching.set(false);
-        },
-      });
-    }, 400);
+      this.soSearching.set(false);
+    },
+  });
+}, 400);
   }
 
-  isSoAlreadyLinked(group: GosacGroup, ponttaId: string): boolean {
-    return (group.salesOrders || []).some((so) => so.ponttaId === ponttaId);
-  }
+isSoAlreadyLinked(group: GosacGroup, ponttaId: string): boolean {
+  return (group.salesOrders || []).some((so) => so.ponttaId === ponttaId);
+}
 
-  linkSalesOrder(group: GosacGroup, result: SalesOrderSearchResult): void {
-    if (this.isSoAlreadyLinked(group, result.ponttaId)) return;
+linkSalesOrder(group: GosacGroup, result: SalesOrderSearchResult): void {
+  if(this.isSoAlreadyLinked(group, result.ponttaId)) return;
 
-    this.gosacService
-      .linkSalesOrder(group.id, {
-        ponttaId: result.ponttaId,
-        code: result.code,
-        customerName: result.customerName,
-      })
-      .subscribe({
-        next: (link) => {
-          // Rebuilds the group's salesOrders with the full data returned from backend
-          const so = link.salesOrder || {};
-          const updatedGroups = this.groups().map((g) => {
-            if (g.id === group.id) {
-              const salesOrders = [...(g.salesOrders || [])];
-              salesOrders.push({
-                id: so.id || link.id || '',
-                ponttaId: result.ponttaId,
-                code: result.code,
-                customerName: result.customerName,
-                ponttaOccurrenceId: so.ponttaOccurrenceId ?? null,
-                ponttaOccurrenceNumber: so.ponttaOccurrenceNumber ?? null,
-              });
-              return { ...g, salesOrders };
-            }
-            return g;
-          });
-          this.groups.set(updatedGroups);
-          this.closeSoSearch();
-        },
-        error: (err) => {
-          alert(err.error?.message || 'Erro ao vincular pedido de venda');
-        },
-      });
-  }
-
-  unlinkSalesOrder(group: GosacGroup, salesOrderId: string): void {
-    this.gosacService.unlinkSalesOrder(group.id, salesOrderId).subscribe({
-      next: () => {
+  this.gosacService
+    .linkSalesOrder(group.id, {
+      ponttaId: result.ponttaId,
+      code: result.code,
+      customerName: result.customerName,
+    })
+    .subscribe({
+      next: (link) => {
+        // Rebuilds the group's salesOrders with the full data returned from backend
+        const so = link.salesOrder || {};
         const updatedGroups = this.groups().map((g) => {
           if (g.id === group.id) {
-            return {
-              ...g,
-              salesOrders: (g.salesOrders || []).filter((so) => so.id !== salesOrderId),
-            };
+            const salesOrders = [...(g.salesOrders || [])];
+            salesOrders.push({
+              id: so.id || link.id || '',
+              ponttaId: result.ponttaId,
+              code: result.code,
+              customerName: result.customerName,
+              ponttaOccurrenceId: so.ponttaOccurrenceId ?? null,
+              ponttaOccurrenceNumber: so.ponttaOccurrenceNumber ?? null,
+            });
+            return { ...g, salesOrders };
           }
           return g;
         });
         this.groups.set(updatedGroups);
+        this.closeSoSearch();
       },
       error: (err) => {
-        alert(err.error?.message || 'Erro ao desvincular pedido de venda');
+        alert(err.error?.message || 'Erro ao vincular pedido de venda');
       },
     });
-  }
+}
 
-  // ----- Helpers -----
+unlinkSalesOrder(group: GosacGroup, salesOrderId: string): void {
+  this.gosacService.unlinkSalesOrder(group.id, salesOrderId).subscribe({
+    next: () => {
+      const updatedGroups = this.groups().map((g) => {
+        if (g.id === group.id) {
+          return {
+            ...g,
+            salesOrders: (g.salesOrders || []).filter((so) => so.id !== salesOrderId),
+          };
+        }
+        return g;
+      });
+      this.groups.set(updatedGroups);
+    },
+    error: (err) => {
+      alert(err.error?.message || 'Erro ao desvincular pedido de venda');
+    },
+  });
+}
 
-  abbreviate(text: string, maxLen: number): string {
-    if (!text) return '';
-    return text.length > maxLen ? text.substring(0, maxLen) + '...' : text;
-  }
+// ----- Helpers -----
+
+abbreviate(text: string, maxLen: number): string {
+  if (!text) return '';
+  return text.length > maxLen ? text.substring(0, maxLen) + '...' : text;
+}
 }
