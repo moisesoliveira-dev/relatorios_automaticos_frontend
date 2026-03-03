@@ -335,9 +335,14 @@ export class GosacPonttaComponent implements OnInit {
   soSearching = signal(false);
   soSearchResults = signal<SalesOrderSearchResult[]>([]);
   soSearchError = signal<string>('');
+  private soSearchTimeout: any = null;
+
+  constructor(
+    private gosacService: GosacService,
+    private elementRef: ElementRef,
   ) { }
 
-ngOnInit(): void {
+  ngOnInit(): void {
   this.loadGroups();
 }
 
