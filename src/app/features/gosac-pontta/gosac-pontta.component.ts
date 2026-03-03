@@ -513,14 +513,14 @@ export class GosacPonttaComponent implements OnInit {
         customerName: result.customerName,
       })
       .subscribe({
-        next: (link) => {
+        next: (res) => {
           // Rebuilds the group's salesOrders with the full data returned from backend
-          const so = link.salesOrder || {};
+          const so = res.salesOrder || {};
           const updatedGroups = this.groups().map((g) => {
             if (g.id === group.id) {
               const salesOrders = [...(g.salesOrders || [])];
               salesOrders.push({
-                id: so.id || link.id || '',
+                id: so.id || '',
                 ponttaId: result.ponttaId,
                 code: result.code,
                 customerName: result.customerName,
@@ -533,6 +533,11 @@ export class GosacPonttaComponent implements OnInit {
           });
           this.groups.set(updatedGroups);
           this.closeSoSearch();
+
+          // Avisa se a ocorrência não pôde ser criada
+          if (res.occurrenceWarning) {
+            alert(`⚠️ Pedido vinculado, mas a ocorrência Pontta não foi criada:\n${res.occurrenceWarning}`);
+          }
         },
         error: (err) => {
           alert(err.error?.message || 'Erro ao vincular pedido de venda');
