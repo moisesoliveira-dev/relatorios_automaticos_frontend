@@ -29,6 +29,8 @@ export interface SalesOrder {
     ponttaId: string;
     code: string;
     customerName: string;
+    ponttaOccurrenceId?: string | null;
+    ponttaOccurrenceNumber?: number | null;
 }
 
 export interface GosacGroup {
