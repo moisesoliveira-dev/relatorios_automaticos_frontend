@@ -1,7 +1,15 @@
-import { Component, OnInit, signal, ElementRef, HostListener } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { GosacService, GosacTicket, GosacGroup, SalesOrderSearchResult } from '../../services/gosac.service';
+
+interface LinkModalState {
+  open: boolean;
+  group: GosacGroup | null;
+  step: 'search' | 'confirm';
+  selectedSo: SalesOrderSearchResult | null;
+  linking: boolean;
+}
 
 @Component({
   selector: 'app-gosac-pontta',
@@ -166,7 +174,7 @@ import { GosacService, GosacTicket, GosacGroup, SalesOrderSearchResult } from '.
                         <tr>
                           <th class="px-5 py-3">Ticket GOSAC</th>
                           <th class="px-5 py-3">Nome</th>
-                          <th class="px-5 py-3">Pedidos de Venda</th>
+                          <th class="px-5 py-3">Pedido de Venda / Ocorrência</th>
                           <th class="px-5 py-3">Status</th>
                           <th class="px-5 py-3 text-right">Ações</th>
                         </tr>
@@ -180,87 +188,45 @@ import { GosacService, GosacTicket, GosacGroup, SalesOrderSearchResult } from '.
                             <td class="px-5 py-3 text-sm text-slate-800">
                               {{ group.gosacTicketName }}
                             </td>
-                            <td class="px-4 py-3 text-sm" style="min-width: 260px">
-                              <!-- Já tem PV vinculado: mostra a tag -->
+                            <td class="px-5 py-3 text-sm">
+                              <!-- Já tem PV vinculado: mostra a tag + badge de ocorrência -->
                               @if ((group.salesOrders || []).length > 0) {
                                 @for (so of group.salesOrders; track so.id) {
-                                  <div class="flex flex-col gap-1">
-                                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs border border-purple-200 max-w-full">
-                                      <span class="font-medium">{{ so.code }}</span>
-                                      <span class="text-purple-400">—</span>
-                                      <span class="truncate" [title]="so.customerName">{{ abbreviate(so.customerName, 25) }}</span>
+                                  <div class="flex flex-col gap-1.5 mb-1">
+                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                      <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-md text-xs border border-purple-200 font-medium">
+                                        🛒 {{ so.code }}
+                                      </span>
+                                      <span class="text-xs text-slate-500 truncate max-w-40" [title]="so.customerName">{{ abbreviate(so.customerName, 28) }}</span>
                                       <button
                                         (click)="unlinkSalesOrder(group, so.id)"
-                                        class="ml-0.5 text-purple-400 hover:text-red-500 transition-colors flex-shrink-0 text-base leading-none"
-                                        title="Desvincular"
-                                      >×</button>
-                                    </span>
-                                    @if (so.ponttaOccurrenceNumber || so.ponttaOccurrenceId) {
-                                      <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 rounded text-xs border border-green-200" [title]="'Ocorrência Pontta: ' + (so.ponttaOccurrenceId || '')">
+                                        class="text-xs text-slate-400 hover:text-red-500 transition-colors"
+                                        title="Desvincular pedido"
+                                      >✕</button>
+                                    </div>
+                                    @if (so.ponttaOccurrenceId) {
+                                      <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 rounded-md text-xs border border-green-200"
+                                        [title]="'ID: ' + so.ponttaOccurrenceId">
                                         ✅ Ocorrência
-                                        @if (so.ponttaOccurrenceNumber) {
-                                          <span class="font-mono font-semibold">#{{ so.ponttaOccurrenceNumber }}</span>
-                                        }
-                                        criada
+                                        <span class="font-mono font-semibold">
+                                          @if (so.ponttaOccurrenceNumber) { #{{ so.ponttaOccurrenceNumber }} }
+                                        </span>
+                                        criada no Pontta
                                       </span>
                                     } @else {
-                                      <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-50 text-yellow-700 rounded text-xs border border-yellow-200" title="Ocorrência Pontta não criada">
-                                        ⚠️ Sem ocorrência
+                                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-700 rounded-md text-xs border border-amber-200">
+                                        ⚠️ Sem ocorrência Pontta
                                       </span>
                                     }
                                   </div>
                                 }
-                              } @else if (soSearchGroupId() === group.id) {
-                                <!-- Campo de busca ativo -->
-                                <div (click)="$event.stopPropagation()">
-                                  <div class="flex items-center gap-1 mb-1">
-                                    <input
-                                      type="text"
-                                      [(ngModel)]="soSearchQuery"
-                                      (ngModelChange)="onSoSearchInput($event)"
-                                      (keyup.escape)="closeSoSearch()"
-                                      placeholder="Pesquisar PV..."
-                                      class="flex-1 px-2 py-1 border border-purple-300 rounded text-xs focus:ring-1 focus:ring-purple-500 focus:border-transparent outline-none"
-                                      autofocus
-                                    />
-                                    <button (click)="closeSoSearch()" class="text-slate-400 hover:text-slate-600 text-xs px-1">✕</button>
-                                  </div>
-                                  @if (soSearching()) {
-                                    <div class="py-2 text-center text-xs text-slate-400">
-                                      <svg class="w-3 h-3 animate-spin inline mr-1 text-purple-500" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                                      </svg>
-                                      Buscando...
-                                    </div>
-                                  } @else if (soSearchError()) {
-                                    <div class="py-2 px-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded">
-                                      ❌ {{ soSearchError() }}
-                                    </div>
-                                  } @else if (soSearchResults().length > 0) {
-                                    <div class="border border-slate-200 rounded-md overflow-hidden max-h-40 overflow-y-auto">
-                                      @for (result of soSearchResults(); track result.ponttaId) {
-                                        <button
-                                          (click)="linkSalesOrder(group, result)"
-                                          class="w-full text-left px-2 py-1.5 text-xs hover:bg-purple-50 transition-colors border-b border-slate-100 last:border-0"
-                                        >
-                                          <span class="font-medium text-purple-700">{{ result.code }}</span>
-                                          <span class="text-slate-400 mx-1">—</span>
-                                          <span class="text-slate-600">{{ abbreviate(result.customerName, 30) }}</span>
-                                        </button>
-                                      }
-                                    </div>
-                                  } @else if (soSearchQuery.length >= 2) {
-                                    <div class="py-2 text-center text-xs text-slate-400">Nenhum pedido encontrado</div>
-                                  }
-                                </div>
                               } @else {
-                                <!-- Botão para abrir busca -->
+                                <!-- Botão para abrir modal -->
                                 <button
-                                  (click)="openSoSearch(group.id, $event)"
-                                  class="inline-flex items-center gap-1 px-2 py-1 text-xs text-purple-600 hover:bg-purple-50 rounded-md border border-dashed border-purple-300 transition-colors"
+                                  (click)="openLinkModal(group)"
+                                  class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors"
                                 >
-                                  ➕ Vincular PV
+                                  🔗 Vincular PV
                                 </button>
                               }
                             </td>
@@ -297,7 +263,6 @@ import { GosacService, GosacTicket, GosacGroup, SalesOrderSearchResult } from '.
             </div>
           }
 
-          <!-- Placeholder for future sub-tabs -->
           @if (activeTab() === 'webhooks') {
             <div class="text-center py-12 text-slate-400">
               <p class="text-4xl mb-3">🚧</p>
@@ -308,6 +273,180 @@ import { GosacService, GosacTicket, GosacGroup, SalesOrderSearchResult } from '.
         </div>
       </div>
     </div>
+
+    <!-- ===== MODAL: Vincular Pedido de Venda ===== -->
+    @if (linkModal().open) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <!-- Overlay -->
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" (click)="closeLinkModal()"></div>
+
+        <!-- Modal card -->
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
+
+          <!-- Modal header -->
+          <div class="flex items-start justify-between p-6 border-b border-slate-200">
+            <div>
+              <h2 class="text-lg font-bold text-slate-800">🔗 Vincular Pedido de Venda</h2>
+              @if (linkModal().group) {
+                <p class="text-sm text-slate-500 mt-0.5">
+                  Grupo: <span class="font-medium text-slate-700">{{ linkModal().group!.gosacTicketName }}</span>
+                  <span class="ml-2 text-xs text-slate-400">#{{ linkModal().group!.gosacTicketId }}</span>
+                </p>
+              }
+            </div>
+            <button (click)="closeLinkModal()" class="text-slate-400 hover:text-slate-600 text-xl leading-none p-1 ml-4">✕</button>
+          </div>
+
+          <!-- Step indicator -->
+          <div class="flex items-center px-6 pt-4">
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-purple-600 text-white">1</div>
+              <span class="text-sm font-medium text-purple-700">Pesquisar PV</span>
+            </div>
+            <div class="flex-1 h-px mx-3" [class.bg-purple-300]="linkModal().step === 'confirm'" [class.bg-slate-200]="linkModal().step === 'search'"></div>
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                [class.bg-purple-600]="linkModal().step === 'confirm'"
+                [class.bg-slate-200]="linkModal().step === 'search'"
+                [class.text-white]="linkModal().step === 'confirm'"
+                [class.text-slate-400]="linkModal().step === 'search'">2</div>
+              <span class="text-sm font-medium"
+                [class.text-purple-700]="linkModal().step === 'confirm'"
+                [class.text-slate-400]="linkModal().step === 'search'">Confirmar</span>
+            </div>
+          </div>
+
+          <!-- Modal body -->
+          <div class="flex-1 overflow-y-auto p-6">
+
+            @if (linkModal().step === 'search') {
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-2">Pesquisar por código ou cliente</label>
+                  <input
+                    type="text"
+                    [(ngModel)]="modalSearchQuery"
+                    (ngModelChange)="onModalSearchInput($event)"
+                    (keyup.escape)="closeLinkModal()"
+                    placeholder="Ex: PV-CM-605 ou nome do cliente..."
+                    class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-sm"
+                  />
+                </div>
+
+                @if (modalSearching()) {
+                  <div class="flex items-center justify-center py-6 text-slate-400 gap-2">
+                    <svg class="w-4 h-4 animate-spin text-purple-500" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    <span class="text-sm">Buscando pedidos...</span>
+                  </div>
+                } @else if (modalSearchError()) {
+                  <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                    ❌ {{ modalSearchError() }}
+                  </div>
+                } @else if (modalSearchResults().length > 0) {
+                  <div class="border border-slate-200 rounded-xl overflow-hidden">
+                    <div class="px-4 py-2 bg-slate-50 border-b border-slate-200">
+                      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        {{ modalSearchResults().length }} resultado{{ modalSearchResults().length === 1 ? '' : 's' }}
+                      </span>
+                    </div>
+                    <div class="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                      @for (result of modalSearchResults(); track result.ponttaId) {
+                        <button
+                          (click)="selectSalesOrder(result)"
+                          class="w-full text-left px-4 py-3 hover:bg-purple-50 transition-colors group"
+                        >
+                          <div class="flex items-center justify-between">
+                            <div>
+                              <span class="font-semibold text-purple-700 group-hover:text-purple-800">{{ result.code }}</span>
+                              <p class="text-xs text-slate-500 mt-0.5">{{ result.customerName }}</p>
+                            </div>
+                            <span class="text-xs text-purple-400 group-hover:text-purple-600 flex-shrink-0 ml-3">Selecionar →</span>
+                          </div>
+                        </button>
+                      }
+                    </div>
+                  </div>
+                } @else if (modalSearchQuery.length >= 2 && !modalSearching()) {
+                  <div class="text-center py-6 text-slate-400">
+                    <p class="text-2xl mb-1">🔍</p>
+                    <p class="text-sm">Nenhum pedido encontrado para "{{ modalSearchQuery }}"</p>
+                  </div>
+                } @else {
+                  <div class="text-center py-6 text-slate-300">
+                    <p class="text-3xl mb-2">🛒</p>
+                    <p class="text-sm">Digite pelo menos 2 caracteres para pesquisar</p>
+                  </div>
+                }
+              </div>
+            }
+
+            @if (linkModal().step === 'confirm' && linkModal().selectedSo) {
+              <div class="space-y-4">
+                <div class="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                  <p class="text-xs font-semibold text-purple-500 uppercase tracking-wider mb-2">Pedido de Venda selecionado</p>
+                  <p class="text-lg font-bold text-purple-800">{{ linkModal().selectedSo!.code }}</p>
+                  <p class="text-sm text-purple-600 mt-0.5">{{ linkModal().selectedSo!.customerName }}</p>
+                </div>
+
+                <div class="bg-green-50 border border-green-200 rounded-xl p-4">
+                  <p class="text-xs font-semibold text-green-600 uppercase tracking-wider mb-2">✅ Ocorrência que será criada no Pontta</p>
+                  <p class="text-sm font-semibold text-slate-800">Anexos GOSAC - {{ linkModal().group!.gosacTicketName }}</p>
+                  <p class="text-xs text-slate-500 mt-1">
+                    Vinculada ao pedido <strong>{{ linkModal().selectedSo!.code }}</strong>.
+                    O responsável será definido automaticamente pelo usuário autenticado.
+                  </p>
+                </div>
+
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-500">
+                  💡 Após confirmar, todos os arquivos de mídia enviados pelo grupo GOSAC
+                  <strong class="text-slate-700">"{{ linkModal().group!.gosacTicketName }}"</strong>
+                  serão automaticamente anexados a essa ocorrência.
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Modal footer -->
+          <div class="flex items-center justify-between p-6 border-t border-slate-200 gap-3">
+            @if (linkModal().step === 'confirm') {
+              <button
+                (click)="backToSearch()"
+                class="px-4 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+              >← Voltar</button>
+            } @else {
+              <div></div>
+            }
+            <div class="flex gap-3">
+              <button
+                (click)="closeLinkModal()"
+                class="px-4 py-2.5 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              >Cancelar</button>
+              @if (linkModal().step === 'confirm') {
+                <button
+                  (click)="confirmLink()"
+                  [disabled]="linkModal().linking"
+                  class="px-6 py-2.5 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+                >
+                  @if (linkModal().linking) {
+                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    Vinculando...
+                  } @else {
+                    ✅ Confirmar vínculo
+                  }
+                </button>
+              }
+            </div>
+          </div>
+
+        </div>
+      </div>
+    }
   `,
 })
 export class GosacPonttaComponent implements OnInit {
@@ -329,30 +468,18 @@ export class GosacPonttaComponent implements OnInit {
   groups = signal<GosacGroup[]>([]);
   loadingGroups = signal(false);
 
-  // Sales order search state (per group)
-  soSearchGroupId = signal<string | null>(null);
-  soSearchQuery = '';
-  soSearching = signal(false);
-  soSearchResults = signal<SalesOrderSearchResult[]>([]);
-  soSearchError = signal<string>('');
-  private soSearchTimeout: any = null;
+  // Link modal state
+  linkModal = signal<LinkModalState>({ open: false, group: null, step: 'search', selectedSo: null, linking: false });
+  modalSearchQuery = '';
+  modalSearching = signal(false);
+  modalSearchResults = signal<SalesOrderSearchResult[]>([]);
+  modalSearchError = signal<string>('');
+  private modalSearchTimeout: any = null;
 
-  constructor(
-    private gosacService: GosacService,
-    private elementRef: ElementRef,
-  ) { }
+  constructor(private gosacService: GosacService) { }
 
   ngOnInit(): void {
     this.loadGroups();
-  }
-
-  @HostListener('document:click', ['$event'])
-  onDocumentClick(event: Event): void {
-    if (!this.soSearchGroupId()) return;
-    // Close if click is outside the host component entirely
-    if (!this.elementRef.nativeElement.contains(event.target as Node)) {
-      this.closeSoSearch();
-    }
   }
 
   // ----- Ticket Search -----
@@ -403,164 +530,132 @@ export class GosacPonttaComponent implements OnInit {
     const name = ticket.contact?.name || `Ticket #${ticket.id}`;
     const contactId = ticket.contact?.id || ticket['contactId'] || 0;
     this.gosacService
-      .createGroup({
-        gosacTicketId: ticket.id,
-        gosacContactId: contactId,
-        gosacTicketName: name,
-      })
+      .createGroup({ gosacTicketId: ticket.id, gosacContactId: contactId, gosacTicketName: name })
       .subscribe({
         next: (group) => {
-          // Ensure new group has salesOrders array
           if (!group.salesOrders) group.salesOrders = [];
           this.groups.set([group, ...this.groups()]);
         },
-        error: (err) => {
-          alert(err.error?.message || 'Erro ao cadastrar grupo');
-        },
+        error: (err) => alert(err.error?.message || 'Erro ao cadastrar grupo'),
       });
   }
 
   toggleGroup(group: GosacGroup): void {
     this.gosacService.toggleGroup(group.id).subscribe({
       next: (updated) => {
-        // Preserve sales orders from current state since toggle may not return them
         const currentGroup = this.groups().find(g => g.id === updated.id);
-        if (!updated.salesOrders && currentGroup) {
-          updated.salesOrders = currentGroup.salesOrders;
-        }
-        this.groups.set(
-          this.groups().map((g) => (g.id === updated.id ? updated : g)),
-        );
+        if (!updated.salesOrders && currentGroup) updated.salesOrders = currentGroup.salesOrders;
+        this.groups.set(this.groups().map((g) => (g.id === updated.id ? updated : g)));
       },
     });
   }
 
   deleteGroup(group: GosacGroup): void {
     if (!confirm(`Deseja remover o grupo "${group.gosacTicketName}"?`)) return;
-
     this.gosacService.deleteGroup(group.id).subscribe({
-      next: () => {
-        this.groups.set(this.groups().filter((g) => g.id !== group.id));
-      },
-      error: (err) => {
-        alert(err.error?.message || 'Erro ao remover grupo');
-      },
+      next: () => this.groups.set(this.groups().filter((g) => g.id !== group.id)),
+      error: (err) => alert(err.error?.message || 'Erro ao remover grupo'),
     });
   }
 
-  // ----- Sales Order Search & Link -----
-
-  openSoSearch(groupId: string, event?: Event): void {
-    event?.stopPropagation();
-    this.soSearchGroupId.set(groupId);
-    this.soSearchQuery = '';
-    this.soSearchResults.set([]);
+  unlinkSalesOrder(group: GosacGroup, salesOrderId: string): void {
+    if (!confirm('Desvincular este pedido de venda?')) return;
+    this.gosacService.unlinkSalesOrder(group.id, salesOrderId).subscribe({
+      next: () => {
+        this.groups.set(this.groups().map((g) => {
+          if (g.id !== group.id) return g;
+          return { ...g, salesOrders: (g.salesOrders || []).filter((so) => so.id !== salesOrderId) };
+        }));
+      },
+      error: (err) => alert(err.error?.message || 'Erro ao desvincular pedido de venda'),
+    });
   }
 
-  closeSoSearch(): void {
-    this.soSearchGroupId.set(null);
-    this.soSearchQuery = '';
-    this.soSearchResults.set([]);
-    this.soSearchError.set('');
-    if (this.soSearchTimeout) {
-      clearTimeout(this.soSearchTimeout);
-      this.soSearchTimeout = null;
-    }
+  // ----- Link Modal -----
+
+  openLinkModal(group: GosacGroup): void {
+    this.modalSearchQuery = '';
+    this.modalSearchResults.set([]);
+    this.modalSearchError.set('');
+    this.linkModal.set({ open: true, group, step: 'search', selectedSo: null, linking: false });
   }
 
-  onSoSearchInput(query: string): void {
-    if (this.soSearchTimeout) {
-      clearTimeout(this.soSearchTimeout);
-    }
+  closeLinkModal(): void {
+    if (this.linkModal().linking) return;
+    if (this.modalSearchTimeout) clearTimeout(this.modalSearchTimeout);
+    this.linkModal.set({ open: false, group: null, step: 'search', selectedSo: null, linking: false });
+    this.modalSearchQuery = '';
+    this.modalSearchResults.set([]);
+    this.modalSearchError.set('');
+  }
 
+  backToSearch(): void {
+    this.linkModal.update(s => ({ ...s, step: 'search', selectedSo: null }));
+  }
+
+  onModalSearchInput(query: string): void {
+    if (this.modalSearchTimeout) clearTimeout(this.modalSearchTimeout);
     if (query.trim().length < 2) {
-      this.soSearchResults.set([]);
-      this.soSearchError.set('');
+      this.modalSearchResults.set([]);
+      this.modalSearchError.set('');
       return;
     }
-
-    // Debounce 400ms
-    this.soSearchTimeout = setTimeout(() => {
-      this.soSearching.set(true);
-      this.soSearchResults.set([]);
-      this.soSearchError.set('');
+    this.modalSearchTimeout = setTimeout(() => {
+      this.modalSearching.set(true);
+      this.modalSearchResults.set([]);
+      this.modalSearchError.set('');
       this.gosacService.searchSalesOrders(query.trim()).subscribe({
         next: (results) => {
-          this.soSearchResults.set(results);
-          this.soSearching.set(false);
+          this.modalSearchResults.set(results);
+          this.modalSearching.set(false);
         },
         error: (err) => {
-          const msg = err?.error?.message || 'Erro ao buscar pedidos de venda';
-          this.soSearchError.set(msg);
-          this.soSearchResults.set([]);
-          this.soSearching.set(false);
+          this.modalSearchError.set(err?.error?.message || 'Erro ao buscar pedidos de venda');
+          this.modalSearching.set(false);
         },
       });
     }, 400);
   }
 
-  isSoAlreadyLinked(group: GosacGroup, ponttaId: string): boolean {
-    return (group.salesOrders || []).some((so) => so.ponttaId === ponttaId);
+  selectSalesOrder(result: SalesOrderSearchResult): void {
+    this.linkModal.update(s => ({ ...s, step: 'confirm', selectedSo: result }));
   }
 
-  linkSalesOrder(group: GosacGroup, result: SalesOrderSearchResult): void {
-    if (this.isSoAlreadyLinked(group, result.ponttaId)) return;
+  confirmLink(): void {
+    const state = this.linkModal();
+    if (!state.group || !state.selectedSo || state.linking) return;
 
-    this.gosacService
-      .linkSalesOrder(group.id, {
-        ponttaId: result.ponttaId,
-        code: result.code,
-        customerName: result.customerName,
-      })
-      .subscribe({
-        next: (res) => {
-          // Rebuilds the group's salesOrders with the full data returned from backend
-          const so = res.salesOrder || {};
-          const updatedGroups = this.groups().map((g) => {
-            if (g.id === group.id) {
-              const salesOrders = [...(g.salesOrders || [])];
-              salesOrders.push({
-                id: so.id || '',
-                ponttaId: result.ponttaId,
-                code: result.code,
-                customerName: result.customerName,
-                ponttaOccurrenceId: so.ponttaOccurrenceId ?? null,
-                ponttaOccurrenceNumber: so.ponttaOccurrenceNumber ?? null,
-              });
-              return { ...g, salesOrders };
-            }
-            return g;
-          });
-          this.groups.set(updatedGroups);
-          this.closeSoSearch();
+    this.linkModal.update(s => ({ ...s, linking: true }));
 
-          // Avisa se a ocorrência não pôde ser criada
-          if (res.occurrenceWarning) {
-            alert(`⚠️ Pedido vinculado, mas a ocorrência Pontta não foi criada:\n${res.occurrenceWarning}`);
-          }
-        },
-        error: (err) => {
-          alert(err.error?.message || 'Erro ao vincular pedido de venda');
-        },
-      });
-  }
-
-  unlinkSalesOrder(group: GosacGroup, salesOrderId: string): void {
-    this.gosacService.unlinkSalesOrder(group.id, salesOrderId).subscribe({
-      next: () => {
-        const updatedGroups = this.groups().map((g) => {
-          if (g.id === group.id) {
-            return {
-              ...g,
-              salesOrders: (g.salesOrders || []).filter((so) => so.id !== salesOrderId),
-            };
-          }
-          return g;
-        });
-        this.groups.set(updatedGroups);
+    this.gosacService.linkSalesOrder(state.group.id, {
+      ponttaId: state.selectedSo.ponttaId,
+      code: state.selectedSo.code,
+      customerName: state.selectedSo.customerName,
+    }).subscribe({
+      next: (res) => {
+        const so = res.salesOrder || {};
+        this.groups.set(this.groups().map((g) => {
+          if (g.id !== state.group!.id) return g;
+          return {
+            ...g,
+            salesOrders: [...(g.salesOrders || []), {
+              id: so.id || '',
+              ponttaId: state.selectedSo!.ponttaId,
+              code: state.selectedSo!.code,
+              customerName: state.selectedSo!.customerName,
+              ponttaOccurrenceId: so.ponttaOccurrenceId ?? null,
+              ponttaOccurrenceNumber: so.ponttaOccurrenceNumber ?? null,
+            }],
+          };
+        }));
+        this.closeLinkModal();
+        if (res.occurrenceWarning) {
+          alert(`⚠️ Pedido vinculado, mas a ocorrência Pontta não foi criada:\n${res.occurrenceWarning}`);
+        }
       },
       error: (err) => {
-        alert(err.error?.message || 'Erro ao desvincular pedido de venda');
+        this.linkModal.update(s => ({ ...s, linking: false }));
+        alert(err.error?.message || 'Erro ao vincular pedido de venda');
       },
     });
   }
