@@ -31,6 +31,7 @@ export interface SalesOrder {
     customerName: string;
     ponttaOccurrenceId?: string | null;
     ponttaOccurrenceNumber?: number | null;
+    ponttaOccurrenceStatus?: 'pending' | 'created' | 'failed' | null;
 }
 
 export interface GosacGroup {

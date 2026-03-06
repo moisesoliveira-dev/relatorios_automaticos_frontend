@@ -204,7 +204,7 @@ interface LinkModalState {
                                         title="Desvincular pedido"
                                       >✕</button>
                                     </div>
-                                    @if (so.ponttaOccurrenceId) {
+                                    @if (so.ponttaOccurrenceStatus === 'created' || so.ponttaOccurrenceId) {
                                       <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 rounded-md text-xs border border-green-200"
                                         [title]="'ID: ' + so.ponttaOccurrenceId">
                                         ✅ Ocorrência
@@ -213,9 +213,17 @@ interface LinkModalState {
                                         </span>
                                         criada no Pontta
                                       </span>
+                                    } @else if (so.ponttaOccurrenceStatus === 'failed') {
+                                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-700 rounded-md text-xs border border-red-200">
+                                        ❌ Falha ao criar ocorrência
+                                      </span>
                                     } @else {
-                                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-700 rounded-md text-xs border border-amber-200">
-                                        ⚠️ Sem ocorrência Pontta
+                                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-600 rounded-md text-xs border border-blue-200">
+                                        <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                        </svg>
+                                        Criando ocorrência...
                                       </span>
                                     }
                                   </div>
@@ -580,8 +588,8 @@ export class GosacPonttaComponent implements OnInit {
     this.linkModal.set({ open: true, group, step: 'search', selectedSo: null, linking: false });
   }
 
-  closeLinkModal(): void {
-    if (this.linkModal().linking) return;
+  closeLinkModal(force = false): void {
+    if (!force && this.linkModal().linking) return;
     if (this.modalSearchTimeout) clearTimeout(this.modalSearchTimeout);
     this.linkModal.set({ open: false, group: null, step: 'search', selectedSo: null, linking: false });
     this.modalSearchQuery = '';
@@ -625,36 +633,47 @@ export class GosacPonttaComponent implements OnInit {
     const state = this.linkModal();
     if (!state.group || !state.selectedSo || state.linking) return;
 
+    const groupId = state.group.id;
+    const selectedSo = state.selectedSo;
+
     this.linkModal.update(s => ({ ...s, linking: true }));
 
-    this.gosacService.linkSalesOrder(state.group.id, {
-      ponttaId: state.selectedSo.ponttaId,
-      code: state.selectedSo.code,
-      customerName: state.selectedSo.customerName,
+    this.gosacService.linkSalesOrder(groupId, {
+      ponttaId: selectedSo.ponttaId,
+      code: selectedSo.code,
+      customerName: selectedSo.customerName,
     }).subscribe({
       next: (res) => {
-        const so = res.salesOrder || {};
-        this.groups.set(this.groups().map((g) => {
-          if (g.id !== state.group!.id) return g;
-          return {
-            ...g,
-            salesOrders: [...(g.salesOrders || []), {
-              id: so.id || '',
-              ponttaId: state.selectedSo!.ponttaId,
-              code: state.selectedSo!.code,
-              customerName: state.selectedSo!.customerName,
-              ponttaOccurrenceId: so.ponttaOccurrenceId ?? null,
-              ponttaOccurrenceNumber: so.ponttaOccurrenceNumber ?? null,
-            }],
-          };
-        }));
-        this.closeLinkModal();
-        // Aguarda alguns segundos para o backend criar a ocorrência Pontta em segundo plano
-        setTimeout(() => this.loadGroups(), 6000);
+        try {
+          const so = res?.salesOrder || {};
+          this.groups.update(groups => groups.map((g) => {
+            if (g.id !== groupId) return g;
+            return {
+              ...g,
+              salesOrders: [...(g.salesOrders || []), {
+                id: so.id || '',
+                ponttaId: selectedSo.ponttaId,
+                code: selectedSo.code,
+                customerName: selectedSo.customerName,
+                ponttaOccurrenceId: so.ponttaOccurrenceId ?? null,
+                ponttaOccurrenceNumber: so.ponttaOccurrenceNumber ?? null,
+                ponttaOccurrenceStatus: (so.ponttaOccurrenceStatus ?? 'pending') as 'pending' | 'created' | 'failed',
+              }],
+            };
+          }));
+        } catch (e) {
+          console.error('Erro ao atualizar lista de grupos:', e);
+        } finally {
+          // Fecha o modal forçado (ignora o guard de linking)
+          this.closeLinkModal(true);
+          // Recarrega após 6s para pegar o occurrenceId criado em background no backend
+          setTimeout(() => this.loadGroups(), 6000);
+        }
       },
       error: (err) => {
         this.linkModal.update(s => ({ ...s, linking: false }));
-        alert(err.error?.message || 'Erro ao vincular pedido de venda');
+        const msg = err?.error?.message || err?.message || 'Erro ao vincular pedido de venda';
+        alert(msg);
       },
     });
   }
