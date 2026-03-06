@@ -11,6 +11,21 @@ interface LinkModalState {
   linking: boolean;
 }
 
+interface ConfirmDialogState {
+  open: boolean;
+  title: string;
+  message: string;
+  confirmLabel: string;
+  danger: boolean;
+  onConfirm: () => void;
+}
+
+interface ToastState {
+  open: boolean;
+  message: string;
+  type: 'error' | 'success';
+}
+
 @Component({
   selector: 'app-gosac-pontta',
   standalone: true,
@@ -282,6 +297,51 @@ interface LinkModalState {
       </div>
     </div>
 
+    <!-- ===== TOAST ===== -->
+    @if (toast().open) {
+      <div class="fixed bottom-6 right-6 z-[60] max-w-sm w-full">
+        <div class="flex items-start gap-3 rounded-xl shadow-lg px-4 py-3 border"
+          [class.bg-red-50]="toast().type === 'error'"
+          [class.border-red-200]="toast().type === 'error'"
+          [class.bg-green-50]="toast().type === 'success'"
+          [class.border-green-200]="toast().type === 'success'"
+        >
+          <span class="text-lg flex-shrink-0">{{ toast().type === 'error' ? '❌' : '✅' }}</span>
+          <p class="text-sm flex-1"
+            [class.text-red-700]="toast().type === 'error'"
+            [class.text-green-700]="toast().type === 'success'"
+          >{{ toast().message }}</p>
+          <button (click)="closeToast()" class="text-slate-400 hover:text-slate-600 flex-shrink-0 text-lg leading-none">✕</button>
+        </div>
+      </div>
+    }
+
+    <!-- ===== MODAL: Confirmar Ação ===== -->
+    @if (confirmDialog().open) {
+      <div class="fixed inset-0 z-[55] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" (click)="closeConfirmDialog()"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <h3 class="text-base font-bold text-slate-800 mb-2">{{ confirmDialog().title }}</h3>
+          <p class="text-sm text-slate-500 mb-6">{{ confirmDialog().message }}</p>
+          <div class="flex gap-3 justify-end">
+            <button
+              (click)="closeConfirmDialog()"
+              class="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+            >Cancelar</button>
+            <button
+              (click)="confirmDialog().onConfirm(); closeConfirmDialog()"
+              class="px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+              [class.bg-red-600]="confirmDialog().danger"
+              [class.hover:bg-red-700]="confirmDialog().danger"
+              [class.text-white]="confirmDialog().danger"
+              [class.bg-purple-600]="!confirmDialog().danger"
+              [class.hover:bg-purple-700]="!confirmDialog().danger"
+            >{{ confirmDialog().confirmLabel }}</button>
+          </div>
+        </div>
+      </div>
+    }
+
     <!-- ===== MODAL: Vincular Pedido de Venda ===== -->
     @if (linkModal().open) {
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -478,6 +538,8 @@ export class GosacPonttaComponent implements OnInit {
 
   // Link modal state
   linkModal = signal<LinkModalState>({ open: false, group: null, step: 'search', selectedSo: null, linking: false });
+  confirmDialog = signal<ConfirmDialogState>({ open: false, title: '', message: '', confirmLabel: 'Confirmar', danger: false, onConfirm: () => { } });
+  toast = signal<ToastState>({ open: false, message: '', type: 'error' });
   modalSearchQuery = '';
   modalSearching = signal(false);
   modalSearchResults = signal<SalesOrderSearchResult[]>([]);
@@ -544,7 +606,7 @@ export class GosacPonttaComponent implements OnInit {
           if (!group.salesOrders) group.salesOrders = [];
           this.groups.set([group, ...this.groups()]);
         },
-        error: (err) => alert(err.error?.message || 'Erro ao cadastrar grupo'),
+        error: (err) => this.showToast(err.error?.message || 'Erro ao cadastrar grupo', 'error'),
       });
   }
 
@@ -559,24 +621,62 @@ export class GosacPonttaComponent implements OnInit {
   }
 
   deleteGroup(group: GosacGroup): void {
-    if (!confirm(`Deseja remover o grupo "${group.gosacTicketName}"?`)) return;
-    this.gosacService.deleteGroup(group.id).subscribe({
-      next: () => this.groups.set(this.groups().filter((g) => g.id !== group.id)),
-      error: (err) => alert(err.error?.message || 'Erro ao remover grupo'),
+    this.openConfirmDialog({
+      title: 'Remover grupo',
+      message: `Deseja remover o grupo "${group.gosacTicketName}"? Esta ação não pode ser desfeita.`,
+      confirmLabel: 'Remover',
+      danger: true,
+      onConfirm: () => {
+        this.gosacService.deleteGroup(group.id).subscribe({
+          next: () => this.groups.set(this.groups().filter((g) => g.id !== group.id)),
+          error: (err) => this.showToast(err.error?.message || 'Erro ao remover grupo', 'error'),
+        });
+      },
     });
   }
 
   unlinkSalesOrder(group: GosacGroup, salesOrderId: string): void {
-    if (!confirm('Desvincular este pedido de venda?')) return;
-    this.gosacService.unlinkSalesOrder(group.id, salesOrderId).subscribe({
-      next: () => {
-        this.groups.set(this.groups().map((g) => {
-          if (g.id !== group.id) return g;
-          return { ...g, salesOrders: (g.salesOrders || []).filter((so) => so.id !== salesOrderId) };
-        }));
+    this.openConfirmDialog({
+      title: 'Desvincular pedido de venda',
+      message: 'Deseja desvincular este pedido de venda do grupo?',
+      confirmLabel: 'Desvincular',
+      danger: true,
+      onConfirm: () => {
+        this.gosacService.unlinkSalesOrder(group.id, salesOrderId).subscribe({
+          next: () => {
+            this.groups.update(groups => groups.map((g) => {
+              if (g.id !== group.id) return g;
+              return { ...g, salesOrders: (g.salesOrders || []).filter((so) => so.id !== salesOrderId) };
+            }));
+          },
+          error: (err) => this.showToast(err.error?.message || 'Erro ao desvincular pedido de venda', 'error'),
+        });
       },
-      error: (err) => alert(err.error?.message || 'Erro ao desvincular pedido de venda'),
     });
+  }
+
+  // ----- Confirm Dialog -----
+
+  openConfirmDialog(opts: Omit<ConfirmDialogState, 'open'>): void {
+    this.confirmDialog.set({ open: true, ...opts });
+  }
+
+  closeConfirmDialog(): void {
+    this.confirmDialog.update(s => ({ ...s, open: false }));
+  }
+
+  // ----- Toast -----
+
+  private toastTimeout: any = null;
+
+  showToast(message: string, type: 'error' | 'success' = 'error'): void {
+    if (this.toastTimeout) clearTimeout(this.toastTimeout);
+    this.toast.set({ open: true, message, type });
+    this.toastTimeout = setTimeout(() => this.closeToast(), 5000);
+  }
+
+  closeToast(): void {
+    this.toast.update(s => ({ ...s, open: false }));
   }
 
   // ----- Link Modal -----
@@ -673,7 +773,7 @@ export class GosacPonttaComponent implements OnInit {
       error: (err) => {
         this.linkModal.update(s => ({ ...s, linking: false }));
         const msg = err?.error?.message || err?.message || 'Erro ao vincular pedido de venda';
-        alert(msg);
+        this.showToast(msg, 'error');
       },
     });
   }
