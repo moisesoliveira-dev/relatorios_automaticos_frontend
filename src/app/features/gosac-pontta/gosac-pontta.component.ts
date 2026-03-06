@@ -649,9 +649,8 @@ export class GosacPonttaComponent implements OnInit {
           };
         }));
         this.closeLinkModal();
-        if (res.occurrenceWarning) {
-          alert(`⚠️ Pedido vinculado, mas a ocorrência Pontta não foi criada:\n${res.occurrenceWarning}`);
-        }
+        // Aguarda alguns segundos para o backend criar a ocorrência Pontta em segundo plano
+        setTimeout(() => this.loadGroups(), 6000);
       },
       error: (err) => {
         this.linkModal.update(s => ({ ...s, linking: false }));
