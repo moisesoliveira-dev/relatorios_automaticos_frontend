@@ -34,6 +34,9 @@ export class AuthService {
     private userSignal = signal<User | null>(null);
     private isLoadingSignal = signal(false);
     private inactivityTimer: any = null;
+    private sessionExpiredSignal = signal(false);
+
+    readonly sessionExpired = this.sessionExpiredSignal.asReadonly();
 
     readonly user = this.userSignal.asReadonly();
     readonly isLoading = this.isLoadingSignal.asReadonly();
@@ -54,12 +57,30 @@ export class AuthService {
         const userJson = localStorage.getItem(this.USER_KEY);
 
         if (token && userJson) {
+            if (this.isTokenExpired(token)) {
+                // Token expirado: limpa sessão e sinaliza para o guard redirecionar com ?expired=1
+                this.clearStorage();
+                this.sessionExpiredSignal.set(true);
+                return;
+            }
             try {
                 const user = JSON.parse(userJson);
                 this.userSignal.set(user);
             } catch {
                 this.clearStorage();
             }
+        }
+    }
+
+    /** Decodifica o JWT localmente e verifica o campo `exp` sem fazer requisição ao servidor. */
+    private isTokenExpired(token: string): boolean {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            if (!payload.exp) return false;
+            // exp está em segundos; Date.now() em milissegundos
+            return payload.exp * 1000 < Date.now();
+        } catch {
+            return true; // token malformado → tratar como expirado
         }
     }
 
@@ -135,10 +156,15 @@ export class AuthService {
         );
     }
 
-    logout(): void {
+    /** Limpa o estado de autenticação sem redirecionar (usado pelo interceptor). */
+    clearAuthState(): void {
         this.clearInactivityTimer();
         this.clearStorage();
         this.userSignal.set(null);
+    }
+
+    logout(): void {
+        this.clearAuthState();
         this.router.navigate(['/login']);
     }
 
@@ -207,9 +233,7 @@ export class AuthService {
         if (lastActivity) {
             const timePassed = Date.now() - parseInt(lastActivity, 10);
             if (timePassed > this.INACTIVITY_TIMEOUT) {
-                // Passou dos 10 minutos, faz logout automático
-                alert('Sua sessão expirou por inatividade. Faça login novamente.');
-                this.logout();
+                this.expireSession();
             } else {
                 // Ainda está dentro do tempo, atualiza a última atividade
                 this.updateLastActivity();
@@ -236,10 +260,17 @@ export class AuthService {
         if (lastActivity) {
             const timePassed = Date.now() - parseInt(lastActivity, 10);
             if (timePassed > this.INACTIVITY_TIMEOUT) {
-                alert('Sua sessão expirou por inatividade. Faça login novamente.');
-                this.logout();
+                this.expireSession();
             }
         }
+    }
+
+    /** Encerra a sessão por expiração e redireciona para o login com aviso componentizado. */
+    private expireSession(): void {
+        this.clearInactivityTimer();
+        this.clearStorage();
+        this.userSignal.set(null);
+        this.router.navigate(['/login'], { queryParams: { expired: '1' } });
     }
 
     // Atualiza o nome do usuário no localStorage e signal

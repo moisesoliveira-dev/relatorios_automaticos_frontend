@@ -10,7 +10,12 @@ export const authGuard: CanActivateFn = () => {
         return true;
     }
 
-    router.navigate(['/login']);
+    // Se havia um token mas estava expirado (detectado no bootstrap), mostra aviso componentizado
+    if (authService.sessionExpired()) {
+        router.navigate(['/login'], { queryParams: { expired: '1' } });
+    } else {
+        router.navigate(['/login']);
+    }
     return false;
 };
 
