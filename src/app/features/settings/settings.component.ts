@@ -37,11 +37,8 @@ interface EnvironmentSetting {
     <div class="space-y-6">
       <!-- Header -->
       <div class="bg-white rounded-xl p-6 border border-slate-200">
-        <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-3">
-          <span>⚙️</span>
-          Configurações
-        </h1>
-        <p class="text-slate-500 mt-2">Gerencie jobs agendados e configurações do sistema</p>
+        <h1 class="text-xl font-semibold text-slate-800">Configurações</h1>
+        <p class="text-sm text-slate-500 mt-1">Gerencie jobs agendados e configurações do sistema</p>
       </div>
 
       <!-- Tabs -->
@@ -49,25 +46,23 @@ interface EnvironmentSetting {
         <div class="flex border-b border-slate-200">
           <button
             (click)="activeTab.set('jobs')"
-            class="flex-1 px-6 py-3 font-medium transition-colors"
-            [class.bg-purple-50]="activeTab() === 'jobs'"
-            [class.text-purple-600]="activeTab() === 'jobs'"
-            [class.text-slate-600]="activeTab() !== 'jobs'"
-            [class.border-b-2]="activeTab() === 'jobs'"
-            [class.border-purple-600]="activeTab() === 'jobs'"
+            class="flex-1 px-6 py-3 text-sm font-medium transition-colors border-b-2 -mb-px"
+            [class.border-slate-700]="activeTab() === 'jobs'"
+            [class.text-slate-800]="activeTab() === 'jobs'"
+            [class.border-transparent]="activeTab() !== 'jobs'"
+            [class.text-slate-500]="activeTab() !== 'jobs'"
           >
-            📅 Jobs Agendados
+            Jobs Agendados
           </button>
           <button
             (click)="activeTab.set('environment')"
-            class="flex-1 px-6 py-3 font-medium transition-colors"
-            [class.bg-purple-50]="activeTab() === 'environment'"
-            [class.text-purple-600]="activeTab() === 'environment'"
-            [class.text-slate-600]="activeTab() !== 'environment'"
-            [class.border-b-2]="activeTab() === 'environment'"
-            [class.border-purple-600]="activeTab() === 'environment'"
+            class="flex-1 px-6 py-3 text-sm font-medium transition-colors border-b-2 -mb-px"
+            [class.border-slate-700]="activeTab() === 'environment'"
+            [class.text-slate-800]="activeTab() === 'environment'"
+            [class.border-transparent]="activeTab() !== 'environment'"
+            [class.text-slate-500]="activeTab() !== 'environment'"
           >
-            🔧 Variáveis de Ambiente
+            Variáveis de Ambiente
           </button>
         </div>
 
@@ -83,7 +78,7 @@ interface EnvironmentSetting {
               </div>
               <button 
                 (click)="openJobModal()"
-                class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                class="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-2"
               >
                 <span>+</span>
                 Novo Job
@@ -93,7 +88,7 @@ interface EnvironmentSetting {
             <div class="p-6">
               @if (loading()) {
                 <div class="flex items-center justify-center py-12">
-                  <div class="animate-spin w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full"></div>
+                  <div class="animate-spin w-6 h-6 border-2 border-slate-200 border-t-slate-600 rounded-full"></div>
                 </div>
               } @else if (jobs().length === 0) {
                 <div class="text-center py-12 text-slate-500">
@@ -103,7 +98,7 @@ interface EnvironmentSetting {
               } @else {
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   @for (job of jobs(); track job.id) {
-                    <div class="border border-slate-200 rounded-lg p-4 hover:border-purple-300 transition-colors">
+                    <div class="border border-slate-200 rounded-lg p-4 hover:border-slate-300 transition-colors">
                       <div class="flex items-start justify-between mb-3">
                         <div>
                           <h3 class="font-semibold text-slate-800">{{ job.name }}</h3>
@@ -124,17 +119,17 @@ interface EnvironmentSetting {
                       </div>
 
                       <div class="space-y-2 text-sm">
-                        <div class="flex items-center gap-2 text-slate-600">
-                          <span>🕐</span>
+                        <div class="flex items-center gap-1.5 text-slate-500 text-xs">
+                          <span class="font-medium text-slate-600">Freq.:</span>
                           <span>{{ getFrequencyLabel(job) }}</span>
                         </div>
-                        <div class="flex items-center gap-2 text-slate-600">
-                          <span>📄</span>
+                        <div class="flex items-center gap-1.5 text-slate-500 text-xs">
+                          <span class="font-medium text-slate-600">Formato:</span>
                           <span>{{ job.format.toUpperCase() }}</span>
                         </div>
                         @if (job.nextRun) {
-                          <div class="flex items-center gap-2 text-purple-600">
-                            <span>⏰</span>
+                          <div class="flex items-center gap-1.5 text-slate-500 text-xs">
+                            <span class="font-medium text-slate-600">Próx.:</span>
                             <span>{{ formatDate(job.nextRun) }}</span>
                           </div>
                         }
@@ -149,9 +144,10 @@ interface EnvironmentSetting {
                         </button>
                         <button
                           (click)="deleteJob(job)"
-                          class="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded transition-colors"
+                          class="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                          title="Excluir"
                         >
-                          🗑️
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         </button>
                       </div>
                     </div>
@@ -175,13 +171,13 @@ interface EnvironmentSetting {
             <button
               (click)="saveEnvironmentSettings()"
               [disabled]="savingSettings()"
-              class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              class="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               @if (savingSettings()) {
                 <div class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
                 Salvando...
               } @else {
-                💾 Salvar Alterações
+                Salvar alterações
               }
             </button>
           </div>
@@ -189,27 +185,25 @@ interface EnvironmentSetting {
           <div class="p-6">
             @if (loadingSettings()) {
               <div class="flex items-center justify-center py-12">
-                <div class="animate-spin w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full"></div>
+                <div class="animate-spin w-6 h-6 border-2 border-slate-200 border-t-slate-600 rounded-full"></div>
               </div>
             } @else {
               <!-- Configurações de Email -->
               <div class="mb-8">
-                <h3 class="text-md font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                  📧 Configurações de Email (SMTP)
-                </h3>
+                <h3 class="text-sm font-semibold text-slate-700 mb-4">Configurações de Email (SMTP)</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   @for (setting of getSettingsByCategory('email'); track setting.key) {
                     <div>
                       <label class="block text-sm font-medium text-slate-700 mb-1">
                         {{ setting.description }}
                         @if (setting.isEncrypted) {
-                          <span class="text-xs text-purple-600 ml-1">🔒 criptografado</span>
+                          <span class="text-xs text-slate-400 ml-1">(criptografado)</span>
                         }
                       </label>
                       <input
                         [type]="setting.isEncrypted ? 'password' : 'text'"
                         [(ngModel)]="setting.value"
-                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                         [placeholder]="setting.description"
                       />
                     </div>
@@ -219,9 +213,7 @@ interface EnvironmentSetting {
 
               <!-- Configurações Gerais -->
               <div class="mb-8">
-                <h3 class="text-md font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                  🌐 Configurações Gerais
-                </h3>
+                <h3 class="text-sm font-semibold text-slate-700 mb-4">Configurações Gerais</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   @for (setting of getSettingsByCategory('general'); track setting.key) {
                     <div>
@@ -231,7 +223,7 @@ interface EnvironmentSetting {
                       <input
                         type="text"
                         [(ngModel)]="setting.value"
-                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                         [placeholder]="setting.description"
                       />
                     </div>
@@ -241,22 +233,20 @@ interface EnvironmentSetting {
 
               <!-- Configurações da API Pontta -->
               <div class="mb-8">
-                <h3 class="text-md font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                  🔌 Configurações da API Pontta
-                </h3>
+                <h3 class="text-sm font-semibold text-slate-700 mb-4">Configurações da API Pontta</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   @for (setting of getSettingsByCategory('api'); track setting.key) {
                     <div>
                       <label class="block text-sm font-medium text-slate-700 mb-1">
                         {{ setting.description }}
                         @if (setting.isEncrypted) {
-                          <span class="text-xs text-purple-600 ml-1">🔒 criptografado</span>
+                          <span class="text-xs text-slate-400 ml-1">(criptografado)</span>
                         }
                       </label>
                       <input
                         [type]="setting.isEncrypted ? 'password' : 'text'"
                         [(ngModel)]="setting.value"
-                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                         [placeholder]="setting.description"
                       />
                     </div>
@@ -266,9 +256,7 @@ interface EnvironmentSetting {
 
               <!-- Configurações de Jobs -->
               <div>
-                <h3 class="text-md font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                  ⚙️ Configurações de Jobs
-                </h3>
+                <h3 class="text-sm font-semibold text-slate-700 mb-4">Configurações de Jobs</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   @for (setting of getSettingsByCategory('jobs'); track setting.key) {
                     <div>
@@ -278,7 +266,7 @@ interface EnvironmentSetting {
                       <input
                         type="text"
                         [(ngModel)]="setting.value"
-                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                         [placeholder]="setting.description"
                       />
                     </div>
@@ -319,7 +307,7 @@ interface EnvironmentSetting {
                 <input
                   type="text"
                   [(ngModel)]="jobForm.name"
-                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                   placeholder="Ex: Relatório Diário de Ocorrências"
                 />
               </div>
@@ -328,7 +316,7 @@ interface EnvironmentSetting {
                 <label class="block text-sm font-medium text-slate-700 mb-1">Tipo de Relatório</label>
                 <select
                   [(ngModel)]="jobForm.reportType"
-                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400"
                 >
                   <option value="occurrences">Ocorrências</option>
                   <option value="monthly">Mensal</option>
@@ -341,7 +329,8 @@ interface EnvironmentSetting {
                 <select
                   [(ngModel)]="jobForm.frequency"
                   (ngModelChange)="onFrequencyChange()"
-                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400"
+                  (ngModelChange)="onFrequencyChange()"
                 >
                   <option value="daily">Diário</option>
                   <option value="weekly">Semanal</option>
@@ -354,7 +343,7 @@ interface EnvironmentSetting {
                 <input
                   type="time"
                   [(ngModel)]="jobForm.time"
-                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400"
                 />
               </div>
 
@@ -363,7 +352,7 @@ interface EnvironmentSetting {
                   <label class="block text-sm font-medium text-slate-700 mb-1">Dia da Semana</label>
                   <select
                     [(ngModel)]="jobForm.dayOfWeek"
-                    class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400"
                   >
                     <option [ngValue]="0">Domingo</option>
                     <option [ngValue]="1">Segunda-feira</option>
@@ -384,7 +373,7 @@ interface EnvironmentSetting {
                     [(ngModel)]="jobForm.dayOfMonth"
                     min="1"
                     max="31"
-                    class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400"
                   />
                 </div>
               }
@@ -393,7 +382,7 @@ interface EnvironmentSetting {
                 <label class="block text-sm font-medium text-slate-700 mb-1">Formato</label>
                 <select
                   [(ngModel)]="jobForm.format"
-                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400"
                 >
                   <option value="excel">Excel (.xlsx)</option>
                   <option value="csv">CSV</option>
@@ -411,7 +400,7 @@ interface EnvironmentSetting {
               <button
                 (click)="saveJob()"
                 [disabled]="savingJob()"
-                class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                class="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
               >
                 {{ savingJob() ? 'Salvando...' : 'Salvar' }}
               </button>

@@ -1,6 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../core/services/auth.service';
 import { environment } from '../../../environments/environment';
@@ -10,11 +10,11 @@ import { environment } from '../../../environments/environment';
   standalone: true,
   imports: [FormsModule, RouterLink],
   template: `
-    <div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+    <div class="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       @if (isCheckingMaster()) {
         <!-- Loading inicial -->
         <div class="text-center">
-          <div class="inline-flex items-center justify-center w-16 h-16 bg-purple-600 rounded-2xl mb-4">
+          <div class="inline-flex items-center justify-center w-16 h-16 bg-slate-700 rounded-2xl mb-4">
             <svg class="w-8 h-8 text-white animate-spin" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -26,13 +26,13 @@ import { environment } from '../../../environments/environment';
         <div class="w-full max-w-md">
           <!-- Logo e Título -->
           <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-16 h-16 bg-purple-600 rounded-2xl mb-4">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-slate-700 rounded-2xl mb-4">
               <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
               </svg>
             </div>
-            <h1 class="text-3xl font-bold text-white">Sistema de Relatórios</h1>
-            <p class="text-purple-200 mt-2">Faça login para continuar</p>
+            <h1 class="text-2xl font-semibold text-white tracking-tight">Sistema de Relatórios</h1>
+            <p class="text-slate-400 mt-1 text-sm">Faça login para continuar</p>
           </div>
 
           <!-- Card de Login -->
@@ -44,7 +44,7 @@ import { environment } from '../../../environments/environment';
             }
 
             @if (infoMessage()) {
-              <div class="mb-6 p-4 bg-blue-500/20 border border-blue-500/50 rounded-lg text-blue-200 text-sm flex items-start gap-3">
+              <div class="mb-6 p-4 bg-amber-500/15 border border-amber-500/40 rounded-lg text-amber-200 text-sm flex items-start gap-3">
                 <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
                 </svg>
@@ -54,12 +54,12 @@ import { environment } from '../../../environments/environment';
 
             <form (ngSubmit)="onSubmit()" class="space-y-6">
               <div>
-                <label class="block text-purple-200 text-sm font-medium mb-2">
+                <label class="block text-slate-300 text-sm font-medium mb-2">
                   Email
                 </label>
                 <div class="relative">
                   <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg class="h-5 w-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path>
                     </svg>
                   </div>
@@ -68,19 +68,19 @@ import { environment } from '../../../environments/environment';
                     [(ngModel)]="email"
                     name="email"
                     required
-                    class="w-full pl-10 pr-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                    class="w-full pl-10 pr-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
                     placeholder="seu@email.com"
                   />
                 </div>
               </div>
 
               <div>
-                <label class="block text-purple-200 text-sm font-medium mb-2">
+                <label class="block text-slate-300 text-sm font-medium mb-2">
                   Senha
                 </label>
                 <div class="relative">
                   <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg class="h-5 w-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                     </svg>
                   </div>
@@ -89,13 +89,13 @@ import { environment } from '../../../environments/environment';
                     [(ngModel)]="password"
                     name="password"
                     required
-                    class="w-full pl-10 pr-12 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                    class="w-full pl-10 pr-12 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
                     placeholder="••••••••"
                   />
                   <button
                     type="button"
                     (click)="showPassword.set(!showPassword())"
-                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-purple-400 hover:text-white transition"
+                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-white transition"
                   >
                     @if (showPassword()) {
                       <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -114,7 +114,7 @@ import { environment } from '../../../environments/environment';
               <button
                 type="submit"
                 [disabled]="isLoading()"
-                class="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                class="w-full py-3 px-4 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 @if (isLoading()) {
                   <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
@@ -131,7 +131,7 @@ import { environment } from '../../../environments/environment';
             <div class="mt-6 flex flex-col gap-3 text-center">
               <a 
                 routerLink="/invite" 
-                class="text-purple-300 hover:text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+                class="text-slate-300 hover:text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
@@ -141,7 +141,7 @@ import { environment } from '../../../environments/environment';
               <button 
                 type="button"
                 (click)="checkAndGoToSetup()"
-                class="text-purple-300/70 hover:text-white text-xs transition-colors"
+                class="text-slate-500 hover:text-slate-300 text-xs transition-colors"
               >
                 Primeira vez aqui? Configure o sistema
               </button>
@@ -170,12 +170,15 @@ export class LoginComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private router: Router,
-    private http: HttpClient
+    private http: HttpClient,
+    private route: ActivatedRoute
   ) { }
 
   ngOnInit() {
-    // A tela de login sempre é mostrada primeiro
-    // O usuário deve clicar em um link se quiser ir para setup/cadastro
+    const expired = this.route.snapshot.queryParamMap.get('expired');
+    if (expired) {
+      this.infoMessage.set('Sua sessão expirou. Por favor, faça login novamente.');
+    }
   }
 
   async checkAndGoToSetup() {
@@ -186,7 +189,7 @@ export class LoginComponent implements OnInit {
       const response = await this.authService.checkMaster().toPromise();
 
       if (response?.hasMaster) {
-        this.infoMessage.set('⚠️ Já existe uma conta principal no sistema. Entre em contato com o administrador para receber um convite de acesso.');
+        this.infoMessage.set('Já existe uma conta principal no sistema. Entre em contato com o administrador para receber um convite de acesso.');
       } else {
         this.router.navigate(['/setup']);
       }

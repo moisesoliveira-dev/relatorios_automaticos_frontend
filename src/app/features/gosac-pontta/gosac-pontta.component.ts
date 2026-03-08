@@ -8,6 +8,7 @@ interface LinkModalState {
   group: GosacGroup | null;
   step: 'search' | 'confirm';
   selectedSo: SalesOrderSearchResult | null;
+  occurrenceTitle: string;
   linking: boolean;
 }
 
@@ -31,250 +32,202 @@ interface ToastState {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="space-y-6">
-      <!-- Header -->
-      <div class="bg-white rounded-xl p-6 border border-slate-200">
-        <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-3">
-          <span>🔗</span>
-          Gosac / Pontta
-        </h1>
-        <p class="text-slate-500 mt-2">Integração entre GOSAC e Pontta — associe grupos e gerencie pedidos de venda</p>
+    <div class="space-y-0">
+
+      <!-- Page header -->
+      <div class="mb-6">
+        <h1 class="text-xl font-semibold text-slate-800">GOSAC / Pontta</h1>
+        <p class="text-sm text-slate-500 mt-1">Vincule grupos de atendimento GOSAC a pedidos de venda e ocorrências no Pontta.</p>
       </div>
 
-      <!-- Sub-tabs -->
+      <!-- Tab bar + content -->
       <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div class="flex border-b border-slate-200 overflow-x-auto">
+
+        <!-- Tabs -->
+        <div class="flex border-b border-slate-200">
           @for (tab of subTabs; track tab.id) {
             <button
               (click)="activeTab.set(tab.id)"
-              class="px-6 py-3 text-sm font-medium whitespace-nowrap transition-colors"
-              [class.text-purple-600]="activeTab() === tab.id"
-              [class.border-b-2]="activeTab() === tab.id"
-              [class.border-purple-600]="activeTab() === tab.id"
+              class="px-5 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px"
+              [class.border-slate-700]="activeTab() === tab.id"
+              [class.text-slate-800]="activeTab() === tab.id"
+              [class.border-transparent]="activeTab() !== tab.id"
               [class.text-slate-500]="activeTab() !== tab.id"
               [class.hover:text-slate-700]="activeTab() !== tab.id"
             >
-              {{ tab.icon }} {{ tab.label }}
+              {{ tab.label }}
             </button>
           }
         </div>
 
         <div class="p-6">
-          <!-- Sub-tab: Grupos -->
+
+          <!-- Tab: Grupos -->
           @if (activeTab() === 'grupos') {
             <div class="space-y-6">
 
-              <!-- Pesquisa de Tickets no GOSAC -->
-              <div class="bg-slate-50 rounded-lg p-5 border border-slate-200">
-                <h3 class="text-lg font-semibold text-slate-700 mb-4">🔍 Pesquisar Tickets no GOSAC</h3>
-                <div class="flex gap-3">
+              <!-- Pesquisa de Tickets -->
+              <div>
+                <p class="text-sm font-medium text-slate-700 mb-2">Pesquisar ticket no GOSAC</p>
+                <div class="flex gap-2">
                   <input
                     type="text"
                     [(ngModel)]="searchQuery"
-                    placeholder="Digite para pesquisar (ex: Anexo ...)"
-                    class="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                    placeholder="Nome do contato ou número do ticket"
+                    class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none"
                     (keyup.enter)="searchTickets()"
                   />
                   <button
                     (click)="searchTickets()"
                     [disabled]="searching()"
-                    class="px-6 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+                    class="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
                   >
                     @if (searching()) {
                       <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                       </svg>
-                      Buscando...
-                    } @else {
-                      🔍 Pesquisar
                     }
+                    Pesquisar
                   </button>
                 </div>
                 @if (searchError()) {
-                  <div class="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                    ❌ {{ searchError() }}
-                  </div>
+                  <p class="mt-2 text-sm text-red-600">{{ searchError() }}</p>
                 }
               </div>
 
-              <!-- Resultados da Pesquisa -->
+              <!-- Resultados da pesquisa -->
               @if (searchResults().length > 0) {
-                <div class="bg-white rounded-lg border border-slate-200">
-                  <div class="px-5 py-3 border-b border-slate-200 bg-slate-50">
-                    <h3 class="text-sm font-semibold text-slate-600">
-                      Resultados da pesquisa ({{ searchResults().length }})
-                    </h3>
+                <div class="border border-slate-200 rounded-lg overflow-hidden">
+                  <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">{{ searchResults().length }} resultado{{ searchResults().length === 1 ? '' : 's' }}</span>
                   </div>
-                  <div class="divide-y divide-slate-100 max-h-96 overflow-y-auto">
+                  <div class="divide-y divide-slate-100 max-h-72 overflow-y-auto">
                     @for (ticket of searchResults(); track ticket.id) {
-                      <div class="flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors">
-                        <div class="flex items-center gap-3">
-                          <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg"
-                            [class.bg-green-100]="ticket.isGroup"
-                            [class.bg-blue-100]="!ticket.isGroup"
-                          >
-                            {{ ticket.isGroup ? '👥' : '👤' }}
-                          </div>
-                          <div>
-                            <p class="font-medium text-slate-800">
-                              {{ ticket.contact?.name || 'Sem nome' }}
-                            </p>
-                            <p class="text-xs text-slate-500">
-                              Ticket #{{ ticket.id }}
-                              @if (ticket.isGroup) {
-                                <span class="ml-1 px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs">Grupo</span>
-                              }
-                              @if (ticket.queue) {
-                                <span class="ml-1 px-1.5 py-0.5 rounded text-xs"
-                                  [style.background-color]="ticket.queue.color + '20'"
-                                  [style.color]="ticket.queue.color"
-                                >{{ ticket.queue.name }}</span>
-                              }
-                            </p>
-                          </div>
+                      <div class="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
+                        <div>
+                          <p class="text-sm font-medium text-slate-800">{{ ticket.contact?.name || 'Sem nome' }}</p>
+                          <p class="text-xs text-slate-500 mt-0.5">
+                            Ticket #{{ ticket.id }}
+                            @if (ticket.queue) {
+                              <span class="ml-2 px-1.5 py-0.5 rounded text-xs" [style.background-color]="ticket.queue.color + '20'" [style.color]="ticket.queue.color">{{ ticket.queue.name }}</span>
+                            }
+                          </p>
                         </div>
-                        <div class="flex items-center gap-2">
-                          @if (isTicketAlreadyAdded(ticket.id)) {
-                            <span class="px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-sm">
-                              ✅ Já cadastrado
-                            </span>
-                          } @else {
-                            <button
-                              (click)="addTicketAsGroup(ticket)"
-                              class="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 transition-colors"
-                            >
-                              ➕ Cadastrar
-                            </button>
-                          }
-                        </div>
+                        @if (isTicketAlreadyAdded(ticket.id)) {
+                          <span class="text-xs text-slate-400">Já cadastrado</span>
+                        } @else {
+                          <button
+                            (click)="addTicketAsGroup(ticket)"
+                            class="px-3 py-1.5 bg-slate-800 text-white text-xs font-medium rounded-lg hover:bg-slate-700 transition-colors"
+                          >Cadastrar</button>
+                        }
                       </div>
                     }
                   </div>
                 </div>
               }
 
-              <!-- Lista de Grupos Cadastrados -->
-              <div class="bg-white rounded-lg border border-slate-200">
-                <div class="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-                  <h3 class="text-sm font-semibold text-slate-600">
-                    📋 Grupos Cadastrados ({{ groups().length }})
-                  </h3>
-                  <button
-                    (click)="loadGroups()"
-                    class="text-xs text-purple-600 hover:text-purple-800 transition-colors"
-                  >
-                    🔄 Atualizar
-                  </button>
+              <!-- Tabela de grupos -->
+              <div class="border border-slate-200 rounded-lg overflow-hidden">
+                <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <span class="text-sm font-semibold text-slate-700">Grupos cadastrados <span class="text-slate-400 font-normal">({{ groups().length }})</span></span>
+                  <button (click)="loadGroups()" class="text-xs text-slate-500 hover:text-slate-800 transition-colors">Atualizar</button>
                 </div>
 
                 @if (loadingGroups()) {
-                  <div class="p-8 text-center text-slate-500">
-                    <svg class="w-6 h-6 animate-spin mx-auto mb-2 text-purple-500" fill="none" viewBox="0 0 24 24">
+                  <div class="p-10 text-center">
+                    <svg class="w-5 h-5 animate-spin mx-auto text-slate-400" fill="none" viewBox="0 0 24 24">
                       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                     </svg>
-                    Carregando...
                   </div>
                 } @else if (groups().length === 0) {
-                  <div class="p-8 text-center text-slate-400">
-                    <p class="text-4xl mb-2">📭</p>
-                    <p>Nenhum grupo cadastrado ainda.</p>
-                    <p class="text-sm mt-1">Pesquise tickets no GOSAC acima e clique em "Cadastrar".</p>
+                  <div class="p-10 text-center text-slate-400">
+                    <p class="text-sm">Nenhum grupo cadastrado.</p>
+                    <p class="text-xs mt-1">Pesquise um ticket acima e clique em Cadastrar.</p>
                   </div>
                 } @else {
                   <div class="overflow-x-auto">
-                    <table class="w-full">
-                      <thead class="bg-slate-50 text-left text-xs text-slate-500 uppercase tracking-wider">
-                        <tr>
-                          <th class="px-5 py-3">Ticket GOSAC</th>
-                          <th class="px-5 py-3">Nome</th>
-                          <th class="px-5 py-3">Pedido de Venda / Ocorrência</th>
-                          <th class="px-5 py-3">Status</th>
-                          <th class="px-5 py-3 text-right">Ações</th>
+                    <table class="w-full text-sm">
+                      <thead class="bg-slate-50 border-b border-slate-200">
+                        <tr class="text-xs font-semibold text-slate-500 uppercase tracking-wider text-left">
+                          <th class="px-4 py-3">Ticket</th>
+                          <th class="px-4 py-3">Contato / Grupo</th>
+                          <th class="px-4 py-3">Pedido de Venda</th>
+                          <th class="px-4 py-3">Ocorrência Pontta</th>
+                          <th class="px-4 py-3">Status</th>
+                          <th class="px-4 py-3"></th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-100">
                         @for (group of groups(); track group.id) {
-                          <tr class="hover:bg-slate-50/50 transition-colors align-top">
-                            <td class="px-5 py-3 text-sm font-mono text-slate-700">
-                              #{{ group.gosacTicketId }}
-                            </td>
-                            <td class="px-5 py-3 text-sm text-slate-800">
-                              {{ group.gosacTicketName }}
-                            </td>
-                            <td class="px-5 py-3 text-sm">
-                              <!-- Já tem PV vinculado: mostra a tag + badge de ocorrência -->
+                          <tr class="hover:bg-slate-50/60 transition-colors align-middle">
+                            <td class="px-4 py-3 font-mono text-slate-600 text-xs">#{{ group.gosacTicketId }}</td>
+                            <td class="px-4 py-3 text-slate-800">{{ group.gosacTicketName }}</td>
+                            <td class="px-4 py-3">
                               @if ((group.salesOrders || []).length > 0) {
                                 @for (so of group.salesOrders; track so.id) {
-                                  <div class="flex flex-col gap-1.5 mb-1">
-                                    <div class="flex items-center gap-1.5 flex-wrap">
-                                      <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-md text-xs border border-purple-200 font-medium">
-                                        🛒 {{ so.code }}
-                                      </span>
-                                      <span class="text-xs text-slate-500 truncate max-w-40" [title]="so.customerName">{{ abbreviate(so.customerName, 28) }}</span>
-                                      <button
-                                        (click)="unlinkSalesOrder(group, so.id)"
-                                        class="text-xs text-slate-400 hover:text-red-500 transition-colors"
-                                        title="Desvincular pedido"
-                                      >✕</button>
-                                    </div>
-                                    @if (so.ponttaOccurrenceStatus === 'created' || so.ponttaOccurrenceId) {
-                                      <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 rounded-md text-xs border border-green-200"
-                                        [title]="'ID: ' + so.ponttaOccurrenceId">
-                                        ✅ Ocorrência
-                                        <span class="font-mono font-semibold">
-                                          @if (so.ponttaOccurrenceNumber) { #{{ so.ponttaOccurrenceNumber }} }
-                                        </span>
-                                        criada no Pontta
-                                      </span>
-                                    } @else if (so.ponttaOccurrenceStatus === 'failed') {
-                                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-700 rounded-md text-xs border border-red-200">
-                                        ❌ Falha ao criar ocorrência
-                                      </span>
-                                    } @else {
-                                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-600 rounded-md text-xs border border-blue-200">
-                                        <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                                        </svg>
-                                        Criando ocorrência...
-                                      </span>
-                                    }
+                                  <div class="flex items-center gap-2">
+                                    <span class="font-medium text-slate-700">{{ so.code }}</span>
+                                    <span class="text-slate-400 text-xs truncate max-w-32" [title]="so.customerName">{{ abbreviate(so.customerName, 24) }}</span>
+                                    <button (click)="unlinkSalesOrder(group, so.id)" class="text-slate-300 hover:text-red-500 transition-colors ml-1" title="Desvincular">
+                                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                    </button>
                                   </div>
                                 }
                               } @else {
-                                <!-- Botão para abrir modal -->
                                 <button
                                   (click)="openLinkModal(group)"
-                                  class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors"
-                                >
-                                  🔗 Vincular PV
-                                </button>
+                                  class="text-xs font-medium text-slate-600 border border-slate-300 rounded px-2.5 py-1 hover:bg-slate-50 transition-colors"
+                                >Vincular PV</button>
                               }
                             </td>
-                            <td class="px-5 py-3">
+                            <td class="px-4 py-3">
+                              @if ((group.salesOrders || []).length > 0) {
+                                @for (so of group.salesOrders; track so.id) {
+                                  @if (so.ponttaOccurrenceStatus === 'created' || so.ponttaOccurrenceId) {
+                                    <span class="inline-flex items-center gap-1.5 text-xs text-green-700">
+                                      <span class="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0"></span>
+                                      @if (so.ponttaOccurrenceNumber) { #{{ so.ponttaOccurrenceNumber }} } @else { Criada }
+                                    </span>
+                                  } @else if (so.ponttaOccurrenceStatus === 'failed') {
+                                    <span class="inline-flex items-center gap-1.5 text-xs text-red-600">
+                                      <span class="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0"></span>
+                                      Falha
+                                    </span>
+                                  } @else {
+                                    <span class="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                                      <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                      Criando...
+                                    </span>
+                                  }
+                                }
+                              } @else {
+                                <span class="text-xs text-slate-300">—</span>
+                              }
+                            </td>
+                            <td class="px-4 py-3">
                               <button
                                 (click)="toggleGroup(group)"
-                                class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-                                [class.bg-green-100]="group.isActive"
-                                [class.text-green-700]="group.isActive"
-                                [class.bg-red-100]="!group.isActive"
-                                [class.text-red-700]="!group.isActive"
-                              >
-                                {{ group.isActive ? 'Ativo' : 'Inativo' }}
-                              </button>
+                                class="text-xs font-medium px-2 py-0.5 rounded-full transition-colors"
+                                [class.bg-emerald-50]="group.isActive"
+                                [class.text-emerald-700]="group.isActive"
+                                [class.border]="true"
+                                [class.border-emerald-200]="group.isActive"
+                                [class.bg-slate-50]="!group.isActive"
+                                [class.text-slate-500]="!group.isActive"
+                                [class.border-slate-200]="!group.isActive"
+                              >{{ group.isActive ? 'Ativo' : 'Inativo' }}</button>
                             </td>
-                            <td class="px-5 py-3 text-right">
-                              <div class="flex items-center justify-end gap-1">
-                                <button
-                                  (click)="deleteGroup(group)"
-                                  class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                                  title="Remover"
-                                >
-                                  🗑️
-                                </button>
-                              </div>
+                            <td class="px-4 py-3 text-right">
+                              <button
+                                (click)="deleteGroup(group)"
+                                class="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                                title="Remover grupo"
+                              >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                              </button>
                             </td>
                           </tr>
                         }
@@ -283,229 +236,191 @@ interface ToastState {
                   </div>
                 }
               </div>
+
             </div>
           }
 
           @if (activeTab() === 'webhooks') {
-            <div class="text-center py-12 text-slate-400">
-              <p class="text-4xl mb-3">🚧</p>
-              <p class="text-lg font-medium">Webhooks — Em breve</p>
-              <p class="text-sm mt-1">Recepção e processamento de webhooks do GOSAC</p>
+            <div class="py-16 text-center text-slate-400">
+              <p class="text-sm font-medium">Em desenvolvimento</p>
+              <p class="text-xs mt-1">Configuração e monitoramento de webhooks</p>
             </div>
           }
+
         </div>
       </div>
     </div>
 
-    <!-- ===== TOAST ===== -->
+    <!-- Toast -->
     @if (toast().open) {
       <div class="fixed bottom-6 right-6 z-[60] max-w-sm w-full">
-        <div class="flex items-start gap-3 rounded-xl shadow-lg px-4 py-3 border"
-          [class.bg-red-50]="toast().type === 'error'"
-          [class.border-red-200]="toast().type === 'error'"
-          [class.bg-green-50]="toast().type === 'success'"
-          [class.border-green-200]="toast().type === 'success'"
+        <div class="flex items-start gap-3 rounded-lg shadow-lg px-4 py-3 border"
+          [class.bg-red-50]="toast().type === 'error'" [class.border-red-200]="toast().type === 'error'"
+          [class.bg-emerald-50]="toast().type === 'success'" [class.border-emerald-200]="toast().type === 'success'"
         >
-          <span class="text-lg flex-shrink-0">{{ toast().type === 'error' ? '❌' : '✅' }}</span>
           <p class="text-sm flex-1"
             [class.text-red-700]="toast().type === 'error'"
-            [class.text-green-700]="toast().type === 'success'"
+            [class.text-emerald-700]="toast().type === 'success'"
           >{{ toast().message }}</p>
-          <button (click)="closeToast()" class="text-slate-400 hover:text-slate-600 flex-shrink-0 text-lg leading-none">✕</button>
+          <button (click)="closeToast()" class="text-slate-400 hover:text-slate-600 flex-shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
         </div>
       </div>
     }
 
-    <!-- ===== MODAL: Confirmar Ação ===== -->
+    <!-- Modal de confirmação genérico -->
     @if (confirmDialog().open) {
       <div class="fixed inset-0 z-[55] flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" (click)="closeConfirmDialog()"></div>
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-          <h3 class="text-base font-bold text-slate-800 mb-2">{{ confirmDialog().title }}</h3>
+        <div class="absolute inset-0 bg-black/40" (click)="closeConfirmDialog()"></div>
+        <div class="relative bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+          <h3 class="text-sm font-semibold text-slate-800 mb-1">{{ confirmDialog().title }}</h3>
           <p class="text-sm text-slate-500 mb-6">{{ confirmDialog().message }}</p>
-          <div class="flex gap-3 justify-end">
-            <button
-              (click)="closeConfirmDialog()"
-              class="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-            >Cancelar</button>
+          <div class="flex gap-2 justify-end">
+            <button (click)="closeConfirmDialog()" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">Cancelar</button>
             <button
               (click)="confirmDialog().onConfirm(); closeConfirmDialog()"
               class="px-4 py-2 text-sm font-medium rounded-lg transition-colors"
-              [class.bg-red-600]="confirmDialog().danger"
-              [class.hover:bg-red-700]="confirmDialog().danger"
-              [class.text-white]="confirmDialog().danger"
-              [class.bg-purple-600]="!confirmDialog().danger"
-              [class.hover:bg-purple-700]="!confirmDialog().danger"
+              [class.bg-red-600]="confirmDialog().danger" [class.hover:bg-red-700]="confirmDialog().danger" [class.text-white]="confirmDialog().danger"
+              [class.bg-slate-800]="!confirmDialog().danger" [class.hover:bg-slate-700]="!confirmDialog().danger"
             >{{ confirmDialog().confirmLabel }}</button>
           </div>
         </div>
       </div>
     }
 
-    <!-- ===== MODAL: Vincular Pedido de Venda ===== -->
+    <!-- Modal: Vincular Pedido de Venda -->
     @if (linkModal().open) {
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <!-- Overlay -->
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" (click)="closeLinkModal()"></div>
+        <div class="absolute inset-0 bg-black/40" (click)="closeLinkModal()"></div>
+        <div class="relative bg-white rounded-xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]">
 
-        <!-- Modal card -->
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
-
-          <!-- Modal header -->
-          <div class="flex items-start justify-between p-6 border-b border-slate-200">
+          <!-- Header -->
+          <div class="flex items-start justify-between px-6 py-5 border-b border-slate-100">
             <div>
-              <h2 class="text-lg font-bold text-slate-800">🔗 Vincular Pedido de Venda</h2>
+              <h2 class="text-base font-semibold text-slate-800">Vincular pedido de venda</h2>
               @if (linkModal().group) {
-                <p class="text-sm text-slate-500 mt-0.5">
-                  Grupo: <span class="font-medium text-slate-700">{{ linkModal().group!.gosacTicketName }}</span>
-                  <span class="ml-2 text-xs text-slate-400">#{{ linkModal().group!.gosacTicketId }}</span>
-                </p>
+                <p class="text-xs text-slate-400 mt-0.5">{{ linkModal().group!.gosacTicketName }} · Ticket #{{ linkModal().group!.gosacTicketId }}</p>
               }
             </div>
-            <button (click)="closeLinkModal()" class="text-slate-400 hover:text-slate-600 text-xl leading-none p-1 ml-4">✕</button>
+            <button (click)="closeLinkModal()" class="text-slate-400 hover:text-slate-600 p-1 ml-4">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
           </div>
 
           <!-- Step indicator -->
-          <div class="flex items-center px-6 pt-4">
-            <div class="flex items-center gap-2">
-              <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-purple-600 text-white">1</div>
-              <span class="text-sm font-medium text-purple-700">Pesquisar PV</span>
+          <div class="flex items-center gap-0 px-6 pt-4">
+            <div class="flex items-center gap-1.5">
+              <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold bg-slate-800 text-white">1</span>
+              <span class="text-xs font-medium text-slate-700">Pesquisar</span>
             </div>
-            <div class="flex-1 h-px mx-3" [class.bg-purple-300]="linkModal().step === 'confirm'" [class.bg-slate-200]="linkModal().step === 'search'"></div>
-            <div class="flex items-center gap-2">
-              <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
-                [class.bg-purple-600]="linkModal().step === 'confirm'"
-                [class.bg-slate-200]="linkModal().step === 'search'"
+            <div class="flex-1 h-px mx-3" [class.bg-slate-700]="linkModal().step === 'confirm'" [class.bg-slate-200]="linkModal().step === 'search'"></div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
+                [class.bg-slate-800]="linkModal().step === 'confirm'"
                 [class.text-white]="linkModal().step === 'confirm'"
-                [class.text-slate-400]="linkModal().step === 'search'">2</div>
-              <span class="text-sm font-medium"
-                [class.text-purple-700]="linkModal().step === 'confirm'"
-                [class.text-slate-400]="linkModal().step === 'search'">Confirmar</span>
+                [class.bg-slate-100]="linkModal().step === 'search'"
+                [class.text-slate-400]="linkModal().step === 'search'">2</span>
+              <span class="text-xs font-medium" [class.text-slate-700]="linkModal().step === 'confirm'" [class.text-slate-400]="linkModal().step === 'search'">Confirmar</span>
             </div>
           </div>
 
-          <!-- Modal body -->
-          <div class="flex-1 overflow-y-auto p-6">
+          <!-- Body -->
+          <div class="flex-1 overflow-y-auto px-6 py-5">
 
             @if (linkModal().step === 'search') {
               <div class="space-y-4">
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-2">Pesquisar por código ou cliente</label>
-                  <input
-                    type="text"
-                    [(ngModel)]="modalSearchQuery"
-                    (ngModelChange)="onModalSearchInput($event)"
-                    (keyup.escape)="closeLinkModal()"
-                    placeholder="Ex: PV-CM-605 ou nome do cliente..."
-                    class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-sm"
-                  />
-                </div>
-
+                <input
+                  type="text"
+                  [(ngModel)]="modalSearchQuery"
+                  (ngModelChange)="onModalSearchInput($event)"
+                  (keyup.escape)="closeLinkModal()"
+                  placeholder="Código do pedido ou nome do cliente..."
+                  class="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none"
+                  autofocus
+                />
                 @if (modalSearching()) {
-                  <div class="flex items-center justify-center py-6 text-slate-400 gap-2">
-                    <svg class="w-4 h-4 animate-spin text-purple-500" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                    <span class="text-sm">Buscando pedidos...</span>
+                  <div class="flex items-center gap-2 py-4 text-slate-400 text-sm justify-center">
+                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                    Buscando...
                   </div>
                 } @else if (modalSearchError()) {
-                  <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                    ❌ {{ modalSearchError() }}
-                  </div>
+                  <p class="text-sm text-red-600">{{ modalSearchError() }}</p>
                 } @else if (modalSearchResults().length > 0) {
-                  <div class="border border-slate-200 rounded-xl overflow-hidden">
-                    <div class="px-4 py-2 bg-slate-50 border-b border-slate-200">
-                      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        {{ modalSearchResults().length }} resultado{{ modalSearchResults().length === 1 ? '' : 's' }}
-                      </span>
-                    </div>
+                  <div class="border border-slate-200 rounded-lg overflow-hidden">
                     <div class="divide-y divide-slate-100 max-h-64 overflow-y-auto">
                       @for (result of modalSearchResults(); track result.ponttaId) {
-                        <button
-                          (click)="selectSalesOrder(result)"
-                          class="w-full text-left px-4 py-3 hover:bg-purple-50 transition-colors group"
-                        >
+                        <button (click)="selectSalesOrder(result)" class="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors group">
                           <div class="flex items-center justify-between">
                             <div>
-                              <span class="font-semibold text-purple-700 group-hover:text-purple-800">{{ result.code }}</span>
+                              <p class="text-sm font-semibold text-slate-800">{{ result.code }}</p>
                               <p class="text-xs text-slate-500 mt-0.5">{{ result.customerName }}</p>
                             </div>
-                            <span class="text-xs text-purple-400 group-hover:text-purple-600 flex-shrink-0 ml-3">Selecionar →</span>
+                            <svg class="w-4 h-4 text-slate-300 group-hover:text-slate-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                           </div>
                         </button>
                       }
                     </div>
                   </div>
-                } @else if (modalSearchQuery.length >= 2 && !modalSearching()) {
-                  <div class="text-center py-6 text-slate-400">
-                    <p class="text-2xl mb-1">🔍</p>
-                    <p class="text-sm">Nenhum pedido encontrado para "{{ modalSearchQuery }}"</p>
-                  </div>
+                } @else if (modalSearchQuery.length >= 2) {
+                  <p class="text-sm text-slate-400 text-center py-4">Nenhum pedido encontrado.</p>
                 } @else {
-                  <div class="text-center py-6 text-slate-300">
-                    <p class="text-3xl mb-2">🛒</p>
-                    <p class="text-sm">Digite pelo menos 2 caracteres para pesquisar</p>
-                  </div>
+                  <p class="text-xs text-slate-400">Digite pelo menos 2 caracteres para pesquisar.</p>
                 }
               </div>
             }
 
             @if (linkModal().step === 'confirm' && linkModal().selectedSo) {
-              <div class="space-y-4">
-                <div class="bg-purple-50 border border-purple-200 rounded-xl p-4">
-                  <p class="text-xs font-semibold text-purple-500 uppercase tracking-wider mb-2">Pedido de Venda selecionado</p>
-                  <p class="text-lg font-bold text-purple-800">{{ linkModal().selectedSo!.code }}</p>
-                  <p class="text-sm text-purple-600 mt-0.5">{{ linkModal().selectedSo!.customerName }}</p>
+              <div class="space-y-5">
+
+                <!-- Pedido selecionado (somente leitura) -->
+                <div class="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3">
+                  <p class="text-xs text-slate-500 mb-1">Pedido de venda selecionado</p>
+                  <p class="font-semibold text-slate-800">{{ linkModal().selectedSo!.code }}</p>
+                  <p class="text-sm text-slate-500 mt-0.5">{{ linkModal().selectedSo!.customerName }}</p>
                 </div>
 
-                <div class="bg-green-50 border border-green-200 rounded-xl p-4">
-                  <p class="text-xs font-semibold text-green-600 uppercase tracking-wider mb-2">✅ Ocorrência que será criada no Pontta</p>
-                  <p class="text-sm font-semibold text-slate-800">Anexos GOSAC - {{ linkModal().group!.gosacTicketName }}</p>
-                  <p class="text-xs text-slate-500 mt-1">
-                    Vinculada ao pedido <strong>{{ linkModal().selectedSo!.code }}</strong>.
-                    O responsável será definido automaticamente pelo usuário autenticado.
-                  </p>
+                <!-- Título da ocorrência (editável) -->
+                <div>
+                  <label class="block text-xs font-semibold text-slate-600 mb-1.5">Título da ocorrência no Pontta</label>
+                  <input
+                    type="text"
+                    [(ngModel)]="occurrenceTitleInput"
+                    class="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none"
+                    placeholder="Título da ocorrência"
+                  />
+                  <p class="text-xs text-slate-400 mt-1">O título é usado para identificar a ocorrência no Pontta onde os anexos serão enviados.</p>
                 </div>
 
-                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-500">
-                  💡 Após confirmar, todos os arquivos de mídia enviados pelo grupo GOSAC
-                  <strong class="text-slate-700">"{{ linkModal().group!.gosacTicketName }}"</strong>
-                  serão automaticamente anexados a essa ocorrência.
+                <!-- Nota informativa -->
+                <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
+                  Após confirmar, os arquivos de mídia enviados no grupo GOSAC <strong class="text-slate-700">"{{ linkModal().group!.gosacTicketName }}"</strong> serão automaticamente anexados a essa ocorrência.
                 </div>
+
               </div>
             }
           </div>
 
-          <!-- Modal footer -->
-          <div class="flex items-center justify-between p-6 border-t border-slate-200 gap-3">
+          <!-- Footer -->
+          <div class="flex items-center justify-between px-6 py-4 border-t border-slate-100">
             @if (linkModal().step === 'confirm') {
-              <button
-                (click)="backToSearch()"
-                class="px-4 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-              >← Voltar</button>
+              <button (click)="backToSearch()" class="text-sm text-slate-500 hover:text-slate-800 transition-colors">← Voltar</button>
             } @else {
               <div></div>
             }
-            <div class="flex gap-3">
-              <button
-                (click)="closeLinkModal()"
-                class="px-4 py-2.5 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-              >Cancelar</button>
+            <div class="flex gap-2">
+              <button (click)="closeLinkModal()" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">Cancelar</button>
               @if (linkModal().step === 'confirm') {
                 <button
                   (click)="confirmLink()"
                   [disabled]="linkModal().linking"
-                  class="px-6 py-2.5 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+                  class="px-5 py-2 text-sm font-medium bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
                 >
                   @if (linkModal().linking) {
-                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
+                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
                     Vinculando...
                   } @else {
-                    ✅ Confirmar vínculo
+                    Confirmar vínculo
                   }
                 </button>
               }
@@ -520,8 +435,8 @@ interface ToastState {
 export class GosacPonttaComponent implements OnInit {
   // Sub-tabs definition
   subTabs = [
-    { id: 'grupos', icon: '👥', label: 'Grupos' },
-    { id: 'webhooks', icon: '🔔', label: 'Webhooks' },
+    { id: 'grupos', label: 'Grupos' },
+    { id: 'webhooks', label: 'Webhooks' },
   ];
 
   activeTab = signal<string>('grupos');
@@ -537,7 +452,8 @@ export class GosacPonttaComponent implements OnInit {
   loadingGroups = signal(false);
 
   // Link modal state
-  linkModal = signal<LinkModalState>({ open: false, group: null, step: 'search', selectedSo: null, linking: false });
+  linkModal = signal<LinkModalState>({ open: false, group: null, step: 'search', selectedSo: null, occurrenceTitle: '', linking: false });
+  occurrenceTitleInput = '';
   confirmDialog = signal<ConfirmDialogState>({ open: false, title: '', message: '', confirmLabel: 'Confirmar', danger: false, onConfirm: () => { } });
   toast = signal<ToastState>({ open: false, message: '', type: 'error' });
   modalSearchQuery = '';
@@ -685,14 +601,16 @@ export class GosacPonttaComponent implements OnInit {
     this.modalSearchQuery = '';
     this.modalSearchResults.set([]);
     this.modalSearchError.set('');
-    this.linkModal.set({ open: true, group, step: 'search', selectedSo: null, linking: false });
+    this.occurrenceTitleInput = '';
+    this.linkModal.set({ open: true, group, step: 'search', selectedSo: null, occurrenceTitle: '', linking: false });
   }
 
   closeLinkModal(force = false): void {
     if (!force && this.linkModal().linking) return;
     if (this.modalSearchTimeout) clearTimeout(this.modalSearchTimeout);
-    this.linkModal.set({ open: false, group: null, step: 'search', selectedSo: null, linking: false });
+    this.linkModal.set({ open: false, group: null, step: 'search', selectedSo: null, occurrenceTitle: '', linking: false });
     this.modalSearchQuery = '';
+    this.occurrenceTitleInput = '';
     this.modalSearchResults.set([]);
     this.modalSearchError.set('');
   }
@@ -726,7 +644,9 @@ export class GosacPonttaComponent implements OnInit {
   }
 
   selectSalesOrder(result: SalesOrderSearchResult): void {
-    this.linkModal.update(s => ({ ...s, step: 'confirm', selectedSo: result }));
+    const defaultTitle = `Anexos GOSAC - ${this.linkModal().group?.gosacTicketName ?? ''}`;
+    this.occurrenceTitleInput = defaultTitle;
+    this.linkModal.update(s => ({ ...s, step: 'confirm', selectedSo: result, occurrenceTitle: defaultTitle }));
   }
 
   confirmLink(): void {
@@ -742,6 +662,7 @@ export class GosacPonttaComponent implements OnInit {
       ponttaId: selectedSo.ponttaId,
       code: selectedSo.code,
       customerName: selectedSo.customerName,
+      occurrenceTitle: this.occurrenceTitleInput.trim() || undefined,
     }).subscribe({
       next: (res) => {
         try {

@@ -10,7 +10,7 @@ import { environment } from '../../../environments/environment';
   standalone: true,
   imports: [FormsModule],
   template: `
-    <div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+    <div class="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div class="w-full max-w-md">
         <!-- Formulário de Registro -->
         <div class="text-center mb-8">
@@ -19,8 +19,8 @@ import { environment } from '../../../environments/environment';
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
             </svg>
           </div>
-          <h1 class="text-3xl font-bold text-white">Complete seu Cadastro</h1>
-          <p class="text-purple-200 mt-2">Digite o código de convite recebido por email</p>
+          <h1 class="text-2xl font-semibold text-white tracking-tight">Complete seu Cadastro</h1>
+          <p class="text-slate-400 mt-1 text-sm">Digite o código de convite recebido por email</p>
         </div>
 
         <div class="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-8">
@@ -41,12 +41,12 @@ import { environment } from '../../../environments/environment';
 
           <form (ngSubmit)="onSubmit()" class="space-y-5">
             <div>
-              <label class="block text-purple-200 text-sm font-medium mb-2">
+              <label class="block text-slate-300 text-sm font-medium mb-2">
                 Código de Convite
               </label>
               <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg class="h-5 w-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path>
                   </svg>
                 </div>
@@ -57,11 +57,11 @@ import { environment } from '../../../environments/environment';
                   required
                   maxlength="6"
                   (input)="validateCode()"
-                  class="w-full pl-10 pr-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition text-center text-2xl tracking-[0.5em] font-mono"
+                  class="w-full pl-10 pr-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition text-center text-xl tracking-[0.5em] font-mono"
                   placeholder="000000"
                 />
               </div>
-              <p class="text-purple-300 text-xs mt-2 flex items-center gap-1">
+              <p class="text-slate-400 text-xs mt-2 flex items-center gap-1">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
@@ -70,12 +70,12 @@ import { environment } from '../../../environments/environment';
             </div>
 
             <div>
-              <label class="block text-purple-200 text-sm font-medium mb-2">
+              <label class="block text-slate-300 text-sm font-medium mb-2">
                 Nome Completo
               </label>
               <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg class="h-5 w-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                     </svg>
                   </div>
@@ -84,19 +84,19 @@ import { environment } from '../../../environments/environment';
                     [(ngModel)]="name"
                     name="name"
                     required
-                    class="w-full pl-10 pr-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                    class="w-full pl-10 pr-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
                     placeholder="Seu nome completo"
                   />
                 </div>
               </div>
 
               <div>
-                <label class="block text-purple-200 text-sm font-medium mb-2">
+                <label class="block text-slate-300 text-sm font-medium mb-2">
                   Senha
                 </label>
                 <div class="relative">
                   <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg class="h-5 w-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                     </svg>
                   </div>
@@ -106,13 +106,13 @@ import { environment } from '../../../environments/environment';
                     name="password"
                     required
                     minlength="6"
-                    class="w-full pl-10 pr-12 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                    class="w-full pl-10 pr-12 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
                     placeholder="Mínimo 6 caracteres"
                   />
                   <button
                     type="button"
                     (click)="showPassword.set(!showPassword())"
-                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-purple-400 hover:text-white transition"
+                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-white transition"
                   >
                     @if (showPassword()) {
                       <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,12 +129,12 @@ import { environment } from '../../../environments/environment';
               </div>
 
               <div>
-                <label class="block text-purple-200 text-sm font-medium mb-2">
+                <label class="block text-slate-300 text-sm font-medium mb-2">
                   Confirmar Senha
                 </label>
                 <div class="relative">
                   <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg class="h-5 w-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
                   </div>
@@ -143,7 +143,7 @@ import { environment } from '../../../environments/environment';
                     [(ngModel)]="confirmPassword"
                     name="confirmPassword"
                     required
-                    class="w-full pl-10 pr-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                    class="w-full pl-10 pr-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
                     placeholder="Repita a senha"
                   />
                 </div>
@@ -152,7 +152,7 @@ import { environment } from '../../../environments/environment';
               <button
                 type="submit"
                 [disabled]="isLoading()"
-                class="w-full py-3 px-4 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
+                class="w-full py-3 px-4 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
               >
                 @if (isLoading()) {
                   <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
@@ -170,7 +170,7 @@ import { environment } from '../../../environments/environment';
           <div class="text-center mt-6">
             <button
               (click)="goToLogin()"
-              class="text-purple-200 hover:text-white transition"
+              class="text-slate-400 hover:text-white transition"
             >
               ← Voltar para Login
             </button>

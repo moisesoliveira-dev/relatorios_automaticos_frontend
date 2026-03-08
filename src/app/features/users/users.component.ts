@@ -31,7 +31,7 @@ interface Invite {
         @if (canManageUsers()) {
           <button
             (click)="openInviteModal()"
-            class="px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+            class="px-4 py-2 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-2"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
@@ -47,8 +47,8 @@ interface Invite {
           <button
             (click)="activeTab.set('users')"
             class="px-4 py-2 font-medium text-sm border-b-2 transition-colors"
-            [class.border-purple-600]="activeTab() === 'users'"
-            [class.text-purple-600]="activeTab() === 'users'"
+            [class.border-slate-700]="activeTab() === 'users'"
+            [class.text-slate-800]="activeTab() === 'users'"
             [class.border-transparent]="activeTab() !== 'users'"
             [class.text-slate-500]="activeTab() !== 'users'"
           >
@@ -58,8 +58,8 @@ interface Invite {
             <button
               (click)="activeTab.set('invites')"
               class="px-4 py-2 font-medium text-sm border-b-2 transition-colors"
-              [class.border-purple-600]="activeTab() === 'invites'"
-              [class.text-purple-600]="activeTab() === 'invites'"
+            [class.border-slate-700]="activeTab() === 'invites'"
+            [class.text-slate-800]="activeTab() === 'invites'"
               [class.border-transparent]="activeTab() !== 'invites'"
               [class.text-slate-500]="activeTab() !== 'invites'"
             >
@@ -95,8 +95,8 @@ interface Invite {
                           class="w-10 h-10 rounded-full flex items-center justify-center font-medium"
                           [class.bg-yellow-100]="user.role === 'master'"
                           [class.text-yellow-700]="user.role === 'master'"
-                          [class.bg-purple-100]="user.role !== 'master'"
-                          [class.text-purple-600]="user.role !== 'master'"
+                          [class.bg-slate-100]="user.role !== 'master'"
+                          [class.text-slate-600]="user.role !== 'master'"
                         >
                           @if (user.role === 'master') {
                             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -120,8 +120,8 @@ interface Invite {
                         class="px-2 py-1 text-xs font-medium rounded-full"
                         [class.bg-yellow-100]="user.role === 'master'"
                         [class.text-yellow-700]="user.role === 'master'"
-                        [class.bg-purple-100]="user.role === 'admin'"
-                        [class.text-purple-700]="user.role === 'admin'"
+                        [class.bg-slate-100]="user.role === 'admin'"
+                        [class.text-slate-700]="user.role === 'admin'"
                         [class.bg-blue-100]="user.role === 'manager'"
                         [class.text-blue-700]="user.role === 'manager'"
                         [class.bg-slate-100]="user.role === 'user'"
@@ -210,8 +210,8 @@ interface Invite {
                     <td class="px-6 py-4 whitespace-nowrap">
                       <span 
                         class="px-2 py-1 text-xs font-medium rounded-full"
-                        [class.bg-purple-100]="invite.role === 'admin'"
-                        [class.text-purple-700]="invite.role === 'admin'"
+                        [class.bg-slate-100]="invite.role === 'admin'"
+                        [class.text-slate-700]="invite.role === 'admin'"
                         [class.bg-blue-100]="invite.role === 'manager'"
                         [class.text-blue-700]="invite.role === 'manager'"
                         [class.bg-slate-100]="invite.role === 'user'"
@@ -227,7 +227,7 @@ interface Invite {
                     <td class="px-6 py-4 whitespace-nowrap">
                       <button
                         (click)="copyInviteLink(invite)"
-                        class="text-purple-600 hover:text-purple-800 text-sm flex items-center gap-1"
+                        class="text-slate-600 hover:text-slate-800 text-sm flex items-center gap-1"
                       >
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
@@ -285,7 +285,7 @@ interface Invite {
                 <p class="text-sm bg-slate-100 p-3 rounded-lg break-all text-slate-600">{{ inviteLink() }}</p>
                 <button
                   (click)="closeInviteModal()"
-                  class="mt-4 px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                  class="mt-4 px-4 py-2 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-700 transition-colors"
                 >
                   Fechar
                 </button>
@@ -305,7 +305,7 @@ interface Invite {
                     [(ngModel)]="inviteData.email"
                     name="email"
                     required
-                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400"
                     placeholder="usuario@email.com"
                   />
                 </div>
@@ -315,7 +315,7 @@ interface Invite {
                   <select
                     [(ngModel)]="inviteData.role"
                     name="role"
-                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400"
                   >
                     <option value="user">Usuário</option>
                     <option value="manager">Gerente</option>
@@ -334,7 +334,7 @@ interface Invite {
                   <button
                     type="submit"
                     [disabled]="isLoading()"
-                    class="flex-1 px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                    class="flex-1 px-4 py-2 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
                   >
                     {{ isLoading() ? 'Enviando...' : 'Enviar Convite' }}
                   </button>
@@ -366,7 +366,7 @@ interface Invite {
                   [(ngModel)]="editData.name"
                   name="name"
                   required
-                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400"
                 />
               </div>
 
@@ -377,7 +377,7 @@ interface Invite {
                   [(ngModel)]="editData.email"
                   name="email"
                   required
-                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400"
                 />
               </div>
 
@@ -386,7 +386,7 @@ interface Invite {
                 <select
                   [(ngModel)]="editData.role"
                   name="role"
-                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400"
                 >
                   <option value="user">Usuário</option>
                   <option value="manager">Gerente</option>
@@ -399,7 +399,7 @@ interface Invite {
                 <select
                   [(ngModel)]="editData.status"
                   name="status"
-                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400"
                 >
                   <option value="active">Ativo</option>
                   <option value="inactive">Inativo</option>
@@ -417,7 +417,7 @@ interface Invite {
                 <button
                   type="submit"
                   [disabled]="isLoading()"
-                  class="flex-1 px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                    class="flex-1 px-4 py-2 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
                 >
                   {{ isLoading() ? 'Salvando...' : 'Salvar' }}
                 </button>

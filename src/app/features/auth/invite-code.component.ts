@@ -5,15 +5,15 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
-    selector: 'app-invite-code',
-    standalone: true,
-    imports: [CommonModule, FormsModule],
-    template: `
-    <div class="min-h-screen bg-gradient-to-br from-purple-100 via-white to-purple-50 flex items-center justify-center px-4">
+  selector: 'app-invite-code',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
+  template: `
+    <div class="min-h-screen bg-slate-50 flex items-center justify-center px-4">
       <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div class="text-center mb-8">
-          <div class="bg-purple-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg class="w-10 h-10 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="bg-slate-100 w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
             </svg>
           </div>
@@ -43,7 +43,7 @@ import { AuthService } from '../../core/services/auth.service';
               maxlength="6"
               required
               autofocus
-              class="w-full px-4 py-4 border-2 border-gray-300 rounded-xl text-center text-3xl font-bold tracking-[0.5em] focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+              class="w-full px-4 py-4 border-2 border-slate-300 rounded-xl text-center text-2xl font-bold tracking-[0.5em] focus:ring-2 focus:ring-slate-400 focus:border-slate-400 transition-all"
               placeholder="000000"
               (input)="onCodeInput($event)"
             />
@@ -55,7 +55,7 @@ import { AuthService } from '../../core/services/auth.service';
           <button
             type="submit"
             [disabled]="isLoading() || code.length !== 6"
-            class="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
+            class="w-full bg-slate-800 hover:bg-slate-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium py-3 px-6 rounded-xl transition-colors flex items-center justify-center gap-2"
           >
             @if (isLoading()) {
               <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -77,7 +77,7 @@ import { AuthService } from '../../core/services/auth.service';
             Não recebeu o convite?
             <button 
               type="button"
-              class="text-purple-600 hover:text-purple-700 font-semibold ml-1 transition-colors"
+              class="text-slate-700 hover:text-slate-900 font-medium ml-1 transition-colors"
               (click)="goToLogin()"
             >
               Contate o administrador
@@ -85,13 +85,13 @@ import { AuthService } from '../../core/services/auth.service';
           </p>
         </div>
 
-        <div class="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-100">
+        <div class="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
           <div class="flex items-start gap-3">
-            <svg class="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <svg class="w-5 h-5 text-slate-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
             </svg>
-            <div class="text-sm text-purple-800">
-              <p class="font-semibold mb-1">💡 Dica:</p>
+            <div class="text-sm text-slate-600">
+              <p class="font-semibold text-slate-700 mb-1">Dica:</p>
               <p>O código foi enviado para seu email. Verifique também a pasta de spam.</p>
             </div>
           </div>
@@ -99,7 +99,7 @@ import { AuthService } from '../../core/services/auth.service';
       </div>
     </div>
   `,
-    styles: [`
+  styles: [`
     input::-webkit-outer-spin-button,
     input::-webkit-inner-spin-button {
       -webkit-appearance: none;
@@ -119,55 +119,55 @@ import { AuthService } from '../../core/services/auth.service';
   `]
 })
 export class InviteCodeComponent {
-    code = '';
-    isLoading = signal(false);
-    errorMessage = signal('');
+  code = '';
+  isLoading = signal(false);
+  errorMessage = signal('');
 
-    constructor(
-        private authService: AuthService,
-        private router: Router
-    ) { }
+  constructor(
+    private authService: AuthService,
+    private router: Router
+  ) { }
 
-    onCodeInput(event: Event) {
-        const input = event.target as HTMLInputElement;
-        // Remove caracteres não numéricos
-        input.value = input.value.replace(/\D/g, '');
-        this.code = input.value;
+  onCodeInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    // Remove caracteres não numéricos
+    input.value = input.value.replace(/\D/g, '');
+    this.code = input.value;
+  }
+
+  async validateCode() {
+    if (this.code.length !== 6) {
+      return;
     }
 
-    async validateCode() {
-        if (this.code.length !== 6) {
-            return;
-        }
+    this.isLoading.set(true);
+    this.errorMessage.set('');
 
-        this.isLoading.set(true);
-        this.errorMessage.set('');
+    try {
+      const response = await this.authService.validateInviteCode(this.code);
 
-        try {
-            const response = await this.authService.validateInviteCode(this.code);
-
-            if (response.valid && response.email) {
-                // Redireciona para a página de registro com o email e token
-                this.router.navigate(['/register'], {
-                    queryParams: {
-                        email: response.email,
-                        token: response.token
-                    }
-                });
-            } else {
-                this.errorMessage.set(response.message || 'Código inválido');
-            }
-        } catch (error: any) {
-            console.error('Erro ao validar código:', error);
-            this.errorMessage.set(
-                error?.error?.message || 'Erro ao validar código. Tente novamente.'
-            );
-        } finally {
-            this.isLoading.set(false);
-        }
+      if (response.valid && response.email) {
+        // Redireciona para a página de registro com o email e token
+        this.router.navigate(['/register'], {
+          queryParams: {
+            email: response.email,
+            token: response.token
+          }
+        });
+      } else {
+        this.errorMessage.set(response.message || 'Código inválido');
+      }
+    } catch (error: any) {
+      console.error('Erro ao validar código:', error);
+      this.errorMessage.set(
+        error?.error?.message || 'Erro ao validar código. Tente novamente.'
+      );
+    } finally {
+      this.isLoading.set(false);
     }
+  }
 
-    goToLogin() {
-        this.router.navigate(['/login']);
-    }
+  goToLogin() {
+    this.router.navigate(['/login']);
+  }
 }

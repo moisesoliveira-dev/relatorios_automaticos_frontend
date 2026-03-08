@@ -101,7 +101,7 @@ export class GosacService {
         });
     }
 
-    linkSalesOrder(groupId: string, data: { ponttaId: string; code: string; customerName: string }): Observable<any> {
+    linkSalesOrder(groupId: string, data: { ponttaId: string; code: string; customerName: string; occurrenceTitle?: string }): Observable<any> {
         return this.http.post(`${this.apiUrl}/groups/${groupId}/sales-orders`, data);
     }
 

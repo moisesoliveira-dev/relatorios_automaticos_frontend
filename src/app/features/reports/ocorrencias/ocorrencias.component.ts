@@ -39,7 +39,7 @@ interface PreviewResponse {
       <div class="flex items-center gap-3 text-sm text-slate-500">
         <button 
           (click)="goBack()"
-          class="flex items-center gap-1 hover:text-purple-600 transition-colors"
+          class="flex items-center gap-1 hover:text-slate-700 transition-colors"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
@@ -53,10 +53,7 @@ interface PreviewResponse {
       <!-- Header -->
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-3">
-            <span class="text-3xl">📋</span>
-            Relatório de Ocorrências Pontta
-          </h1>
+          <h1 class="text-xl font-semibold text-slate-800">Relatório de Ocorrências Pontta</h1>
           <p class="text-slate-500 mt-1">Gere relatórios em Excel ou CSV e envie por email</p>
         </div>
       </div>
@@ -77,7 +74,7 @@ interface PreviewResponse {
               </label>
               <select
                 [(ngModel)]="filters.limit"
-                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
               >
                 <option [ngValue]="0">Todos</option>
                 <option [ngValue]="100">100 registros</option>
@@ -95,7 +92,7 @@ interface PreviewResponse {
               <input
                 type="date"
                 [(ngModel)]="filters.startDate"
-                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
               />
             </div>
 
@@ -107,7 +104,7 @@ interface PreviewResponse {
               <input
                 type="date"
                 [(ngModel)]="filters.endDate"
-                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
               />
             </div>
 
@@ -118,7 +115,7 @@ interface PreviewResponse {
               </label>
               <select
                 [(ngModel)]="filters.pageSize"
-                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
               >
                 <option [ngValue]="10">10</option>
                 <option [ngValue]="25">25</option>
@@ -138,10 +135,10 @@ interface PreviewResponse {
                 type="email"
                 [(ngModel)]="email"
                 placeholder="destinatario@email.com"
-                class="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                class="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
               />
             </div>
-            <p class="text-xs text-slate-500 mt-1">💡 Deixe vazio para enviar apenas aos emails fixos cadastrados</p>
+              <p class="text-xs text-slate-500 mt-1">Deixe vazio para enviar apenas aos emails fixos cadastrados</p>
           </div>
 
           <!-- Action Buttons -->
@@ -183,7 +180,7 @@ interface PreviewResponse {
             <button
               (click)="sendEmail()"
               [disabled]="isLoading() || !email"
-              class="px-6 py-2.5 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              class="px-6 py-2.5 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               @if (isLoading() && currentAction() === 'send') {
                 <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
@@ -225,15 +222,15 @@ interface PreviewResponse {
       <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div class="p-4 border-b border-slate-200 flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <span class="text-lg">📧</span>
+
             <h2 class="font-semibold text-slate-800">Emails Fixos</h2>
-            <span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+            <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
               {{ getOccurrencesEmails().length }} cadastrados
             </span>
           </div>
           <button 
             (click)="openEmailModal()"
-            class="px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-1"
+            class="px-3 py-1.5 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-1"
           >
             <span>+</span> Adicionar
           </button>
@@ -256,7 +253,7 @@ interface PreviewResponse {
                   [class.opacity-60]="!emailItem.isActive"
                   (click)="openEmailDetailModal(emailItem)"
                 >
-                  <span class="text-sm">{{ emailItem.isActive ? '✅' : '⏸️' }}</span>
+                  <span class="text-sm">{{ emailItem.isActive ? 'Ativo' : 'Pausado' }}</span>
                   <div class="text-sm">
                     <span class="font-medium text-slate-800">{{ emailItem.name }}</span>
                     <span class="text-slate-400 mx-1">·</span>
@@ -265,7 +262,7 @@ interface PreviewResponse {
                 </div>
               }
             </div>
-            <p class="text-xs text-slate-400 mt-3">💡 Clique em um email para editar ou remover</p>
+            <p class="text-xs text-slate-400 mt-3">Clique em um email para editar ou remover</p>
           }
         </div>
       </div>
@@ -274,9 +271,7 @@ interface PreviewResponse {
       @if (showEmailDetailModal) {
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div class="bg-white rounded-xl p-5 w-full max-w-sm mx-4">
-            <h3 class="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-              📧 Detalhes do Email
-            </h3>
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">Detalhes do Email</h3>
             
             <div class="space-y-3">
               <div class="p-3 bg-slate-50 rounded-lg">
@@ -291,7 +286,7 @@ interface PreviewResponse {
                 <div>
                   <p class="text-xs text-slate-500 mb-1">Status</p>
                   <p class="font-medium" [class.text-green-600]="selectedEmail?.isActive" [class.text-slate-500]="!selectedEmail?.isActive">
-                    {{ selectedEmail?.isActive ? '✅ Ativo' : '⏸️ Inativo' }}
+                    {{ selectedEmail?.isActive ? 'Ativo' : 'Inativo' }}
                   </p>
                 </div>
                 <button 
@@ -312,7 +307,7 @@ interface PreviewResponse {
                 (click)="deleteEmail(selectedEmail!); closeEmailDetailModal()"
                 class="flex-1 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
               >
-                🗑️ Remover
+                Remover
               </button>
               <button 
                 (click)="closeEmailDetailModal()"
@@ -337,7 +332,7 @@ interface PreviewResponse {
                 <input 
                   type="text" 
                   [(ngModel)]="newEmail.name"
-                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                   placeholder="Ex: João Silva - Gerente"
                 />
               </div>
@@ -347,14 +342,14 @@ interface PreviewResponse {
                 <input 
                   type="email" 
                   [(ngModel)]="newEmail.email"
-                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                   placeholder="email@exemplo.com"
                 />
               </div>
 
-              <div class="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                <p class="text-sm text-purple-700">
-                  📋 Este email receberá automaticamente todos os <strong>Relatórios de Ocorrências</strong>
+              <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                <p class="text-sm text-slate-600">
+                  Este email receberá automaticamente todos os <strong>Relatórios de Ocorrências</strong>
                 </p>
               </div>
             </div>
@@ -369,7 +364,7 @@ interface PreviewResponse {
               <button 
                 (click)="saveEmail()"
                 [disabled]="savingEmail"
-                class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                class="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
               >
                 {{ savingEmail ? 'Salvando...' : 'Salvar' }}
               </button>
@@ -458,7 +453,7 @@ interface PreviewResponse {
             <div class="p-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
               <div>
                 <h3 class="font-semibold text-slate-800 flex items-center gap-2">
-                  👁️ Visualização dos Dados
+                  Visualização dos Dados
                 </h3>
                 @if (pagination) {
                   <p class="text-sm text-slate-500 mt-1">
@@ -481,7 +476,7 @@ interface PreviewResponse {
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 @for (item of previewData$; track item.number) {
                   <div 
-                    class="p-3 border border-slate-200 rounded-lg hover:border-purple-300 hover:bg-purple-50/30 transition-all cursor-pointer"
+                    class="p-3 border border-slate-200 rounded-lg hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer"
                     (click)="openItemDetailModal(item)"
                   >
                     <div class="flex items-start justify-between gap-2">
@@ -507,13 +502,13 @@ interface PreviewResponse {
                         <p class="font-medium text-slate-800 mt-1 text-sm line-clamp-2">{{ item.title }}</p>
                         <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-slate-500">
                           @if (item.responsibleName) {
-                            <span>👤 {{ item.responsibleName }}</span>
+                            <span>{{ item.responsibleName }}</span>
                           }
                           @if (item.deadline) {
-                            <span>📅 {{ item.deadline }}</span>
+                            <span>{{ item.deadline }}</span>
                           }
                           @if (item.tagName) {
-                            <span class="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">{{ item.tagName }}</span>
+                            <span class="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded">{{ item.tagName }}</span>
                           }
                         </div>
                       </div>
@@ -611,7 +606,7 @@ interface PreviewResponse {
                   <p class="text-xs text-slate-500">Tag</p>
                   <p class="font-medium text-slate-700">
                     @if (selectedItem.tagName) {
-                      <span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">{{ selectedItem.tagName }}</span>
+                      <span class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs">{{ selectedItem.tagName }}</span>
                     } @else {
                       -
                     }

@@ -5,34 +5,34 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
 @Component({
-    selector: 'app-setup',
-    standalone: true,
-    imports: [FormsModule],
-    template: `
-    <div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+  selector: 'app-setup',
+  standalone: true,
+  imports: [FormsModule],
+  template: `
+    <div class="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div class="w-full max-w-md">
         <!-- Logo e Título -->
         <div class="text-center mb-8">
-          <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-3xl mb-4 shadow-xl">
+          <div class="inline-flex items-center justify-center w-16 h-16 bg-slate-700 rounded-2xl mb-4">
             <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
             </svg>
           </div>
-          <h1 class="text-3xl font-bold text-white">Configuração Inicial</h1>
-          <p class="text-purple-200 mt-2">Crie sua conta de administrador master</p>
+          <h1 class="text-2xl font-semibold text-white tracking-tight">Configuração Inicial</h1>
+          <p class="text-slate-400 mt-1 text-sm">Crie sua conta de administrador master</p>
         </div>
 
         <!-- Card de Setup -->
         <div class="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-8">
           <!-- Info Box -->
-          <div class="mb-6 p-4 bg-purple-500/20 border border-purple-500/50 rounded-lg">
+          <div class="mb-6 p-4 bg-slate-700/50 border border-slate-600 rounded-lg">
             <div class="flex gap-3">
-              <svg class="w-6 h-6 text-purple-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5 text-slate-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
-              <div class="text-sm text-purple-100">
+              <div class="text-sm text-slate-300">
                 <p class="font-semibold mb-1">Sobre o usuário Master</p>
-                <p class="text-purple-200/80">O primeiro usuário cadastrado será o administrador principal do sistema. Esta conta não pode ser removida e terá permissão para convidar outros usuários.</p>
+                <p class="text-slate-400">O primeiro usuário cadastrado será o administrador principal do sistema. Esta conta não pode ser removida e terá permissão para convidar outros usuários.</p>
               </div>
             </div>
           </div>
@@ -45,12 +45,12 @@ import { environment } from '../../../environments/environment';
 
           <form (ngSubmit)="onSubmit()" class="space-y-5">
             <div>
-              <label class="block text-purple-200 text-sm font-medium mb-2">
+              <label class="block text-slate-300 text-sm font-medium mb-2">
                 Nome Completo
               </label>
               <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg class="h-5 w-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                   </svg>
                 </div>
@@ -59,19 +59,19 @@ import { environment } from '../../../environments/environment';
                   [(ngModel)]="name"
                   name="name"
                   required
-                  class="w-full pl-10 pr-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                  class="w-full pl-10 pr-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
                   placeholder="Seu nome completo"
                 />
               </div>
             </div>
 
             <div>
-              <label class="block text-purple-200 text-sm font-medium mb-2">
+              <label class="block text-slate-300 text-sm font-medium mb-2">
                 Email
               </label>
               <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg class="h-5 w-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path>
                   </svg>
                 </div>
@@ -80,19 +80,19 @@ import { environment } from '../../../environments/environment';
                   [(ngModel)]="email"
                   name="email"
                   required
-                  class="w-full pl-10 pr-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                  class="w-full pl-10 pr-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
                   placeholder="seu@email.com"
                 />
               </div>
             </div>
 
             <div>
-              <label class="block text-purple-200 text-sm font-medium mb-2">
+              <label class="block text-slate-300 text-sm font-medium mb-2">
                 Senha
               </label>
               <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg class="h-5 w-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                   </svg>
                 </div>
@@ -102,13 +102,13 @@ import { environment } from '../../../environments/environment';
                   name="password"
                   required
                   minlength="6"
-                  class="w-full pl-10 pr-12 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                  class="w-full pl-10 pr-12 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
                   placeholder="Mínimo 6 caracteres"
                 />
                 <button
                   type="button"
                   (click)="showPassword.set(!showPassword())"
-                  class="absolute inset-y-0 right-0 pr-3 flex items-center text-purple-400 hover:text-white transition"
+                  class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-white transition"
                 >
                   @if (showPassword()) {
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -125,12 +125,12 @@ import { environment } from '../../../environments/environment';
             </div>
 
             <div>
-              <label class="block text-purple-200 text-sm font-medium mb-2">
+              <label class="block text-slate-300 text-sm font-medium mb-2">
                 Confirmar Senha
               </label>
               <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg class="h-5 w-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
                 </div>
@@ -139,7 +139,7 @@ import { environment } from '../../../environments/environment';
                   [(ngModel)]="confirmPassword"
                   name="confirmPassword"
                   required
-                  class="w-full pl-10 pr-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                  class="w-full pl-10 pr-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
                   placeholder="Repita a senha"
                 />
               </div>
@@ -148,7 +148,7 @@ import { environment } from '../../../environments/environment';
             <button
               type="submit"
               [disabled]="isLoading()"
-              class="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
+              class="w-full py-3 px-4 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
             >
               @if (isLoading()) {
                 <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
@@ -174,66 +174,66 @@ import { environment } from '../../../environments/environment';
   `
 })
 export class SetupComponent implements OnInit {
-    name = '';
-    email = '';
-    password = '';
-    confirmPassword = '';
-    showPassword = signal(false);
-    isLoading = signal(false);
-    errorMessage = signal('');
+  name = '';
+  email = '';
+  password = '';
+  confirmPassword = '';
+  showPassword = signal(false);
+  isLoading = signal(false);
+  errorMessage = signal('');
 
-    private apiUrl = environment.apiUrl;
+  private apiUrl = environment.apiUrl;
 
-    constructor(private http: HttpClient, private router: Router) { }
+  constructor(private http: HttpClient, private router: Router) { }
 
-    ngOnInit() {
-        // Verifica se já existe um master
-        this.http.get<{ hasMaster: boolean }>(`${this.apiUrl}/auth/check-master`).subscribe({
-            next: (response) => {
-                if (response.hasMaster) {
-                    this.router.navigate(['/login']);
-                }
-            },
-            error: () => {
-                // Se houver erro, provavelmente o backend não está rodando
-                this.errorMessage.set('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
-            }
-        });
+  ngOnInit() {
+    // Verifica se já existe um master
+    this.http.get<{ hasMaster: boolean }>(`${this.apiUrl}/auth/check-master`).subscribe({
+      next: (response) => {
+        if (response.hasMaster) {
+          this.router.navigate(['/login']);
+        }
+      },
+      error: () => {
+        // Se houver erro, provavelmente o backend não está rodando
+        this.errorMessage.set('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
+      }
+    });
+  }
+
+  onSubmit() {
+    if (!this.name || !this.email || !this.password || !this.confirmPassword) {
+      this.errorMessage.set('Por favor, preencha todos os campos');
+      return;
     }
 
-    onSubmit() {
-        if (!this.name || !this.email || !this.password || !this.confirmPassword) {
-            this.errorMessage.set('Por favor, preencha todos os campos');
-            return;
-        }
-
-        if (this.password.length < 6) {
-            this.errorMessage.set('A senha deve ter no mínimo 6 caracteres');
-            return;
-        }
-
-        if (this.password !== this.confirmPassword) {
-            this.errorMessage.set('As senhas não conferem');
-            return;
-        }
-
-        this.isLoading.set(true);
-        this.errorMessage.set('');
-
-        this.http.post<any>(`${this.apiUrl}/auth/register-master`, {
-            name: this.name,
-            email: this.email,
-            password: this.password
-        }).subscribe({
-            next: (response) => {
-                localStorage.setItem('access_token', response.access_token);
-                localStorage.setItem('user', JSON.stringify(response.user));
-                this.router.navigate(['/dashboard']);
-            },
-            error: (error) => {
-                this.isLoading.set(false);
-                this.errorMessage.set(error.error?.message || 'Erro ao criar conta. Tente novamente.');
-            }
-        });
+    if (this.password.length < 6) {
+      this.errorMessage.set('A senha deve ter no mínimo 6 caracteres');
+      return;
     }
+
+    if (this.password !== this.confirmPassword) {
+      this.errorMessage.set('As senhas não conferem');
+      return;
+    }
+
+    this.isLoading.set(true);
+    this.errorMessage.set('');
+
+    this.http.post<any>(`${this.apiUrl}/auth/register-master`, {
+      name: this.name,
+      email: this.email,
+      password: this.password
+    }).subscribe({
+      next: (response) => {
+        localStorage.setItem('access_token', response.access_token);
+        localStorage.setItem('user', JSON.stringify(response.user));
+        this.router.navigate(['/dashboard']);
+      },
+      error: (error) => {
+        this.isLoading.set(false);
+        this.errorMessage.set(error.error?.message || 'Erro ao criar conta. Tente novamente.');
+      }
+    });
+  }
 }
