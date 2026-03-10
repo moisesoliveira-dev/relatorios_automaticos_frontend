@@ -51,6 +51,38 @@ export interface SalesOrderSearchResult {
     customerName: string;
 }
 
+export interface PonttaProposal {
+    id: string;
+    number: number;
+    code: string;
+    createdAt: string;
+    lastUpdateVersion: string;
+    saleExpectation: string;
+    name: string;
+    customerId: string;
+    customerName: string;
+    customerBusinessName: string | null;
+    customerEmail: string | null;
+    customerPhone: string | null;
+    status: string;
+    businessUnitId: string;
+    responsibleId: string;
+    responsibleName: string;
+    value: number;
+    negotiationStatus: string;
+    tags: any[];
+    probability: number;
+    deliveryDate: string;
+    validate: string;
+    responsible: {
+        id: string;
+        name: string;
+    };
+    converted: boolean;
+    actived: boolean;
+    declined: boolean;
+}
+
 @Injectable({
     providedIn: 'root',
 })
@@ -107,5 +139,33 @@ export class GosacService {
 
     unlinkSalesOrder(groupId: string, salesOrderId: string): Observable<void> {
         return this.http.delete<void>(`${this.apiUrl}/groups/${groupId}/sales-orders/${salesOrderId}`);
+    }
+
+    // Proposals (Orçamentos)
+    getProposals(query?: string): Observable<PonttaProposal[]> {
+        const params: Record<string, string> = {};
+        if (query && query.trim().length > 0) {
+            params['q'] = query.trim();
+        }
+        return this.http.get<PonttaProposal[]>(`${this.apiUrl}/proposals`, { params });
+    }
+
+    getProposalItems(proposalId: string): Observable<any[]> {
+        return this.http.get<any[]>(`${this.apiUrl}/proposals/${proposalId}/items`);
+    }
+
+    generateMontadorPdf(data: {
+        proposalCode: string;
+        customerName: string;
+        environmentName: string;
+        environmentValue: number;
+        discount: number;
+        deliveryDate?: string;
+        assemblyStartDate?: string;
+        assemblyEndDate?: string;
+    }): Observable<Blob> {
+        return this.http.post(`${this.apiUrl}/proposals/montador-pdf`, data, {
+            responseType: 'blob',
+        });
     }
 }

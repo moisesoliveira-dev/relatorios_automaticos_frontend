@@ -62,7 +62,26 @@ export const routes: Routes = [
             },
             {
                 path: 'gosac-pontta',
-                loadComponent: () => import('./features/gosac-pontta/gosac-pontta.component').then(m => m.GosacPonttaComponent)
+                loadComponent: () => import('./features/gosac-pontta/gosac-pontta.component').then(m => m.GosacPonttaComponent),
+                children: [
+                    {
+                        path: 'grupos',
+                        loadComponent: () => import('./features/gosac-pontta/grupos/grupos.component').then(m => m.GruposComponent)
+                    },
+                    {
+                        path: 'pagamento-montador',
+                        loadComponent: () => import('./features/gosac-pontta/pagamento-montador/pagamento-montador.component').then(m => m.PagamentoMontadorComponent)
+                    },
+                    {
+                        path: 'webhooks',
+                        loadComponent: () => import('./features/gosac-pontta/webhooks/webhooks.component').then(m => m.WebhooksComponent)
+                    },
+                    {
+                        path: '',
+                        redirectTo: 'grupos',
+                        pathMatch: 'full'
+                    }
+                ]
             },
             {
                 path: '',
