@@ -19,6 +19,42 @@ interface EnvironmentItem {
   template: `
     <div class="space-y-6">
 
+      <!-- Logo upload -->
+      <div class="flex items-center justify-between border border-slate-200 rounded-lg px-4 py-3 bg-slate-50">
+        <div class="flex items-center gap-3">
+          <svg class="w-5 h-5 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <div>
+            <p class="text-sm font-medium text-slate-700">Logotipo da empresa</p>
+            <p class="text-xs text-slate-400">Aparece no canto superior esquerdo do PDF · PNG, JPG ou WebP · máx 5MB</p>
+          </div>
+        </div>
+        <label class="cursor-pointer">
+          <input type="file" accept="image/png,image/jpeg,image/webp" class="sr-only" (change)="onLogoUpload($event)" />
+          <span
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors"
+            [class.border-slate-300]="!logoUploading() && !logoSuccess()"
+            [class.text-slate-600]="!logoUploading() && !logoSuccess()"
+            [class.hover:bg-slate-100]="!logoUploading() && !logoSuccess()"
+            [class.border-emerald-300]="logoSuccess()"
+            [class.text-emerald-600]="logoSuccess()"
+            [class.bg-emerald-50]="logoSuccess()"
+            [class.opacity-60]="logoUploading()"
+            [class.cursor-not-allowed]="logoUploading()"
+          >
+            @if (logoUploading()) {
+              <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+              Enviando...
+            } @else if (logoSuccess()) {
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              Logo atualizado
+            } @else {
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+              {{ logoName() || 'Selecionar logo' }}
+            }
+          </span>
+        </label>
+      </div>
+
       <!-- Search -->
       <div>
         <p class="text-sm font-medium text-slate-700 mb-2">Pesquisar orçamento no Pontta</p>
@@ -365,10 +401,44 @@ export class PagamentoMontadorComponent implements OnInit {
   assemblyEndDate = '';
   sendToDrive = true;
 
+  // Logo upload
+  logoUploading = signal(false);
+  logoSuccess = signal(false);
+  logoName = signal('');
+
   constructor(private gosacService: GosacService) { }
 
   ngOnInit(): void {
     this.loadProposals();
+  }
+
+  // --- Logo ---
+
+  onLogoUpload(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    this.logoUploading.set(true);
+    this.logoSuccess.set(false);
+    this.logoName.set(file.name);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    this.gosacService.uploadLogo(formData).subscribe({
+      next: () => {
+        this.logoUploading.set(false);
+        this.logoSuccess.set(true);
+        setTimeout(() => this.logoSuccess.set(false), 3000);
+      },
+      error: () => {
+        this.logoUploading.set(false);
+        this.logoName.set('');
+      },
+    });
+
+    input.value = '';
   }
 
   // --- Proposals ---

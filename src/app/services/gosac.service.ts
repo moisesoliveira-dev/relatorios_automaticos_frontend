@@ -150,6 +150,10 @@ export class GosacService {
         return this.http.get<PonttaProposal[]>(`${this.apiUrl}/proposals`, { params });
     }
 
+    uploadLogo(formData: FormData): Observable<{ message: string }> {
+        return this.http.post<{ message: string }>(`${this.apiUrl}/logo`, formData);
+    }
+
     getProposalItems(proposalId: string): Observable<any[]> {
         return this.http.get<any[]>(`${this.apiUrl}/proposals/${proposalId}/items`);
     }
