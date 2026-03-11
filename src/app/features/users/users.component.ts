@@ -274,18 +274,41 @@ interface Invite {
             </div>
 
             @if (inviteSuccess()) {
-              <div class="text-center py-4">
-                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                </div>
-                <h4 class="text-lg font-medium text-slate-800 mb-2">Convite Enviado!</h4>
-                <p class="text-slate-500 mb-4">O link de convite foi copiado para a área de transferência.</p>
-                <p class="text-sm bg-slate-100 p-3 rounded-lg break-all text-slate-600">{{ inviteLink() }}</p>
+              <div class="py-4">
+                @if (inviteEmailSent()) {
+                  <div class="text-center mb-4">
+                    <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                    </div>
+                    <h4 class="text-lg font-medium text-slate-800 mb-1">Convite Enviado!</h4>
+                    <p class="text-slate-500 text-sm">O email foi entregue com sucesso.</p>
+                  </div>
+                } @else {
+                  <div class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div class="flex items-start gap-3">
+                      <svg class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                      </svg>
+                      <div>
+                        <p class="text-sm font-medium text-amber-800">Email não entregue</p>
+                        @if (inviteEmailError()) {
+                          <p class="text-xs text-amber-700 mt-1">{{ inviteEmailError() }}</p>
+                        }
+                        <p class="text-xs text-amber-700 mt-1">Compartilhe o código ou link abaixo manualmente.</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-lg text-center">
+                    <p class="text-xs text-slate-500 mb-1">Código de convite</p>
+                    <p class="text-2xl font-bold tracking-widest text-slate-800">{{ inviteCodeResult() }}</p>
+                  </div>
+                }
+                <p class="text-sm bg-slate-100 p-3 rounded-lg break-all text-slate-600 mb-4">{{ inviteLink() }}</p>
                 <button
                   (click)="closeInviteModal()"
-                  class="mt-4 px-4 py-2 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-700 transition-colors"
+                  class="w-full px-4 py-2 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-700 transition-colors"
                 >
                   Fechar
                 </button>
@@ -440,6 +463,9 @@ export class UsersComponent implements OnInit {
   inviteSuccess = signal(false);
   inviteLink = signal('');
   inviteError = signal('');
+  inviteEmailSent = signal(true);
+  inviteEmailError = signal('');
+  inviteCodeResult = signal('');
 
   editingUser = signal<User | null>(null);
 
@@ -513,13 +539,14 @@ export class UsersComponent implements OnInit {
     this.isLoading.set(true);
     this.inviteError.set('');
 
-    this.http.post<{ user: User; inviteLink: string }>(`${this.apiUrl}/users/invite`, this.inviteData).subscribe({
+    this.http.post<{ user: User; inviteLink: string; inviteCode: string; emailSent: boolean; emailError?: string }>(`${this.apiUrl}/users/invite`, this.inviteData).subscribe({
       next: (response) => {
         this.inviteLink.set(response.inviteLink);
+        this.inviteEmailSent.set(response.emailSent !== false);
+        this.inviteEmailError.set(response.emailError || '');
+        this.inviteCodeResult.set(response.inviteCode || '');
         this.inviteSuccess.set(true);
         this.isLoading.set(false);
-
-        // Copiar para clipboard
         navigator.clipboard.writeText(response.inviteLink);
       },
       error: (err) => {
