@@ -37,6 +37,7 @@ import { environment } from '../../../environments/environment';
 
           <!-- Card de Login -->
           <div class="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-8">
+            @if (!showRegister()) {
             @if (errorMessage()) {
               <div class="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
                 {{ errorMessage() }}
@@ -138,6 +139,13 @@ import { environment } from '../../../environments/environment';
                 </svg>
                 Tenho um código de convite
               </a>
+              <button
+                type="button"
+                (click)="showRegister.set(true)"
+                class="text-slate-300 hover:text-white text-sm font-medium transition-colors"
+              >
+                Ainda não tem conta? Cadastre-se
+              </button>
               <button 
                 type="button"
                 (click)="checkAndGoToSetup()"
@@ -146,6 +154,92 @@ import { environment } from '../../../environments/environment';
                 Primeira vez aqui? Configure o sistema
               </button>
             </div>
+            } @else {
+              @if (registerSuccess()) {
+                <div class="text-center py-6">
+                  <div class="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                  </div>
+                  <h3 class="text-white font-semibold text-lg mb-2">Cadastro realizado!</h3>
+                  <p class="text-slate-300 text-sm mb-4">Aguarde a aprovação do administrador para acessar o sistema.</p>
+                  <button
+                    type="button"
+                    (click)="showRegister.set(false); registerSuccess.set(false)"
+                    class="text-slate-300 hover:text-white text-sm transition-colors"
+                  >
+                    Voltar ao login
+                  </button>
+                </div>
+              } @else {
+                @if (registerError()) {
+                  <div class="mb-5 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
+                    {{ registerError() }}
+                  </div>
+                }
+                <form (ngSubmit)="onRegisterSubmit()" class="space-y-5">
+                  <div>
+                    <label class="block text-slate-300 text-sm font-medium mb-2">Nome completo</label>
+                    <input
+                      type="text"
+                      [(ngModel)]="registerName"
+                      name="registerName"
+                      required
+                      class="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
+                      placeholder="Seu nome completo"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-slate-300 text-sm font-medium mb-2">Email</label>
+                    <input
+                      type="email"
+                      [(ngModel)]="registerEmail"
+                      name="registerEmail"
+                      required
+                      class="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
+                      placeholder="seu@email.com"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-slate-300 text-sm font-medium mb-2">Senha</label>
+                    <input
+                      type="password"
+                      [(ngModel)]="registerPassword"
+                      name="registerPassword"
+                      required
+                      minlength="6"
+                      class="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
+                      placeholder="Mínimo 6 caracteres"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    [disabled]="isRegisterLoading()"
+                    class="w-full py-3 px-4 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    @if (isRegisterLoading()) {
+                      <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Cadastrando...
+                    } @else {
+                      Criar Conta
+                    }
+                  </button>
+                </form>
+                <div class="mt-6 text-center">
+                  <button
+                    type="button"
+                    (click)="showRegister.set(false)"
+                    class="text-slate-400 hover:text-white text-sm transition-colors"
+                  >
+                    Já tenho uma conta. Voltar ao login
+                  </button>
+                </div>
+              }
+            }
           </div>
 
           <p class="text-center text-white/40 text-sm mt-8">
@@ -164,6 +258,14 @@ export class LoginComponent implements OnInit {
   isCheckingMaster = signal(false);
   errorMessage = signal('');
   infoMessage = signal('');
+
+  showRegister = signal(false);
+  registerSuccess = signal(false);
+  registerError = signal('');
+  isRegisterLoading = signal(false);
+  registerName = '';
+  registerEmail = '';
+  registerPassword = '';
 
   private apiUrl = environment.apiUrl;
 
@@ -215,6 +317,35 @@ export class LoginComponent implements OnInit {
       error: (error) => {
         this.isLoading.set(false);
         this.errorMessage.set(error.error?.message || 'Credenciais inválidas');
+      }
+    });
+  }
+
+  onRegisterSubmit() {
+    if (!this.registerName || !this.registerEmail || !this.registerPassword) {
+      this.registerError.set('Por favor, preencha todos os campos');
+      return;
+    }
+    if (this.registerPassword.length < 6) {
+      this.registerError.set('A senha deve ter pelo menos 6 caracteres');
+      return;
+    }
+
+    this.isRegisterLoading.set(true);
+    this.registerError.set('');
+
+    this.http.post<{ message: string }>(`${this.apiUrl}/auth/self-register`, {
+      name: this.registerName,
+      email: this.registerEmail,
+      password: this.registerPassword,
+    }).subscribe({
+      next: () => {
+        this.isRegisterLoading.set(false);
+        this.registerSuccess.set(true);
+      },
+      error: (error) => {
+        this.isRegisterLoading.set(false);
+        this.registerError.set(error.error?.message || 'Erro ao criar conta. Tente novamente.');
       }
     });
   }

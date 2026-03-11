@@ -65,6 +65,16 @@ interface Invite {
             >
               Convites Pendentes ({{ pendingInvites().length }})
             </button>
+            <button
+              (click)="activeTab.set('registrations')"
+              class="px-4 py-2 font-medium text-sm border-b-2 transition-colors"
+              [class.border-slate-700]="activeTab() === 'registrations'"
+              [class.text-slate-800]="activeTab() === 'registrations'"
+              [class.border-transparent]="activeTab() !== 'registrations'"
+              [class.text-slate-500]="activeTab() !== 'registrations'"
+            >
+              Aprovações ({{ pendingRegistrations().length }})
+            </button>
           }
         </nav>
       </div>
@@ -251,6 +261,67 @@ interface Invite {
                   <tr>
                     <td colspan="6" class="px-6 py-12 text-center text-slate-500">
                       Nenhum convite pendente
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+
+      <!-- Registrations Tab -->
+      @if (activeTab() === 'registrations' && canManageUsers()) {
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Nome</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Email</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Data</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Função</th>
+                  <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Ações</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200">
+                @for (reg of pendingRegistrations(); track reg.id) {
+                  <tr class="hover:bg-slate-50">
+                    <td class="px-6 py-4 whitespace-nowrap font-medium text-slate-800">{{ reg.name || '—' }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-slate-600">{{ reg.email }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-slate-500 text-sm">{{ formatDate(reg.createdAt) }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <select
+                        [(ngModel)]="approvalRoles[reg.id]"
+                        [name]="'role_' + reg.id"
+                        class="px-2 py-1 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      >
+                        <option value="user">Usuário</option>
+                        <option value="manager">Gerente</option>
+                        <option value="admin">Administrador</option>
+                      </select>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right">
+                      <div class="flex items-center justify-end gap-2">
+                        <button
+                          (click)="approveRegistration(reg)"
+                          class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                        >
+                          Aprovar
+                        </button>
+                        <button
+                          (click)="rejectRegistration(reg)"
+                          class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-medium rounded-lg border border-red-200 transition-colors"
+                        >
+                          Rejeitar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="5" class="px-6 py-12 text-center text-slate-500">
+                      Nenhum cadastro pendente de aprovação
                     </td>
                   </tr>
                 }
@@ -455,7 +526,9 @@ interface Invite {
 export class UsersComponent implements OnInit {
   users = signal<User[]>([]);
   pendingInvites = signal<Invite[]>([]);
-  activeTab = signal<'users' | 'invites'>('users');
+  pendingRegistrations = signal<User[]>([]);
+  approvalRoles: Record<string, string> = {};
+  activeTab = signal<'users' | 'invites' | 'registrations'>('users');
 
   showInviteModal = signal(false);
   showEditModal = signal(false);
@@ -493,6 +566,7 @@ export class UsersComponent implements OnInit {
     this.loadUsers();
     if (this.canManageUsers()) {
       this.loadPendingInvites();
+      this.loadPendingRegistrations();
     }
   }
 
@@ -513,6 +587,52 @@ export class UsersComponent implements OnInit {
       next: (invites) => this.pendingInvites.set(invites),
       error: (err) => console.error('Erro ao carregar convites:', err)
     });
+  }
+
+  loadPendingRegistrations() {
+    this.http.get<User[]>(`${this.apiUrl}/users/registrations/pending`).subscribe({
+      next: (users) => {
+        this.pendingRegistrations.set(users);
+        users.forEach(u => {
+          if (!this.approvalRoles[u.id]) this.approvalRoles[u.id] = 'user';
+        });
+      },
+      error: (err) => console.error('Erro ao carregar cadastros pendentes:', err)
+    });
+  }
+
+  approveRegistration(user: User) {
+    const role = (this.approvalRoles[user.id] || 'user') as UserRole;
+    this.http.post(`${this.apiUrl}/users/registrations/${user.id}/approve`, { role }).subscribe({
+      next: () => {
+        this.loadPendingRegistrations();
+        this.loadUsers();
+        this.modalService.success(`Usuário "${user.name}" aprovado com sucesso!`);
+      },
+      error: (err) => {
+        this.modalService.error(err.error?.message || 'Erro ao aprovar usuário');
+      }
+    });
+  }
+
+  async rejectRegistration(user: User) {
+    const confirmed = await this.modalService.confirm(
+      'Rejeitar Cadastro',
+      `Deseja rejeitar o cadastro de "${user.name || user.email}"?`,
+      'Sim, rejeitar',
+      'Cancelar'
+    );
+    if (confirmed) {
+      this.http.delete(`${this.apiUrl}/users/registrations/${user.id}`).subscribe({
+        next: () => {
+          this.loadPendingRegistrations();
+          this.modalService.success('Cadastro rejeitado.');
+        },
+        error: (err) => {
+          this.modalService.error(err.error?.message || 'Erro ao rejeitar cadastro');
+        }
+      });
+    }
   }
 
   openInviteModal() {

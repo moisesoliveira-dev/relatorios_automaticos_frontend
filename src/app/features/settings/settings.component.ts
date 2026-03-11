@@ -190,7 +190,8 @@ interface EnvironmentSetting {
             } @else {
               <!-- Configurações de Email -->
               <div class="mb-8">
-                <h3 class="text-sm font-semibold text-slate-700 mb-4">Configurações de Email (SMTP)</h3>
+                <h3 class="text-sm font-semibold text-slate-700 mb-4">Configurações de Email</h3>
+                <p class="text-xs text-slate-500 mb-4">Use <strong>smtp</strong> para envio local ou <strong>resend</strong> para plataformas cloud (Railway, Render, etc.).</p>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   @for (setting of getSettingsByCategory('email'); track setting.key) {
                     <div>
