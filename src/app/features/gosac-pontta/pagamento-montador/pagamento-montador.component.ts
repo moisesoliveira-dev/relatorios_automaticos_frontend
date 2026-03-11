@@ -4,19 +4,19 @@ import { FormsModule } from '@angular/forms';
 import { GosacService, PonttaProposal } from '../../../services/gosac.service';
 
 interface EnvironmentItem {
-    id: string;
-    name: string;
-    value: number;
-    discount: number;
-    selected: boolean;
-    [key: string]: any;
+  id: string;
+  name: string;
+  value: number;
+  discount: number;
+  selected: boolean;
+  [key: string]: any;
 }
 
 @Component({
-    selector: 'app-pagamento-montador',
-    standalone: true,
-    imports: [CommonModule, FormsModule],
-    template: `
+  selector: 'app-pagamento-montador',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
+  template: `
     <div class="space-y-6">
 
       <!-- Search -->
@@ -344,239 +344,260 @@ interface EnvironmentItem {
   `,
 })
 export class PagamentoMontadorComponent implements OnInit {
-    searchQuery = '';
-    loading = signal(false);
-    error = signal<string>('');
-    proposals = signal<PonttaProposal[]>([]);
-    isSearchMode = signal(false);
-    activeSearchTerm = signal('');
+  searchQuery = '';
+  loading = signal(false);
+  error = signal<string>('');
+  proposals = signal<PonttaProposal[]>([]);
+  isSearchMode = signal(false);
+  activeSearchTerm = signal('');
 
-    // Modal state
-    modalOpen = signal(false);
-    selectedProposal = signal<PonttaProposal | null>(null);
-    loadingItems = signal(false);
-    itemsError = signal('');
-    environments = signal<EnvironmentItem[]>([]);
-    generatingPdf = signal(false);
+  // Modal state
+  modalOpen = signal(false);
+  selectedProposal = signal<PonttaProposal | null>(null);
+  loadingItems = signal(false);
+  itemsError = signal('');
+  environments = signal<EnvironmentItem[]>([]);
+  generatingPdf = signal(false);
 
-    // Form fields
-    deliveryDate = '';
-    assemblyStartDate = '';
-    assemblyEndDate = '';
-    sendToDrive = true;
+  // Form fields
+  deliveryDate = '';
+  assemblyStartDate = '';
+  assemblyEndDate = '';
+  sendToDrive = true;
 
-    constructor(private gosacService: GosacService) { }
+  constructor(private gosacService: GosacService) { }
 
-    ngOnInit(): void {
-        this.loadProposals();
+  ngOnInit(): void {
+    this.loadProposals();
+  }
+
+  // --- Proposals ---
+
+  loadProposals(): void {
+    this.loading.set(true);
+    this.error.set('');
+    const query = this.isSearchMode() ? this.activeSearchTerm() : undefined;
+    this.gosacService.getProposals(query || undefined).subscribe({
+      next: (proposals) => {
+        this.proposals.set(proposals);
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.error.set(err?.error?.message || 'Erro ao carregar orçamentos');
+        this.loading.set(false);
+      },
+    });
+  }
+
+  searchProposals(): void {
+    const q = this.searchQuery.trim();
+    if (!q) { this.clearSearch(); return; }
+    this.isSearchMode.set(true);
+    this.activeSearchTerm.set(q);
+    this.loadProposals();
+  }
+
+  clearSearch(): void {
+    this.searchQuery = '';
+    this.isSearchMode.set(false);
+    this.activeSearchTerm.set('');
+    this.loadProposals();
+  }
+
+  onSearchInput(value: string): void {
+    if (value.trim().length === 0 && this.isSearchMode()) {
+      this.clearSearch();
     }
+  }
 
-    // --- Proposals ---
+  // --- Modal ---
 
-    loadProposals(): void {
-        this.loading.set(true);
-        this.error.set('');
-        const query = this.isSearchMode() ? this.activeSearchTerm() : undefined;
-        this.gosacService.getProposals(query || undefined).subscribe({
-            next: (proposals) => {
-                this.proposals.set(proposals);
-                this.loading.set(false);
-            },
-            error: (err) => {
-                this.error.set(err?.error?.message || 'Erro ao carregar orçamentos');
-                this.loading.set(false);
-            },
-        });
-    }
+  openModal(proposal: PonttaProposal): void {
+    this.selectedProposal.set(proposal);
+    this.environments.set([]);
+    this.itemsError.set('');
+    this.deliveryDate = '';
+    this.assemblyStartDate = '';
+    this.assemblyEndDate = '';
+    this.modalOpen.set(true);
+    this.loadItems();
+  }
 
-    searchProposals(): void {
-        const q = this.searchQuery.trim();
-        if (!q) { this.clearSearch(); return; }
-        this.isSearchMode.set(true);
-        this.activeSearchTerm.set(q);
-        this.loadProposals();
-    }
+  closeModal(): void {
+    this.modalOpen.set(false);
+    this.selectedProposal.set(null);
+  }
 
-    clearSearch(): void {
-        this.searchQuery = '';
-        this.isSearchMode.set(false);
-        this.activeSearchTerm.set('');
-        this.loadProposals();
-    }
+  loadItems(): void {
+    const proposal = this.selectedProposal();
+    if (!proposal) return;
 
-    onSearchInput(value: string): void {
-        if (value.trim().length === 0 && this.isSearchMode()) {
-            this.clearSearch();
+    this.loadingItems.set(true);
+    this.itemsError.set('');
+
+    this.gosacService.getProposalItems(proposal.id).subscribe({
+      next: (items: any[]) => {
+        if (items.length > 0) {
+          console.log('[PonttaItems] raw keys:', Object.keys(items[0]));
+          console.log('[PonttaItems] raw item[0]:', JSON.stringify(items[0]));
         }
-    }
-
-    // --- Modal ---
-
-    openModal(proposal: PonttaProposal): void {
-        this.selectedProposal.set(proposal);
-        this.environments.set([]);
-        this.itemsError.set('');
-        this.deliveryDate = '';
-        this.assemblyStartDate = '';
-        this.assemblyEndDate = '';
-        this.modalOpen.set(true);
-        this.loadItems();
-    }
-
-    closeModal(): void {
-        this.modalOpen.set(false);
-        this.selectedProposal.set(null);
-    }
-
-    loadItems(): void {
-        const proposal = this.selectedProposal();
-        if (!proposal) return;
-
-        this.loadingItems.set(true);
-        this.itemsError.set('');
-
-        this.gosacService.getProposalItems(proposal.id).subscribe({
-            next: (items: any[]) => {
-                const envs: EnvironmentItem[] = items.map((item: any) => ({
-                    id: item.id || item.itemId || crypto.randomUUID(),
-                    name: item.name || item.description || 'Sem nome',
-                    value: item.value || item.totalValue || 0,
-                    discount: item.discount || 0,
-                    selected: false,
-                    ...item,
-                }));
-                this.environments.set(envs);
-                this.loadingItems.set(false);
-            },
-            error: (err) => {
-                this.itemsError.set(err?.error?.message || 'Erro ao carregar ambientes');
-                this.loadingItems.set(false);
-            },
+        const envs: EnvironmentItem[] = items.map((item: any) => {
+          const value =
+            item.pvValue ??
+            item.totalValue ??
+            item.saleValue ??
+            item.salePrice ??
+            item.total ??
+            item.price ??
+            item.value ??
+            0;
+          const discount =
+            item.discountPercentage ??
+            item.discountPercent ??
+            item.pvDiscount ??
+            item.discount ??
+            0;
+          return {
+            ...item,
+            id: item.id || item.itemId || crypto.randomUUID(),
+            name: item.name || item.description || item.title || 'Sem nome',
+            value,
+            discount,
+            selected: false,
+          };
         });
-    }
-
-    // --- Environment Selection ---
-
-    toggleEnv(index: number): void {
-        const envs = [...this.environments()];
-        envs[index] = { ...envs[index], selected: !envs[index].selected };
         this.environments.set(envs);
+        this.loadingItems.set(false);
+      },
+      error: (err) => {
+        this.itemsError.set(err?.error?.message || 'Erro ao carregar ambientes');
+        this.loadingItems.set(false);
+      },
+    });
+  }
+
+  // --- Environment Selection ---
+
+  toggleEnv(index: number): void {
+    const envs = [...this.environments()];
+    envs[index] = { ...envs[index], selected: !envs[index].selected };
+    this.environments.set(envs);
+  }
+
+  toggleAll(): void {
+    const allSel = this.allSelected();
+    this.environments.set(this.environments().map(e => ({ ...e, selected: !allSel })));
+  }
+
+  allSelected(): boolean {
+    const envs = this.environments();
+    return envs.length > 0 && envs.every(e => e.selected);
+  }
+
+  selectedCount(): number {
+    return this.environments().filter(e => e.selected).length;
+  }
+
+  // --- Calculations ---
+
+  getDiscountedValue(env: EnvironmentItem): number {
+    return env.value * (1 - (env.discount || 0) / 100);
+  }
+
+  getMontadorValue(env: EnvironmentItem): number {
+    return this.getDiscountedValue(env) * 0.07;
+  }
+
+  totalMontador(): number {
+    return this.environments()
+      .filter(e => e.selected)
+      .reduce((sum, e) => sum + this.getMontadorValue(e), 0);
+  }
+
+  // --- PDF Generation ---
+
+  async generatePdfs(): Promise<void> {
+    const selected = this.environments().filter(e => e.selected);
+    if (selected.length === 0) return;
+
+    const proposal = this.selectedProposal()!;
+    this.generatingPdf.set(true);
+
+    const formatDateBR = (d: string) => {
+      if (!d) return '';
+      const [y, m, day] = d.split('-');
+      return `${day}/${m}/${y}`;
+    };
+
+    try {
+      for (const env of selected) {
+        const blob = await new Promise<Blob>((resolve, reject) => {
+          this.gosacService.generateMontadorPdf({
+            proposalCode: proposal.code,
+            customerName: proposal.customerName || proposal.name,
+            environmentName: env.name,
+            environmentValue: env.value,
+            discount: env.discount,
+            deliveryDate: formatDateBR(this.deliveryDate),
+            assemblyStartDate: formatDateBR(this.assemblyStartDate),
+            assemblyEndDate: formatDateBR(this.assemblyEndDate),
+          }).subscribe({ next: resolve, error: reject });
+        });
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Pagamento_Montador_${proposal.code}_${env.name}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err: any) {
+      this.itemsError.set(err?.error?.message || 'Erro ao gerar PDF');
+    } finally {
+      this.generatingPdf.set(false);
     }
+  }
 
-    toggleAll(): void {
-        const allSel = this.allSelected();
-        this.environments.set(this.environments().map(e => ({ ...e, selected: !allSel })));
+  // --- Formatters ---
+
+  formatCurrency(value: number): string {
+    if (value == null) return '—';
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  }
+
+  formatDate(dateStr: string): string {
+    if (!dateStr) return '—';
+    try {
+      return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(dateStr));
+    } catch {
+      return dateStr;
     }
+  }
 
-    allSelected(): boolean {
-        const envs = this.environments();
-        return envs.length > 0 && envs.every(e => e.selected);
-    }
+  formatNegotiationStatus(status: string): string {
+    const map: Record<string, string> = {
+      'APPROVED': 'Aprovado',
+      'IN_NEGOTIATION': 'Em negociação',
+      'WAITING': 'Aguardando',
+      'REJECTED': 'Rejeitado',
+      'CANCELED': 'Cancelado',
+    };
+    return map[status] || status;
+  }
 
-    selectedCount(): number {
-        return this.environments().filter(e => e.selected).length;
-    }
+  getNegotiationClasses(status: string): Record<string, boolean> {
+    const approved = status === 'APPROVED';
+    const pending = status === 'IN_NEGOTIATION' || status === 'WAITING';
+    return {
+      'bg-emerald-50 text-emerald-700 border-emerald-200': approved,
+      'bg-amber-50 text-amber-700 border-amber-200': pending,
+      'bg-slate-50 text-slate-600 border-slate-200': !approved && !pending,
+    };
+  }
 
-    // --- Calculations ---
-
-    getDiscountedValue(env: EnvironmentItem): number {
-        return env.value * (1 - (env.discount || 0) / 100);
-    }
-
-    getMontadorValue(env: EnvironmentItem): number {
-        return this.getDiscountedValue(env) * 0.07;
-    }
-
-    totalMontador(): number {
-        return this.environments()
-            .filter(e => e.selected)
-            .reduce((sum, e) => sum + this.getMontadorValue(e), 0);
-    }
-
-    // --- PDF Generation ---
-
-    async generatePdfs(): Promise<void> {
-        const selected = this.environments().filter(e => e.selected);
-        if (selected.length === 0) return;
-
-        const proposal = this.selectedProposal()!;
-        this.generatingPdf.set(true);
-
-        const formatDateBR = (d: string) => {
-            if (!d) return '';
-            const [y, m, day] = d.split('-');
-            return `${day}/${m}/${y}`;
-        };
-
-        try {
-            for (const env of selected) {
-                const blob = await new Promise<Blob>((resolve, reject) => {
-                    this.gosacService.generateMontadorPdf({
-                        proposalCode: proposal.code,
-                        customerName: proposal.customerName || proposal.name,
-                        environmentName: env.name,
-                        environmentValue: env.value,
-                        discount: env.discount,
-                        deliveryDate: formatDateBR(this.deliveryDate),
-                        assemblyStartDate: formatDateBR(this.assemblyStartDate),
-                        assemblyEndDate: formatDateBR(this.assemblyEndDate),
-                    }).subscribe({ next: resolve, error: reject });
-                });
-
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `Pagamento_Montador_${proposal.code}_${env.name}.pdf`;
-                a.click();
-                URL.revokeObjectURL(url);
-            }
-        } catch (err: any) {
-            this.itemsError.set(err?.error?.message || 'Erro ao gerar PDF');
-        } finally {
-            this.generatingPdf.set(false);
-        }
-    }
-
-    // --- Formatters ---
-
-    formatCurrency(value: number): string {
-        if (value == null) return '—';
-        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-    }
-
-    formatDate(dateStr: string): string {
-        if (!dateStr) return '—';
-        try {
-            return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(dateStr));
-        } catch {
-            return dateStr;
-        }
-    }
-
-    formatNegotiationStatus(status: string): string {
-        const map: Record<string, string> = {
-            'APPROVED': 'Aprovado',
-            'IN_NEGOTIATION': 'Em negociação',
-            'WAITING': 'Aguardando',
-            'REJECTED': 'Rejeitado',
-            'CANCELED': 'Cancelado',
-        };
-        return map[status] || status;
-    }
-
-    getNegotiationClasses(status: string): Record<string, boolean> {
-        const approved = status === 'APPROVED';
-        const pending = status === 'IN_NEGOTIATION' || status === 'WAITING';
-        return {
-            'bg-emerald-50 text-emerald-700 border-emerald-200': approved,
-            'bg-amber-50 text-amber-700 border-amber-200': pending,
-            'bg-slate-50 text-slate-600 border-slate-200': !approved && !pending,
-        };
-    }
-
-    getNegotiationDotClass(status: string): string {
-        if (status === 'APPROVED') return 'bg-emerald-500';
-        if (status === 'IN_NEGOTIATION' || status === 'WAITING') return 'bg-amber-500';
-        return 'bg-slate-400';
-    }
+  getNegotiationDotClass(status: string): string {
+    if (status === 'APPROVED') return 'bg-emerald-500';
+    if (status === 'IN_NEGOTIATION' || status === 'WAITING') return 'bg-amber-500';
+    return 'bg-slate-400';
+  }
 }
