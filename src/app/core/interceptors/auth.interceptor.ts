@@ -20,12 +20,12 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
     return next(req).pipe(
         catchError((error: HttpErrorResponse) => {
-            if (error.status === 401) {
-                // Limpa estado sem navegar, depois navega uma única vez com ?expired=1
+            if (error.status === 401 && token) {
+                // Só trata como sessão expirada se havia um token ativo.
+                // 401 sem token = credenciais erradas no login → propaga normalmente
+                // para que o componente de login exiba a mensagem de erro.
                 authService.clearAuthState();
                 router.navigate(['/login'], { queryParams: { expired: '1' } });
-                // Retorna EMPTY para não propagar o erro 401 aos componentes
-                // (evita que qualquer handler local mostre a mensagem bruta do servidor)
                 return EMPTY;
             }
             return throwError(() => error);
