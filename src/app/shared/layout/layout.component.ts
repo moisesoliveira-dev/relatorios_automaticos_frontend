@@ -1,13 +1,14 @@
 import { Component, signal, computed } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { ModalComponent } from '../components/modal.component';
+import { filter } from 'rxjs/operators';
 
 interface MenuItem {
   label: string;
   icon: string;
   route: string;
-  children?: MenuItem[];
+  children?: { label: string; route: string }[];
 }
 
 @Component({
@@ -37,21 +38,68 @@ interface MenuItem {
           <ul class="space-y-0.5 px-2">
             @for (item of menuItems; track item.route) {
               <li>
-                <a
-                  [routerLink]="item.route"
-                  routerLinkActive="bg-slate-700 text-white"
-                  [routerLinkActiveOptions]="{ exact: item.route === '/dashboard' }"
-                  class="flex items-center gap-3 px-3 py-2.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors text-sm"
-                  [class.justify-center]="sidebarCollapsed()"
-                  [title]="sidebarCollapsed() ? item.label : ''"
-                >
-                  <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" [attr.d]="item.icon"/>
-                  </svg>
-                  @if (!sidebarCollapsed()) {
-                    <span>{{ item.label }}</span>
+                @if (item.children && item.children.length > 0) {
+                  <!-- Expandable group -->
+                  <button
+                    (click)="toggleGroup(item.route)"
+                    class="w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors text-sm"
+                    [class.justify-center]="sidebarCollapsed()"
+                    [class.bg-slate-800]="isGroupActive(item)"
+                    [class.text-white]="isGroupActive(item)"
+                    [class.text-slate-400]="!isGroupActive(item)"
+                    [class.hover:bg-slate-800]="true"
+                    [class.hover:text-slate-100]="true"
+                    [title]="sidebarCollapsed() ? item.label : ''"
+                  >
+                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" [attr.d]="item.icon"/>
+                    </svg>
+                    @if (!sidebarCollapsed()) {
+                      <span class="flex-1 text-left">{{ item.label }}</span>
+                      <svg
+                        class="w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200"
+                        [class.rotate-180]="expandedGroups().has(item.route)"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                      >
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                      </svg>
+                    }
+                  </button>
+                  @if (expandedGroups().has(item.route) && !sidebarCollapsed()) {
+                    <ul class="mt-0.5 space-y-0.5 pl-3">
+                      @for (child of item.children; track child.route) {
+                        <li>
+                          <a
+                            [routerLink]="child.route"
+                            routerLinkActive="bg-slate-700 text-white"
+                            [routerLinkActiveOptions]="{ exact: true }"
+                            class="flex items-center gap-2.5 pl-3 pr-3 py-2 rounded-md text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors text-sm"
+                          >
+                            <span class="w-1 h-1 rounded-full bg-current flex-shrink-0"></span>
+                            {{ child.label }}
+                          </a>
+                        </li>
+                      }
+                    </ul>
                   }
-                </a>
+                } @else {
+                  <!-- Regular link -->
+                  <a
+                    [routerLink]="item.route"
+                    routerLinkActive="bg-slate-700 text-white"
+                    [routerLinkActiveOptions]="{ exact: item.route === '/dashboard' }"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors text-sm"
+                    [class.justify-center]="sidebarCollapsed()"
+                    [title]="sidebarCollapsed() ? item.label : ''"
+                  >
+                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" [attr.d]="item.icon"/>
+                    </svg>
+                    @if (!sidebarCollapsed()) {
+                      <span>{{ item.label }}</span>
+                    }
+                  </a>
+                }
               </li>
             }
           </ul>
@@ -161,6 +209,10 @@ export class LayoutComponent {
       label: 'Gosac / Pontta',
       icon: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1',
       route: '/gosac-pontta',
+      children: [
+        { label: 'Grupos', route: '/gosac-pontta/grupos' },
+        { label: 'Pagamento Montador', route: '/gosac-pontta/pagamento-montador' },
+      ],
     },
     {
       label: 'Usuários',
@@ -174,7 +226,39 @@ export class LayoutComponent {
     },
   ];
 
-  constructor(public authService: AuthService) { }
+  expandedGroups = signal<Set<string>>(new Set());
+
+  constructor(public authService: AuthService, private router: Router) {
+    // Auto-expand group when a child route is active
+    this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(() => {
+      const url = this.router.url;
+      for (const item of this.menuItems) {
+        if (item.children?.some(c => url.startsWith(c.route))) {
+          this.expandedGroups.update(s => { const n = new Set(s); n.add(item.route); return n; });
+        }
+      }
+    });
+    // Initial check
+    const url = this.router.url;
+    for (const item of this.menuItems) {
+      if (item.children?.some(c => url.startsWith(c.route))) {
+        this.expandedGroups.update(s => { const n = new Set(s); n.add(item.route); return n; });
+      }
+    }
+  }
+
+  toggleGroup(route: string): void {
+    this.expandedGroups.update(s => {
+      const n = new Set(s);
+      n.has(route) ? n.delete(route) : n.add(route);
+      return n;
+    });
+  }
+
+  isGroupActive(item: MenuItem): boolean {
+    const url = this.router.url;
+    return !!item.children?.some(c => url.startsWith(c.route));
+  }
 
   logout() {
     this.authService.logout();

@@ -19,6 +19,12 @@ interface EnvironmentItem {
   template: `
     <div class="space-y-6">
 
+      <!-- Page header -->
+      <div>
+        <h1 class="text-xl font-semibold text-slate-800">Pagamento de Montador</h1>
+        <p class="text-sm text-slate-500 mt-1">Gere PDFs de pagamento por ambiente a partir dos orçamentos do Pontta.</p>
+      </div>
+
       <!-- Logo upload -->
       <div class="flex items-center justify-between border border-slate-200 rounded-lg px-4 py-3 bg-slate-50">
         <div class="flex items-center gap-3">

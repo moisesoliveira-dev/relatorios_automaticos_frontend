@@ -34,6 +34,12 @@ interface ToastState {
   template: `
     <div class="space-y-6">
 
+      <!-- Page header -->
+      <div>
+        <h1 class="text-xl font-semibold text-slate-800">Grupos</h1>
+        <p class="text-sm text-slate-500 mt-1">Vincule grupos e orçamentos entre GOSAC e Pontta.</p>
+      </div>
+
       <!-- Pesquisa de Tickets -->
       <div>
         <p class="text-sm font-medium text-slate-700 mb-2">Pesquisar ticket no GOSAC</p>
