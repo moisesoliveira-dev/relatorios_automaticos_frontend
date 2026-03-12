@@ -4,34 +4,34 @@ import { FormsModule } from '@angular/forms';
 import { GosacService, GosacTicket, GosacGroup, SalesOrderSearchResult } from '../../../services/gosac.service';
 
 interface LinkModalState {
-    open: boolean;
-    group: GosacGroup | null;
-    step: 'search' | 'confirm';
-    selectedSo: SalesOrderSearchResult | null;
-    occurrenceTitle: string;
-    linking: boolean;
+  open: boolean;
+  group: GosacGroup | null;
+  step: 'search' | 'confirm';
+  selectedSo: SalesOrderSearchResult | null;
+  occurrenceTitle: string;
+  linking: boolean;
 }
 
 interface ConfirmDialogState {
-    open: boolean;
-    title: string;
-    message: string;
-    confirmLabel: string;
-    danger: boolean;
-    onConfirm: () => void;
+  open: boolean;
+  title: string;
+  message: string;
+  confirmLabel: string;
+  danger: boolean;
+  onConfirm: () => void;
 }
 
 interface ToastState {
-    open: boolean;
-    message: string;
-    type: 'error' | 'success';
+  open: boolean;
+  message: string;
+  type: 'error' | 'success';
 }
 
 @Component({
-    selector: 'app-grupos',
-    standalone: true,
-    imports: [CommonModule, FormsModule],
-    template: `
+  selector: 'app-grupos',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
+  template: `
     <div class="space-y-6">
 
       <!-- Pesquisa de Tickets -->
@@ -41,7 +41,7 @@ interface ToastState {
           <input
             type="text"
             [(ngModel)]="searchQuery"
-            placeholder="Nome do contato ou número do ticket"
+            placeholder="Nome do contato ou grupo (prefixo MONT. aplicado automaticamente)"
             class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none"
             (keyup.enter)="searchTickets()"
           />
@@ -389,266 +389,269 @@ interface ToastState {
   `,
 })
 export class GruposComponent implements OnInit {
-    // Ticket search state
-    searchQuery = '';
-    searching = signal(false);
-    searchError = signal<string>('');
-    searchResults = signal<GosacTicket[]>([]);
+  // Ticket search state
+  searchQuery = '';
+  searching = signal(false);
+  searchError = signal<string>('');
+  searchResults = signal<GosacTicket[]>([]);
 
-    // Groups state
-    groups = signal<GosacGroup[]>([]);
-    loadingGroups = signal(false);
+  // Groups state
+  groups = signal<GosacGroup[]>([]);
+  loadingGroups = signal(false);
 
-    // Link modal state
-    linkModal = signal<LinkModalState>({ open: false, group: null, step: 'search', selectedSo: null, occurrenceTitle: '', linking: false });
-    occurrenceTitleInput = '';
-    confirmDialog = signal<ConfirmDialogState>({ open: false, title: '', message: '', confirmLabel: 'Confirmar', danger: false, onConfirm: () => { } });
-    toast = signal<ToastState>({ open: false, message: '', type: 'error' });
-    modalSearchQuery = '';
-    modalSearching = signal(false);
-    modalSearchResults = signal<SalesOrderSearchResult[]>([]);
-    modalSearchError = signal<string>('');
-    private modalSearchTimeout: any = null;
+  // Link modal state
+  linkModal = signal<LinkModalState>({ open: false, group: null, step: 'search', selectedSo: null, occurrenceTitle: '', linking: false });
+  occurrenceTitleInput = '';
+  confirmDialog = signal<ConfirmDialogState>({ open: false, title: '', message: '', confirmLabel: 'Confirmar', danger: false, onConfirm: () => { } });
+  toast = signal<ToastState>({ open: false, message: '', type: 'error' });
+  modalSearchQuery = '';
+  modalSearching = signal(false);
+  modalSearchResults = signal<SalesOrderSearchResult[]>([]);
+  modalSearchError = signal<string>('');
+  private modalSearchTimeout: any = null;
 
-    constructor(private gosacService: GosacService) { }
+  constructor(private gosacService: GosacService) { }
 
-    ngOnInit(): void {
-        this.loadGroups();
-    }
+  ngOnInit(): void {
+    this.loadGroups();
+  }
 
-    // ----- Ticket Search -----
+  // ----- Ticket Search -----
 
-    searchTickets(): void {
-        const q = this.searchQuery.trim();
-        if (!q) return;
+  searchTickets(): void {
+    const raw = this.searchQuery.trim();
+    if (!raw) return;
 
-        this.searching.set(true);
-        this.searchError.set('');
-        this.searchResults.set([]);
+    const PREFIX = 'MONT.';
+    const q = raw.toUpperCase().startsWith(PREFIX) ? raw : `${PREFIX} ${raw}`;
 
-        this.gosacService.searchTickets(q).subscribe({
-            next: (res) => {
-                this.searchResults.set(res.tickets || []);
-                this.searching.set(false);
-                if ((res.tickets || []).length === 0) {
-                    this.searchError.set('Nenhum ticket encontrado para essa pesquisa.');
-                }
-            },
-            error: (err) => {
-                this.searchError.set(err.error?.message || 'Erro ao pesquisar tickets no GOSAC');
-                this.searching.set(false);
-            },
-        });
-    }
+    this.searching.set(true);
+    this.searchError.set('');
+    this.searchResults.set([]);
 
-    // ----- Groups -----
-
-    loadGroups(): void {
-        this.loadingGroups.set(true);
-        this.gosacService.findAllGroups().subscribe({
-            next: (groups) => {
-                this.groups.set(groups);
-                this.loadingGroups.set(false);
-            },
-            error: () => {
-                this.loadingGroups.set(false);
-            },
-        });
-    }
-
-    isTicketAlreadyAdded(ticketId: number): boolean {
-        return this.groups().some((g) => g.gosacTicketId === ticketId);
-    }
-
-    addTicketAsGroup(ticket: GosacTicket): void {
-        const name = ticket.contact?.name || `Ticket #${ticket.id}`;
-        const contactId = ticket.contact?.id || ticket['contactId'] || 0;
-        this.gosacService
-            .createGroup({ gosacTicketId: ticket.id, gosacContactId: contactId, gosacTicketName: name })
-            .subscribe({
-                next: (group) => {
-                    if (!group.salesOrders) group.salesOrders = [];
-                    this.groups.set([group, ...this.groups()]);
-                },
-                error: (err) => this.showToast(err.error?.message || 'Erro ao cadastrar grupo', 'error'),
-            });
-    }
-
-    toggleGroup(group: GosacGroup): void {
-        this.gosacService.toggleGroup(group.id).subscribe({
-            next: (updated) => {
-                const currentGroup = this.groups().find(g => g.id === updated.id);
-                if (!updated.salesOrders && currentGroup) updated.salesOrders = currentGroup.salesOrders;
-                this.groups.set(this.groups().map((g) => (g.id === updated.id ? updated : g)));
-            },
-        });
-    }
-
-    deleteGroup(group: GosacGroup): void {
-        this.openConfirmDialog({
-            title: 'Remover grupo',
-            message: `Deseja remover o grupo "${group.gosacTicketName}"? Esta ação não pode ser desfeita.`,
-            confirmLabel: 'Remover',
-            danger: true,
-            onConfirm: () => {
-                this.gosacService.deleteGroup(group.id).subscribe({
-                    next: () => this.groups.set(this.groups().filter((g) => g.id !== group.id)),
-                    error: (err) => this.showToast(err.error?.message || 'Erro ao remover grupo', 'error'),
-                });
-            },
-        });
-    }
-
-    unlinkSalesOrder(group: GosacGroup, salesOrderId: string): void {
-        this.openConfirmDialog({
-            title: 'Desvincular pedido de venda',
-            message: 'Deseja desvincular este pedido de venda do grupo?',
-            confirmLabel: 'Desvincular',
-            danger: true,
-            onConfirm: () => {
-                this.gosacService.unlinkSalesOrder(group.id, salesOrderId).subscribe({
-                    next: () => {
-                        this.groups.update(groups => groups.map((g) => {
-                            if (g.id !== group.id) return g;
-                            return { ...g, salesOrders: (g.salesOrders || []).filter((so) => so.id !== salesOrderId) };
-                        }));
-                    },
-                    error: (err) => this.showToast(err.error?.message || 'Erro ao desvincular pedido de venda', 'error'),
-                });
-            },
-        });
-    }
-
-    // ----- Confirm Dialog -----
-
-    openConfirmDialog(opts: Omit<ConfirmDialogState, 'open'>): void {
-        this.confirmDialog.set({ open: true, ...opts });
-    }
-
-    closeConfirmDialog(): void {
-        this.confirmDialog.update(s => ({ ...s, open: false }));
-    }
-
-    // ----- Toast -----
-
-    private toastTimeout: any = null;
-
-    showToast(message: string, type: 'error' | 'success' = 'error'): void {
-        if (this.toastTimeout) clearTimeout(this.toastTimeout);
-        this.toast.set({ open: true, message, type });
-        this.toastTimeout = setTimeout(() => this.closeToast(), 5000);
-    }
-
-    closeToast(): void {
-        this.toast.update(s => ({ ...s, open: false }));
-    }
-
-    // ----- Link Modal -----
-
-    openLinkModal(group: GosacGroup): void {
-        this.modalSearchQuery = '';
-        this.modalSearchResults.set([]);
-        this.modalSearchError.set('');
-        this.occurrenceTitleInput = '';
-        this.linkModal.set({ open: true, group, step: 'search', selectedSo: null, occurrenceTitle: '', linking: false });
-    }
-
-    closeLinkModal(force = false): void {
-        if (!force && this.linkModal().linking) return;
-        if (this.modalSearchTimeout) clearTimeout(this.modalSearchTimeout);
-        this.linkModal.set({ open: false, group: null, step: 'search', selectedSo: null, occurrenceTitle: '', linking: false });
-        this.modalSearchQuery = '';
-        this.occurrenceTitleInput = '';
-        this.modalSearchResults.set([]);
-        this.modalSearchError.set('');
-    }
-
-    backToSearch(): void {
-        this.linkModal.update(s => ({ ...s, step: 'search', selectedSo: null }));
-    }
-
-    onModalSearchInput(query: string): void {
-        if (this.modalSearchTimeout) clearTimeout(this.modalSearchTimeout);
-        if (query.trim().length < 2) {
-            this.modalSearchResults.set([]);
-            this.modalSearchError.set('');
-            return;
+    this.gosacService.searchTickets(q).subscribe({
+      next: (res) => {
+        this.searchResults.set(res.tickets || []);
+        this.searching.set(false);
+        if ((res.tickets || []).length === 0) {
+          this.searchError.set('Nenhum ticket encontrado para essa pesquisa.');
         }
-        this.modalSearchTimeout = setTimeout(() => {
-            this.modalSearching.set(true);
-            this.modalSearchResults.set([]);
-            this.modalSearchError.set('');
-            this.gosacService.searchSalesOrders(query.trim()).subscribe({
-                next: (results) => {
-                    this.modalSearchResults.set(results);
-                    this.modalSearching.set(false);
-                },
-                error: (err) => {
-                    this.modalSearchError.set(err?.error?.message || 'Erro ao buscar pedidos de venda');
-                    this.modalSearching.set(false);
-                },
-            });
-        }, 400);
-    }
+      },
+      error: (err) => {
+        this.searchError.set(err.error?.message || 'Erro ao pesquisar tickets no GOSAC');
+        this.searching.set(false);
+      },
+    });
+  }
 
-    selectSalesOrder(result: SalesOrderSearchResult): void {
-        const defaultTitle = `Anexos GOSAC - ${this.linkModal().group?.gosacTicketName ?? ''}`;
-        this.occurrenceTitleInput = defaultTitle;
-        this.linkModal.update(s => ({ ...s, step: 'confirm', selectedSo: result, occurrenceTitle: defaultTitle }));
-    }
+  // ----- Groups -----
 
-    confirmLink(): void {
-        const state = this.linkModal();
-        if (!state.group || !state.selectedSo || state.linking) return;
+  loadGroups(): void {
+    this.loadingGroups.set(true);
+    this.gosacService.findAllGroups().subscribe({
+      next: (groups) => {
+        this.groups.set(groups);
+        this.loadingGroups.set(false);
+      },
+      error: () => {
+        this.loadingGroups.set(false);
+      },
+    });
+  }
 
-        const groupId = state.group.id;
-        const selectedSo = state.selectedSo;
+  isTicketAlreadyAdded(ticketId: number): boolean {
+    return this.groups().some((g) => g.gosacTicketId === ticketId);
+  }
 
-        this.linkModal.update(s => ({ ...s, linking: true }));
+  addTicketAsGroup(ticket: GosacTicket): void {
+    const name = ticket.contact?.name || `Ticket #${ticket.id}`;
+    const contactId = ticket.contact?.id || ticket['contactId'] || 0;
+    this.gosacService
+      .createGroup({ gosacTicketId: ticket.id, gosacContactId: contactId, gosacTicketName: name })
+      .subscribe({
+        next: (group) => {
+          if (!group.salesOrders) group.salesOrders = [];
+          this.groups.set([group, ...this.groups()]);
+        },
+        error: (err) => this.showToast(err.error?.message || 'Erro ao cadastrar grupo', 'error'),
+      });
+  }
 
-        this.gosacService.linkSalesOrder(groupId, {
-            ponttaId: selectedSo.ponttaId,
-            code: selectedSo.code,
-            customerName: selectedSo.customerName,
-            occurrenceTitle: this.occurrenceTitleInput.trim() || undefined,
-        }).subscribe({
-            next: (res) => {
-                try {
-                    const so = res?.salesOrder || {};
-                    this.groups.update(groups => groups.map((g) => {
-                        if (g.id !== groupId) return g;
-                        return {
-                            ...g,
-                            salesOrders: [...(g.salesOrders || []), {
-                                id: so.id || '',
-                                ponttaId: selectedSo.ponttaId,
-                                code: selectedSo.code,
-                                customerName: selectedSo.customerName,
-                                ponttaOccurrenceId: so.ponttaOccurrenceId ?? null,
-                                ponttaOccurrenceNumber: so.ponttaOccurrenceNumber ?? null,
-                                ponttaOccurrenceStatus: (so.ponttaOccurrenceStatus ?? 'pending') as 'pending' | 'created' | 'failed',
-                            }],
-                        };
-                    }));
-                } catch (e) {
-                    console.error('Erro ao atualizar lista de grupos:', e);
-                } finally {
-                    this.closeLinkModal(true);
-                    setTimeout(() => this.loadGroups(), 6000);
-                }
-            },
-            error: (err) => {
-                this.linkModal.update(s => ({ ...s, linking: false }));
-                const msg = err?.error?.message || err?.message || 'Erro ao vincular pedido de venda';
-                this.showToast(msg, 'error');
-            },
+  toggleGroup(group: GosacGroup): void {
+    this.gosacService.toggleGroup(group.id).subscribe({
+      next: (updated) => {
+        const currentGroup = this.groups().find(g => g.id === updated.id);
+        if (!updated.salesOrders && currentGroup) updated.salesOrders = currentGroup.salesOrders;
+        this.groups.set(this.groups().map((g) => (g.id === updated.id ? updated : g)));
+      },
+    });
+  }
+
+  deleteGroup(group: GosacGroup): void {
+    this.openConfirmDialog({
+      title: 'Remover grupo',
+      message: `Deseja remover o grupo "${group.gosacTicketName}"? Esta ação não pode ser desfeita.`,
+      confirmLabel: 'Remover',
+      danger: true,
+      onConfirm: () => {
+        this.gosacService.deleteGroup(group.id).subscribe({
+          next: () => this.groups.set(this.groups().filter((g) => g.id !== group.id)),
+          error: (err) => this.showToast(err.error?.message || 'Erro ao remover grupo', 'error'),
         });
-    }
+      },
+    });
+  }
 
-    // ----- Helpers -----
+  unlinkSalesOrder(group: GosacGroup, salesOrderId: string): void {
+    this.openConfirmDialog({
+      title: 'Desvincular pedido de venda',
+      message: 'Deseja desvincular este pedido de venda do grupo?',
+      confirmLabel: 'Desvincular',
+      danger: true,
+      onConfirm: () => {
+        this.gosacService.unlinkSalesOrder(group.id, salesOrderId).subscribe({
+          next: () => {
+            this.groups.update(groups => groups.map((g) => {
+              if (g.id !== group.id) return g;
+              return { ...g, salesOrders: (g.salesOrders || []).filter((so) => so.id !== salesOrderId) };
+            }));
+          },
+          error: (err) => this.showToast(err.error?.message || 'Erro ao desvincular pedido de venda', 'error'),
+        });
+      },
+    });
+  }
 
-    abbreviate(text: string, maxLen: number): string {
-        if (!text) return '';
-        return text.length > maxLen ? text.substring(0, maxLen) + '...' : text;
+  // ----- Confirm Dialog -----
+
+  openConfirmDialog(opts: Omit<ConfirmDialogState, 'open'>): void {
+    this.confirmDialog.set({ open: true, ...opts });
+  }
+
+  closeConfirmDialog(): void {
+    this.confirmDialog.update(s => ({ ...s, open: false }));
+  }
+
+  // ----- Toast -----
+
+  private toastTimeout: any = null;
+
+  showToast(message: string, type: 'error' | 'success' = 'error'): void {
+    if (this.toastTimeout) clearTimeout(this.toastTimeout);
+    this.toast.set({ open: true, message, type });
+    this.toastTimeout = setTimeout(() => this.closeToast(), 5000);
+  }
+
+  closeToast(): void {
+    this.toast.update(s => ({ ...s, open: false }));
+  }
+
+  // ----- Link Modal -----
+
+  openLinkModal(group: GosacGroup): void {
+    this.modalSearchQuery = '';
+    this.modalSearchResults.set([]);
+    this.modalSearchError.set('');
+    this.occurrenceTitleInput = '';
+    this.linkModal.set({ open: true, group, step: 'search', selectedSo: null, occurrenceTitle: '', linking: false });
+  }
+
+  closeLinkModal(force = false): void {
+    if (!force && this.linkModal().linking) return;
+    if (this.modalSearchTimeout) clearTimeout(this.modalSearchTimeout);
+    this.linkModal.set({ open: false, group: null, step: 'search', selectedSo: null, occurrenceTitle: '', linking: false });
+    this.modalSearchQuery = '';
+    this.occurrenceTitleInput = '';
+    this.modalSearchResults.set([]);
+    this.modalSearchError.set('');
+  }
+
+  backToSearch(): void {
+    this.linkModal.update(s => ({ ...s, step: 'search', selectedSo: null }));
+  }
+
+  onModalSearchInput(query: string): void {
+    if (this.modalSearchTimeout) clearTimeout(this.modalSearchTimeout);
+    if (query.trim().length < 2) {
+      this.modalSearchResults.set([]);
+      this.modalSearchError.set('');
+      return;
     }
+    this.modalSearchTimeout = setTimeout(() => {
+      this.modalSearching.set(true);
+      this.modalSearchResults.set([]);
+      this.modalSearchError.set('');
+      this.gosacService.searchSalesOrders(query.trim()).subscribe({
+        next: (results) => {
+          this.modalSearchResults.set(results);
+          this.modalSearching.set(false);
+        },
+        error: (err) => {
+          this.modalSearchError.set(err?.error?.message || 'Erro ao buscar pedidos de venda');
+          this.modalSearching.set(false);
+        },
+      });
+    }, 400);
+  }
+
+  selectSalesOrder(result: SalesOrderSearchResult): void {
+    const defaultTitle = `Anexos GOSAC - ${this.linkModal().group?.gosacTicketName ?? ''}`;
+    this.occurrenceTitleInput = defaultTitle;
+    this.linkModal.update(s => ({ ...s, step: 'confirm', selectedSo: result, occurrenceTitle: defaultTitle }));
+  }
+
+  confirmLink(): void {
+    const state = this.linkModal();
+    if (!state.group || !state.selectedSo || state.linking) return;
+
+    const groupId = state.group.id;
+    const selectedSo = state.selectedSo;
+
+    this.linkModal.update(s => ({ ...s, linking: true }));
+
+    this.gosacService.linkSalesOrder(groupId, {
+      ponttaId: selectedSo.ponttaId,
+      code: selectedSo.code,
+      customerName: selectedSo.customerName,
+      occurrenceTitle: this.occurrenceTitleInput.trim() || undefined,
+    }).subscribe({
+      next: (res) => {
+        try {
+          const so = res?.salesOrder || {};
+          this.groups.update(groups => groups.map((g) => {
+            if (g.id !== groupId) return g;
+            return {
+              ...g,
+              salesOrders: [...(g.salesOrders || []), {
+                id: so.id || '',
+                ponttaId: selectedSo.ponttaId,
+                code: selectedSo.code,
+                customerName: selectedSo.customerName,
+                ponttaOccurrenceId: so.ponttaOccurrenceId ?? null,
+                ponttaOccurrenceNumber: so.ponttaOccurrenceNumber ?? null,
+                ponttaOccurrenceStatus: (so.ponttaOccurrenceStatus ?? 'pending') as 'pending' | 'created' | 'failed',
+              }],
+            };
+          }));
+        } catch (e) {
+          console.error('Erro ao atualizar lista de grupos:', e);
+        } finally {
+          this.closeLinkModal(true);
+          setTimeout(() => this.loadGroups(), 6000);
+        }
+      },
+      error: (err) => {
+        this.linkModal.update(s => ({ ...s, linking: false }));
+        const msg = err?.error?.message || err?.message || 'Erro ao vincular pedido de venda';
+        this.showToast(msg, 'error');
+      },
+    });
+  }
+
+  // ----- Helpers -----
+
+  abbreviate(text: string, maxLen: number): string {
+    if (!text) return '';
+    return text.length > maxLen ? text.substring(0, maxLen) + '...' : text;
+  }
 }
