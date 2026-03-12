@@ -349,7 +349,7 @@ interface EnvironmentItem {
                     class="rounded border-slate-300 text-slate-800 focus:ring-slate-400"
                   />
                   <span class="text-sm text-slate-700">Enviar para o Drive</span>
-                  <span class="text-xs text-slate-400">(em breve)</span>
+                  <span class="text-xs text-slate-400">(requer configuração nas Variáveis de Ambiente)</span>
                 </label>
               </div>
             }
@@ -617,13 +617,16 @@ export class PagamentoMontadorComponent implements OnInit {
             deliveryDate: formatDateBR(this.deliveryDate),
             assemblyStartDate: formatDateBR(this.assemblyStartDate),
             assemblyEndDate: formatDateBR(this.assemblyEndDate),
+            sendToDrive: this.sendToDrive,
           }).subscribe({ next: resolve, error: reject });
         });
 
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Pagamento_Montador_${proposal.code}_${env.name}.pdf`;
+        const customerName = (proposal.customerName || proposal.name || '').replace(/[<>:"/\\|?*]/g, '').trim();
+        const envName = env.name.replace(/[<>:"/\\|?*]/g, '').trim();
+        a.download = `Pagamento Montador - ${customerName} - ${envName}.pdf`;
         a.click();
         URL.revokeObjectURL(url);
       }

@@ -132,6 +132,38 @@ interface EnvironmentSetting {
               </div>
             }
 
+            <!-- Google Drive -->
+            @if (getSettingsByCategory('drive').length > 0) {
+              <div>
+                <h3 class="text-sm font-semibold text-slate-700 mb-1">Integração com Google Drive</h3>
+                <p class="text-xs text-slate-500 mb-4">
+                  Para obter as credenciais, acesse o
+                  <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" class="underline hover:text-slate-700">Google Cloud Console</a>,
+                  crie um projeto OAuth2 e gere um Refresh Token com o escopo
+                  <code class="bg-slate-100 px-1 rounded text-xs">drive.file</code>.
+                  O <strong>ID da pasta raiz</strong> é o trecho final da URL da pasta no Drive.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  @for (setting of getSettingsByCategory('drive'); track setting.key) {
+                    <div>
+                      <label class="block text-sm font-medium text-slate-700 mb-1">
+                        {{ setting.description }}
+                        @if (setting.isEncrypted) {
+                          <span class="text-xs text-slate-400 ml-1">(criptografado)</span>
+                        }
+                      </label>
+                      <input
+                        [type]="setting.isEncrypted ? 'password' : 'text'"
+                        [(ngModel)]="setting.value"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm"
+                        [placeholder]="setting.description"
+                      />
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+
             @if (settingsSuccessMessage()) {
               <div class="p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
                 {{ settingsSuccessMessage() }}

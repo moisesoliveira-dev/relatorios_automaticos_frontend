@@ -167,6 +167,7 @@ export class GosacService {
         deliveryDate?: string;
         assemblyStartDate?: string;
         assemblyEndDate?: string;
+        sendToDrive?: boolean;
     }): Observable<Blob> {
         return this.http.post(`${this.apiUrl}/proposals/montador-pdf`, data, {
             responseType: 'blob',
