@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
@@ -168,9 +168,10 @@ export class GosacService {
         assemblyStartDate?: string;
         assemblyEndDate?: string;
         sendToDrive?: boolean;
-    }): Observable<Blob> {
+    }): Observable<HttpResponse<Blob>> {
         return this.http.post(`${this.apiUrl}/proposals/montador-pdf`, data, {
             responseType: 'blob',
+            observe: 'response',
         });
     }
 }

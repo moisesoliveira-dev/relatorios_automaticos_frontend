@@ -1,6 +1,7 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpResponse } from '@angular/common/http';
 import { GosacService, PonttaProposal } from '../../../services/gosac.service';
 
 interface EnvironmentItem {
@@ -356,29 +357,47 @@ interface EnvironmentItem {
           </div>
 
           <!-- Modal Footer -->
-          <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 flex-shrink-0">
-            <button
-              (click)="closeModal()"
-              class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              (click)="generatePdfs()"
-              [disabled]="selectedCount() === 0 || generatingPdf()"
-              class="px-5 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
-            >
-              @if (generatingPdf()) {
-                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                </svg>
-                Gerando...
-              } @else {
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                Gerar PDF{{ selectedCount() > 1 ? 's' : '' }}
+          <div class="flex flex-col gap-2 px-6 py-4 border-t border-slate-200 bg-slate-50 flex-shrink-0">
+            <!-- Drive status -->
+            @if (driveSuccessCount() > 0) {
+              <div class="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                {{ driveSuccessCount() }} arquivo(s) enviado(s) ao Google Drive com sucesso.
+              </div>
+            }
+            @if (driveErrors().length > 0) {
+              @for (err of driveErrors(); track $index) {
+                <div class="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                  <span><strong>Drive:</strong> {{ err }}</span>
+                </div>
               }
-            </button>
+            }
+            <!-- Buttons -->
+            <div class="flex items-center justify-end gap-3">
+              <button
+                (click)="closeModal()"
+                class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                (click)="generatePdfs()"
+                [disabled]="selectedCount() === 0 || generatingPdf()"
+                class="px-5 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+              >
+                @if (generatingPdf()) {
+                  <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                  </svg>
+                  Gerando...
+                } @else {
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                  Gerar PDF{{ selectedCount() > 1 ? 's' : '' }}
+                }
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -400,6 +419,10 @@ export class PagamentoMontadorComponent implements OnInit {
   itemsError = signal('');
   environments = signal<EnvironmentItem[]>([]);
   generatingPdf = signal(false);
+
+  // Drive feedback
+  driveSuccessCount = signal(0);
+  driveErrors = signal<string[]>([]);
 
   // Form fields
   deliveryDate = '';
@@ -495,6 +518,8 @@ export class PagamentoMontadorComponent implements OnInit {
     this.deliveryDate = '';
     this.assemblyStartDate = '';
     this.assemblyEndDate = '';
+    this.driveSuccessCount.set(0);
+    this.driveErrors.set([]);
     this.modalOpen.set(true);
     this.loadItems();
   }
@@ -598,6 +623,8 @@ export class PagamentoMontadorComponent implements OnInit {
 
     const proposal = this.selectedProposal()!;
     this.generatingPdf.set(true);
+    this.driveSuccessCount.set(0);
+    this.driveErrors.set([]);
 
     const formatDateBR = (d: string) => {
       if (!d) return '';
@@ -607,7 +634,7 @@ export class PagamentoMontadorComponent implements OnInit {
 
     try {
       for (const env of selected) {
-        const blob = await new Promise<Blob>((resolve, reject) => {
+        const response = await new Promise<HttpResponse<Blob>>((resolve, reject) => {
           this.gosacService.generateMontadorPdf({
             proposalCode: proposal.code,
             customerName: proposal.customerName || proposal.name,
@@ -620,6 +647,20 @@ export class PagamentoMontadorComponent implements OnInit {
             sendToDrive: this.sendToDrive,
           }).subscribe({ next: resolve, error: reject });
         });
+
+        const blob = response.body!;
+
+        // Check Drive response headers
+        if (this.sendToDrive) {
+          if (response.headers.get('X-Drive-Success') === 'true') {
+            this.driveSuccessCount.update(n => n + 1);
+          } else {
+            const errMsg = response.headers.get('X-Drive-Error');
+            if (errMsg) {
+              this.driveErrors.update(errs => [...errs, `${env.name}: ${errMsg}`]);
+            }
+          }
+        }
 
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
