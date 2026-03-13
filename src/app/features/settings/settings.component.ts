@@ -138,11 +138,11 @@ interface EnvironmentSetting {
                 <h3 class="text-sm font-semibold text-slate-700 mb-1">Integração com Google Drive</h3>
                 <p class="text-xs text-slate-500 mb-4">
                   No <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" class="underline hover:text-slate-700">Google Cloud Console</a>,
-                  crie uma <strong>Service Account</strong>, gere uma chave JSON e copie os campos
-                  <code class="bg-slate-100 px-1 rounded text-xs">client_email</code> e
-                  <code class="bg-slate-100 px-1 rounded text-xs">private_key</code>.
-                  A pasta deve ser um <strong>Shared Drive</strong> (Drive compartilhado) — adicione o e-mail da Service Account como <strong>membro com permissão de Editor</strong>.
-                  O <strong>ID da pasta</strong> é o trecho final da URL da pasta no Drive.
+                  crie credenciais <strong>OAuth 2.0</strong> e preencha
+                  <code class="bg-slate-100 px-1 rounded text-xs">Client ID</code>,
+                  <code class="bg-slate-100 px-1 rounded text-xs">Client Secret</code> e
+                  <code class="bg-slate-100 px-1 rounded text-xs">Refresh Token</code>.
+                  O <strong>ID da pasta raiz</strong> é o trecho final da URL da pasta no Google Drive.
                 </p>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   @for (setting of getSettingsByCategory('drive'); track setting.key) {
