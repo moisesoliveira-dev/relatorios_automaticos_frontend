@@ -177,7 +177,7 @@ import { environment } from '../../../environments/environment';
           </div>
 
         <p class="text-center text-white/40 text-sm mt-8">
-          Sistema de Relatórios Automáticos © 2026
+          CMM System © 2026
         </p>
       </div>
     </div>

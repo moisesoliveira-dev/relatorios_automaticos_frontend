@@ -31,7 +31,7 @@ import { environment } from '../../../environments/environment';
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
               </svg>
             </div>
-            <h1 class="text-2xl font-semibold text-white tracking-tight">Sistema de Relatórios</h1>
+            <h1 class="text-2xl font-semibold text-white tracking-tight">CMM System</h1>
             <p class="text-slate-400 mt-1 text-sm">Faça login para continuar</p>
           </div>
 
@@ -243,7 +243,7 @@ import { environment } from '../../../environments/environment';
           </div>
 
           <p class="text-center text-white/40 text-sm mt-8">
-            Sistema de Relatórios Automáticos © 2026
+            CMM System © 2026
           </p>
         </div>
       }
