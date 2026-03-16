@@ -437,9 +437,14 @@ export class GruposComponent implements OnInit {
 
     this.gosacService.searchTickets(q).subscribe({
       next: (res) => {
-        this.searchResults.set(res.tickets || []);
+        const PREFIX = 'MONT.';
+        const filtered = (res.tickets || []).filter((ticket) => {
+          const groupName = (ticket.contact?.name || '').trim().toUpperCase();
+          return ticket.isGroup === true && groupName.startsWith(PREFIX);
+        });
+        this.searchResults.set(filtered);
         this.searching.set(false);
-        if ((res.tickets || []).length === 0) {
+        if (filtered.length === 0) {
           this.searchError.set('Nenhum ticket encontrado para essa pesquisa.');
         }
       },
