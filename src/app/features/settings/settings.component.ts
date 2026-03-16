@@ -132,6 +132,30 @@ interface EnvironmentSetting {
               </div>
             }
 
+            <!-- Controle de Abas -->
+            @if (getSettingsByCategory('access').length > 0) {
+              <div>
+                <h3 class="text-sm font-semibold text-slate-700 mb-1">Controle de Abas por Perfil</h3>
+                <p class="text-xs text-slate-500 mb-4">
+                  Formato: lista separada por vírgula com os identificadores de abas
+                  <code class="bg-slate-100 px-1 rounded text-xs">dashboard,reports,jobs,gosac-pontta,usuarios,configuracoes</code>
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  @for (setting of getSettingsByCategory('access'); track setting.key) {
+                    <div>
+                      <label class="block text-sm font-medium text-slate-700 mb-1">{{ setting.description }}</label>
+                      <input
+                        type="text"
+                        [(ngModel)]="setting.value"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm"
+                        [placeholder]="setting.description"
+                      />
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+
             <!-- Google Drive -->
             @if (getSettingsByCategory('drive').length > 0) {
               <div>

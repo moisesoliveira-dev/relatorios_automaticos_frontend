@@ -1,8 +1,10 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../core/services/auth.service';
 import { ModalComponent } from '../components/modal.component';
 import { filter } from 'rxjs/operators';
+import { environment } from '../../../environments/environment';
 
 interface MenuItem {
   label: string;
@@ -36,7 +38,7 @@ interface MenuItem {
         <!-- Menu -->
         <nav class="flex-1 py-3 overflow-y-auto">
           <ul class="space-y-0.5 px-2">
-            @for (item of menuItems; track item.route) {
+            @for (item of menuItems(); track item.route) {
               <li>
                 @if (item.children && item.children.length > 0) {
                   <!-- Expandable group -->
@@ -156,12 +158,14 @@ interface MenuItem {
                     </svg>
                     Meu perfil
                   </a>
-                  <a routerLink="/configuracoes" (click)="userMenuOpen.set(false)" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                    </svg>
-                    Configurações
-                  </a>
+                  @if (hasTab('configuracoes')) {
+                    <a routerLink="/configuracoes" (click)="userMenuOpen.set(false)" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                      <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      </svg>
+                      Configurações
+                    </a>
+                  }
                   <div class="my-1 border-t border-slate-100"></div>
                   <button
                     (click)="logout()"
@@ -189,12 +193,17 @@ interface MenuItem {
     <app-modal></app-modal>
   `
 })
-export class LayoutComponent {
+export class LayoutComponent implements OnInit {
+  private readonly http = inject(HttpClient);
+  private readonly apiUrl = environment.apiUrl;
+
   sidebarCollapsed = signal(false);
   userMenuOpen = signal(false);
   pageTitle = signal('Dashboard');
 
-  menuItems: MenuItem[] = [
+  allowedTabs = signal<string[]>([]);
+
+  private allMenuItems: MenuItem[] = [
     {
       label: 'Dashboard',
       icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
@@ -231,25 +240,83 @@ export class LayoutComponent {
     },
   ];
 
+  menuItems = computed(() => {
+    const allowed = new Set(this.allowedTabs());
+    if (allowed.size === 0) return this.allMenuItems;
+    return this.allMenuItems.filter((item) => allowed.has(this.menuKeyFromRoute(item.route)));
+  });
+
   expandedGroups = signal<Set<string>>(new Set());
 
   constructor(public authService: AuthService, private router: Router) {
     // Auto-expand group when a child route is active
     this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(() => {
       const url = this.router.url;
-      for (const item of this.menuItems) {
+      for (const item of this.menuItems()) {
         if (item.children?.some(c => url.startsWith(c.route))) {
           this.expandedGroups.update(s => { const n = new Set(s); n.add(item.route); return n; });
         }
       }
+
+      this.redirectIfTabForbidden(url);
     });
     // Initial check
     const url = this.router.url;
-    for (const item of this.menuItems) {
+    for (const item of this.menuItems()) {
       if (item.children?.some(c => url.startsWith(c.route))) {
         this.expandedGroups.update(s => { const n = new Set(s); n.add(item.route); return n; });
       }
     }
+
+    this.redirectIfTabForbidden(url);
+  }
+
+  ngOnInit(): void {
+    this.loadNavigationTabs();
+  }
+
+  private loadNavigationTabs(): void {
+    this.http.get<{ role: string; tabs: string[] }>(`${this.apiUrl}/settings/tabs/navigation`).subscribe({
+      next: (res) => {
+        this.allowedTabs.set(res.tabs || []);
+        this.redirectIfTabForbidden(this.router.url);
+      },
+      error: () => {
+        // Fallback por role local caso a API esteja indisponível
+        const role = this.authService.user()?.role;
+        const defaults: Record<string, string[]> = {
+          master: ['dashboard', 'reports', 'jobs', 'gosac-pontta', 'usuarios', 'configuracoes'],
+          admin: ['dashboard', 'reports', 'jobs', 'gosac-pontta', 'usuarios'],
+          manager: ['dashboard', 'reports', 'gosac-pontta'],
+          user: ['dashboard', 'reports'],
+        };
+        this.allowedTabs.set(defaults[role || 'user'] || defaults['user']);
+        this.redirectIfTabForbidden(this.router.url);
+      },
+    });
+  }
+
+  private menuKeyFromRoute(route: string): string {
+    return route.replace(/^\//, '').split('/')[0] || 'dashboard';
+  }
+
+  private isCurrentRouteAllowed(url: string): boolean {
+    const allowed = new Set(this.allowedTabs());
+    if (allowed.size === 0) return true;
+    const key = this.menuKeyFromRoute(url);
+    return allowed.has(key);
+  }
+
+  private redirectIfTabForbidden(url: string): void {
+    if (this.isCurrentRouteAllowed(url)) return;
+    const firstAllowed = this.menuItems()[0]?.route || '/dashboard';
+    this.router.navigateByUrl(firstAllowed);
+  }
+
+  hasTab(tabKey: string): boolean {
+    const allowed = new Set(this.allowedTabs());
+    if (allowed.size === 0) return true;
+    return allowed.has(tabKey);
   }
 
   toggleGroup(route: string): void {
