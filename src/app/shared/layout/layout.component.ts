@@ -135,6 +135,25 @@ interface MenuItem {
           <h1 class="text-sm font-semibold text-slate-700">{{ pageTitle() }}</h1>
 
           <div class="flex items-center gap-2">
+            <button
+              (click)="toggleDarkMode()"
+              class="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors"
+              [attr.aria-label]="isDarkMode() ? 'Desativar modo noturno' : 'Ativar modo noturno'"
+              [title]="isDarkMode() ? 'Modo noturno ativo' : 'Ativar modo noturno'"
+            >
+              @if (isDarkMode()) {
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M12 3v1m0 16v1m8.66-9H19.5m-15 0H3.34m14.02 6.36l-.7-.7m-9.32 0l-.7.7m10.02-10.02l-.7.7m-9.32 0l-.7-.7M12 7a5 5 0 100 10 5 5 0 000-10z"/>
+                </svg>
+                <span class="text-xs font-medium hidden sm:inline">Noturno</span>
+              } @else {
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M20.354 15.354A9 9 0 118.646 3.646 7 7 0 1020.354 15.354z"/>
+                </svg>
+                <span class="text-xs font-medium hidden sm:inline">Claro</span>
+              }
+            </button>
+
             <!-- User Menu -->
             <div class="relative">
               <button
@@ -196,10 +215,12 @@ interface MenuItem {
 export class LayoutComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = environment.apiUrl;
+  private readonly THEME_KEY = 'theme_mode';
 
   sidebarCollapsed = signal(false);
   userMenuOpen = signal(false);
   pageTitle = signal('Dashboard');
+  isDarkMode = signal(false);
 
   allowedTabs = signal<string[]>([]);
 
@@ -272,7 +293,28 @@ export class LayoutComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.initializeTheme();
     this.loadNavigationTabs();
+  }
+
+  private initializeTheme(): void {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    const savedTheme = localStorage.getItem(this.THEME_KEY);
+    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+    const shouldUseDark = savedTheme ? savedTheme === 'dark' : !!prefersDark;
+
+    this.isDarkMode.set(shouldUseDark);
+    document.documentElement.classList.toggle('dark', shouldUseDark);
+  }
+
+  toggleDarkMode(): void {
+    if (typeof document === 'undefined') return;
+
+    const nextValue = !this.isDarkMode();
+    this.isDarkMode.set(nextValue);
+    localStorage.setItem(this.THEME_KEY, nextValue ? 'dark' : 'light');
+    document.documentElement.classList.toggle('dark', nextValue);
   }
 
   private loadNavigationTabs(): void {
