@@ -49,6 +49,9 @@ export interface SalesOrderSearchResult {
     ponttaId: string;
     code: string;
     customerName: string;
+    value?: number;
+    saleDate?: string;
+    status?: string;
 }
 
 export interface PonttaProposal {
@@ -127,10 +130,12 @@ export class GosacService {
     }
 
     // Sales Orders
-    searchSalesOrders(query: string): Observable<SalesOrderSearchResult[]> {
-        return this.http.get<SalesOrderSearchResult[]>(`${this.apiUrl}/sales-orders/search`, {
-            params: { q: query },
-        });
+    searchSalesOrders(query?: string): Observable<SalesOrderSearchResult[]> {
+        const params: Record<string, string> = {};
+        if (query && query.trim().length > 0) {
+            params['q'] = query.trim();
+        }
+        return this.http.get<SalesOrderSearchResult[]>(`${this.apiUrl}/sales-orders/search`, { params });
     }
 
     linkSalesOrder(groupId: string, data: { ponttaId: string; code: string; customerName: string; occurrenceTitle?: string }): Observable<any> {
@@ -154,8 +159,8 @@ export class GosacService {
         return this.http.post<{ message: string }>(`${this.apiUrl}/logo`, formData);
     }
 
-    getProposalItems(proposalId: string): Observable<any[]> {
-        return this.http.get<any[]>(`${this.apiUrl}/proposals/${proposalId}/items`);
+    getSalesOrderItems(salesOrderId: string): Observable<any[]> {
+        return this.http.get<any[]>(`${this.apiUrl}/sales-orders/${salesOrderId}/items`);
     }
 
     generateMontadorPdf(data: {
@@ -163,13 +168,14 @@ export class GosacService {
         customerName: string;
         environmentName: string;
         environmentValue: number;
-        discount: number;
+        ponttaDiscount?: number;
+        additionalDiscount?: number;
         deliveryDate?: string;
         assemblyStartDate?: string;
         assemblyEndDate?: string;
         sendToDrive?: boolean;
     }): Observable<HttpResponse<Blob>> {
-        return this.http.post(`${this.apiUrl}/proposals/montador-pdf`, data, {
+        return this.http.post(`${this.apiUrl}/sales-orders/montador-pdf`, data, {
             responseType: 'blob',
             observe: 'response',
         });

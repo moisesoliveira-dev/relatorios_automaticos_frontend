@@ -2,7 +2,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpResponse } from '@angular/common/http';
-import { GosacService, PonttaProposal } from '../../../services/gosac.service';
+import { GosacService, SalesOrderSearchResult } from '../../../services/gosac.service';
 
 interface EnvironmentItem {
   id: string;
@@ -11,6 +11,10 @@ interface EnvironmentItem {
   discount: number;
   selected: boolean;
   [key: string]: any;
+}
+
+interface SalesOrderItem extends SalesOrderSearchResult {
+  id: string;
 }
 
 @Component({
@@ -64,18 +68,18 @@ interface EnvironmentItem {
 
       <!-- Search -->
       <div>
-        <p class="text-sm font-medium text-slate-700 mb-2">Pesquisar orçamento no Pontta</p>
+        <p class="text-sm font-medium text-slate-700 mb-2">Pesquisar pedido de venda no Pontta</p>
         <div class="flex gap-2">
           <input
             type="text"
             [(ngModel)]="searchQuery"
-            placeholder="Nome do cliente, código ou número do orçamento..."
+            placeholder="Nome do cliente, código ou número do pedido..."
             class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none"
-            (keyup.enter)="searchProposals()"
+            (keyup.enter)="searchSalesOrders()"
             (ngModelChange)="onSearchInput($event)"
           />
           <button
-            (click)="searchProposals()"
+            (click)="searchSalesOrders()"
             [disabled]="loading()"
             class="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
           >
@@ -102,17 +106,17 @@ interface EnvironmentItem {
         }
       </div>
 
-      <!-- Proposals Table -->
+      <!-- Sales Orders Table -->
       <div class="border border-slate-200 rounded-lg overflow-hidden">
         <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
           <span class="text-sm font-semibold text-slate-700">
-            Orçamentos
+            Pedidos de Venda
             @if (isSearchMode()) {
               <span class="text-slate-400 font-normal">&middot; Pesquisa: "{{ activeSearchTerm() }}"</span>
             }
-            <span class="text-slate-400 font-normal">({{ proposals().length }})</span>
+            <span class="text-slate-400 font-normal">({{ salesOrders().length }})</span>
           </span>
-          <button (click)="loadProposals()" class="text-xs text-slate-500 hover:text-slate-800 transition-colors">Atualizar</button>
+          <button (click)="loadSalesOrders()" class="text-xs text-slate-500 hover:text-slate-800 transition-colors">Atualizar</button>
         </div>
 
         @if (loading()) {
@@ -121,18 +125,18 @@ interface EnvironmentItem {
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
             </svg>
-            <p class="text-xs text-slate-400 mt-2">Carregando orçamentos...</p>
+            <p class="text-xs text-slate-400 mt-2">Carregando pedidos de venda...</p>
           </div>
-        } @else if (proposals().length === 0) {
+        } @else if (salesOrders().length === 0) {
           <div class="p-10 text-center text-slate-400">
             <svg class="w-8 h-8 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
             @if (isSearchMode()) {
-              <p class="text-sm">Nenhum orçamento encontrado para "{{ activeSearchTerm() }}".</p>
+              <p class="text-sm">Nenhum pedido de venda encontrado para "{{ activeSearchTerm() }}".</p>
               <p class="text-xs mt-1">Tente outra pesquisa ou limpe o filtro.</p>
             } @else {
-              <p class="text-sm">Nenhum orçamento ativo encontrado.</p>
+              <p class="text-sm">Nenhum pedido de venda encontrado.</p>
             }
           </div>
         } @else {
@@ -151,42 +155,33 @@ interface EnvironmentItem {
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100">
-                @for (proposal of proposals(); track proposal.id) {
+                @for (salesOrder of salesOrders(); track salesOrder.id) {
                   <tr
                     class="hover:bg-slate-50/60 transition-colors align-middle cursor-pointer"
-                    (click)="openModal(proposal)"
+                    (click)="openModal(salesOrder)"
                   >
                     <td class="px-4 py-3">
-                      <span class="font-mono text-xs font-semibold text-slate-700">{{ proposal.code }}</span>
+                      <span class="font-mono text-xs font-semibold text-slate-700">{{ salesOrder.code }}</span>
                     </td>
                     <td class="px-4 py-3">
                       <div>
-                        <p class="text-slate-800 font-medium">{{ proposal.customerName || proposal.name }}</p>
-                        @if (proposal.customerBusinessName) {
-                          <p class="text-xs text-slate-400 mt-0.5">{{ proposal.customerBusinessName }}</p>
-                        }
+                        <p class="text-slate-800 font-medium">{{ salesOrder.customerName }}</p>
                       </div>
                     </td>
-                    <td class="px-4 py-3 text-slate-600">{{ proposal.responsibleName || proposal.responsible?.name || '—' }}</td>
+                    <td class="px-4 py-3 text-slate-600">—</td>
                     <td class="px-4 py-3 text-right">
-                      <span class="font-semibold text-slate-800">{{ formatCurrency(proposal.value) }}</span>
+                      <span class="font-semibold text-slate-800">{{ formatCurrency(salesOrder.value || 0) }}</span>
                     </td>
                     <td class="px-4 py-3">
-                      <span
-                        class="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border"
-                        [ngClass]="getNegotiationClasses(proposal.negotiationStatus)"
-                      >
-                        <span class="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                          [ngClass]="getNegotiationDotClass(proposal.negotiationStatus)"
-                        ></span>
-                        {{ formatNegotiationStatus(proposal.negotiationStatus) }}
+                      <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border bg-slate-50 text-slate-600 border-slate-200">
+                        {{ salesOrder.status || '—' }}
                       </span>
                     </td>
-                    <td class="px-4 py-3 text-slate-600 text-xs">{{ formatDate(proposal.deliveryDate) }}</td>
-                    <td class="px-4 py-3 text-slate-500 text-xs">{{ formatDate(proposal.createdAt) }}</td>
+                    <td class="px-4 py-3 text-slate-600 text-xs">—</td>
+                    <td class="px-4 py-3 text-slate-500 text-xs">{{ formatDate(salesOrder.saleDate || '') }}</td>
                     <td class="px-4 py-3 text-right">
                       <button
-                        (click)="openModal(proposal); $event.stopPropagation()"
+                        (click)="openModal(salesOrder); $event.stopPropagation()"
                         class="p-1.5 rounded text-slate-300 hover:text-slate-600 transition-colors"
                         title="Abrir ambientes"
                       >
@@ -218,7 +213,7 @@ interface EnvironmentItem {
             <div>
               <h2 class="text-base font-bold text-slate-800">Pagamento de Montador</h2>
               <p class="text-xs text-slate-500 mt-0.5">
-                {{ selectedProposal()!.code }} &mdash; {{ selectedProposal()!.customerName || selectedProposal()!.name }}
+                {{ selectedSalesOrder()!.code }} &mdash; {{ selectedSalesOrder()!.customerName }}
               </p>
             </div>
             <button
@@ -260,13 +255,16 @@ interface EnvironmentItem {
                   <div class="text-center py-6 text-slate-400 text-sm">Nenhum ambiente encontrado neste orçamento.</div>
                 } @else {
                   <div class="border border-slate-200 rounded-lg overflow-hidden">
-                    <table class="w-full text-sm">
+                    <div class="overflow-x-auto">
+                    <table class="w-full min-w-[980px] text-sm">
                       <thead class="bg-slate-50 border-b border-slate-200">
                         <tr class="text-xs font-semibold text-slate-500 uppercase tracking-wider text-left">
                           <th class="px-4 py-2.5 w-10"></th>
                           <th class="px-4 py-2.5">Ambiente</th>
-                          <th class="px-4 py-2.5 text-right">Valor</th>
-                          <th class="px-4 py-2.5 text-right">Desconto</th>
+                          <th class="px-4 py-2.5 text-right">Valor Base</th>
+                          <th class="px-4 py-2.5 text-right">Desc. Pontta</th>
+                          <th class="px-4 py-2.5 text-right">Valor Original</th>
+                          <th class="px-4 py-2.5 text-right">Desc. Adic.</th>
                           <th class="px-4 py-2.5 text-right">Valor c/ Desc.</th>
                           <th class="px-4 py-2.5 text-right">Montador (7%)</th>
                         </tr>
@@ -292,12 +290,15 @@ interface EnvironmentItem {
                             </td>
                             <td class="px-4 py-2.5 text-right text-slate-600">{{ formatCurrency(env.value) }}</td>
                             <td class="px-4 py-2.5 text-right text-slate-600">{{ env.discount.toFixed(1) }}%</td>
-                            <td class="px-4 py-2.5 text-right font-medium text-slate-800">{{ formatCurrency(getDiscountedValue(env)) }}</td>
+                            <td class="px-4 py-2.5 text-right font-medium text-slate-800">{{ formatCurrency(getPonttaDiscountedValue(env)) }}</td>
+                            <td class="px-4 py-2.5 text-right text-slate-600">6.0%</td>
+                            <td class="px-4 py-2.5 text-right font-medium text-slate-800">{{ formatCurrency(getFinalValue(env)) }}</td>
                             <td class="px-4 py-2.5 text-right font-bold text-emerald-700">{{ formatCurrency(getMontadorValue(env)) }}</td>
                           </tr>
                         }
                       </tbody>
                     </table>
+                    </div>
                   </div>
 
                   <!-- Summary -->
@@ -408,13 +409,13 @@ export class PagamentoMontadorComponent implements OnInit {
   searchQuery = '';
   loading = signal(false);
   error = signal<string>('');
-  proposals = signal<PonttaProposal[]>([]);
+  salesOrders = signal<SalesOrderItem[]>([]);
   isSearchMode = signal(false);
   activeSearchTerm = signal('');
 
   // Modal state
   modalOpen = signal(false);
-  selectedProposal = signal<PonttaProposal | null>(null);
+  selectedSalesOrder = signal<SalesOrderItem | null>(null);
   loadingItems = signal(false);
   itemsError = signal('');
   environments = signal<EnvironmentItem[]>([]);
@@ -438,7 +439,7 @@ export class PagamentoMontadorComponent implements OnInit {
   constructor(private gosacService: GosacService) { }
 
   ngOnInit(): void {
-    this.loadProposals();
+    this.loadSalesOrders();
   }
 
   // --- Logo ---
@@ -470,37 +471,41 @@ export class PagamentoMontadorComponent implements OnInit {
     input.value = '';
   }
 
-  // --- Proposals ---
+  // --- Sales Orders ---
 
-  loadProposals(): void {
+  loadSalesOrders(): void {
     this.loading.set(true);
     this.error.set('');
     const query = this.isSearchMode() ? this.activeSearchTerm() : undefined;
-    this.gosacService.getProposals(query || undefined).subscribe({
-      next: (proposals) => {
-        this.proposals.set(proposals);
+    this.gosacService.searchSalesOrders(query).subscribe({
+      next: (items) => {
+        const normalized: SalesOrderItem[] = items.map((i) => ({
+          ...i,
+          id: i.ponttaId,
+        }));
+        this.salesOrders.set(normalized);
         this.loading.set(false);
       },
       error: (err) => {
-        this.error.set(err?.error?.message || 'Erro ao carregar orçamentos');
+        this.error.set(err?.error?.message || 'Erro ao carregar pedidos de venda');
         this.loading.set(false);
       },
     });
   }
 
-  searchProposals(): void {
+  searchSalesOrders(): void {
     const q = this.searchQuery.trim();
     if (!q) { this.clearSearch(); return; }
     this.isSearchMode.set(true);
     this.activeSearchTerm.set(q);
-    this.loadProposals();
+    this.loadSalesOrders();
   }
 
   clearSearch(): void {
     this.searchQuery = '';
     this.isSearchMode.set(false);
     this.activeSearchTerm.set('');
-    this.loadProposals();
+    this.loadSalesOrders();
   }
 
   onSearchInput(value: string): void {
@@ -511,8 +516,8 @@ export class PagamentoMontadorComponent implements OnInit {
 
   // --- Modal ---
 
-  openModal(proposal: PonttaProposal): void {
-    this.selectedProposal.set(proposal);
+  openModal(salesOrder: SalesOrderItem): void {
+    this.selectedSalesOrder.set(salesOrder);
     this.environments.set([]);
     this.itemsError.set('');
     this.deliveryDate = '';
@@ -526,17 +531,17 @@ export class PagamentoMontadorComponent implements OnInit {
 
   closeModal(): void {
     this.modalOpen.set(false);
-    this.selectedProposal.set(null);
+    this.selectedSalesOrder.set(null);
   }
 
   loadItems(): void {
-    const proposal = this.selectedProposal();
-    if (!proposal) return;
+    const salesOrder = this.selectedSalesOrder();
+    if (!salesOrder) return;
 
     this.loadingItems.set(true);
     this.itemsError.set('');
 
-    this.gosacService.getProposalItems(proposal.id).subscribe({
+    this.gosacService.getSalesOrderItems(salesOrder.id).subscribe({
       next: (items: any[]) => {
         if (items.length > 0) {
           console.log('[PonttaItems] raw keys:', Object.keys(items[0]));
@@ -601,12 +606,16 @@ export class PagamentoMontadorComponent implements OnInit {
 
   // --- Calculations ---
 
-  getDiscountedValue(env: EnvironmentItem): number {
+  getPonttaDiscountedValue(env: EnvironmentItem): number {
     return env.value * (1 - (env.discount || 0) / 100);
   }
 
+  getFinalValue(env: EnvironmentItem): number {
+    return this.getPonttaDiscountedValue(env) * 0.94;
+  }
+
   getMontadorValue(env: EnvironmentItem): number {
-    return this.getDiscountedValue(env) * 0.07;
+    return this.getFinalValue(env) * 0.07;
   }
 
   totalMontador(): number {
@@ -621,7 +630,7 @@ export class PagamentoMontadorComponent implements OnInit {
     const selected = this.environments().filter(e => e.selected);
     if (selected.length === 0) return;
 
-    const proposal = this.selectedProposal()!;
+    const salesOrder = this.selectedSalesOrder()!;
     this.generatingPdf.set(true);
     this.driveSuccessCount.set(0);
     this.driveErrors.set([]);
@@ -636,11 +645,12 @@ export class PagamentoMontadorComponent implements OnInit {
       for (const env of selected) {
         const response = await new Promise<HttpResponse<Blob>>((resolve, reject) => {
           this.gosacService.generateMontadorPdf({
-            proposalCode: proposal.code,
-            customerName: proposal.customerName || proposal.name,
+            proposalCode: salesOrder.code,
+            customerName: salesOrder.customerName,
             environmentName: env.name,
             environmentValue: env.value,
-            discount: env.discount,
+            ponttaDiscount: env.discount,
+            additionalDiscount: 6,
             deliveryDate: formatDateBR(this.deliveryDate),
             assemblyStartDate: formatDateBR(this.assemblyStartDate),
             assemblyEndDate: formatDateBR(this.assemblyEndDate),
@@ -665,7 +675,7 @@ export class PagamentoMontadorComponent implements OnInit {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        const customerName = (proposal.customerName || proposal.name || '').replace(/[<>:"/\\|?*]/g, '').trim();
+        const customerName = (salesOrder.customerName || '').replace(/[<>:"/\\|?*]/g, '').trim();
         const envName = env.name.replace(/[<>:"/\\|?*]/g, '').trim();
         a.download = `Pagamento Montador - ${customerName} - ${envName}.pdf`;
         a.click();
