@@ -262,7 +262,6 @@ interface SalesOrderItem extends SalesOrderSearchResult {
                           <th class="px-4 py-2.5 w-10"></th>
                           <th class="px-4 py-2.5">Ambiente</th>
                           <th class="px-4 py-2.5 text-right">Valor Base</th>
-                          <th class="px-4 py-2.5 text-right">Desc. Pontta</th>
                           <th class="px-4 py-2.5 text-right">Valor Original</th>
                           <th class="px-4 py-2.5 text-right">Desc. Adic.</th>
                           <th class="px-4 py-2.5 text-right">Valor c/ Desc.</th>
@@ -288,9 +287,7 @@ interface SalesOrderItem extends SalesOrderSearchResult {
                             <td class="px-4 py-2.5">
                               <span class="font-medium text-slate-800">{{ env.name }}</span>
                             </td>
-                            <td class="px-4 py-2.5 text-right text-slate-600">{{ formatCurrency(env.value) }}</td>
-                            <td class="px-4 py-2.5 text-right text-slate-600">{{ env.discount.toFixed(1) }}%</td>
-                            <td class="px-4 py-2.5 text-right font-medium text-slate-800">{{ formatCurrency(getPonttaDiscountedValue(env)) }}</td>
+                            <td class="px-4 py-2.5 text-right font-medium text-slate-800">{{ formatCurrency(getOriginalValue(env)) }}</td>
                             <td class="px-4 py-2.5 text-right text-slate-600">6.0%</td>
                             <td class="px-4 py-2.5 text-right font-medium text-slate-800">{{ formatCurrency(getFinalValue(env)) }}</td>
                             <td class="px-4 py-2.5 text-right font-bold text-emerald-700">{{ formatCurrency(getMontadorValue(env)) }}</td>
@@ -606,12 +603,13 @@ export class PagamentoMontadorComponent implements OnInit {
 
   // --- Calculations ---
 
-  getPonttaDiscountedValue(env: EnvironmentItem): number {
-    return env.value * (1 - (env.discount || 0) / 100);
+  getOriginalValue(env: EnvironmentItem): number {
+    // O valor retornado do Pontta já vem com desconto aplicado.
+    return env.value;
   }
 
   getFinalValue(env: EnvironmentItem): number {
-    return this.getPonttaDiscountedValue(env) * 0.94;
+    return this.getOriginalValue(env) * 0.94;
   }
 
   getMontadorValue(env: EnvironmentItem): number {
@@ -649,7 +647,7 @@ export class PagamentoMontadorComponent implements OnInit {
             customerName: salesOrder.customerName,
             environmentName: env.name,
             environmentValue: env.value,
-            ponttaDiscount: env.discount,
+            ponttaDiscount: 0,
             additionalDiscount: 6,
             deliveryDate: formatDateBR(this.deliveryDate),
             assemblyStartDate: formatDateBR(this.assemblyStartDate),
