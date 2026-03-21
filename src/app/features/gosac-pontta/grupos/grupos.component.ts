@@ -47,7 +47,7 @@ interface ToastState {
           <input
             type="text"
             [(ngModel)]="searchQuery"
-            placeholder="Nome do contato ou grupo (prefixo MONT. aplicado automaticamente)"
+            placeholder="Nome do contato ou grupo"
             class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none"
             (keyup.enter)="searchTickets()"
           />
@@ -428,23 +428,16 @@ export class GruposComponent implements OnInit {
     const raw = this.searchQuery.trim();
     if (!raw) return;
 
-    const PREFIX = 'MONT.';
-    const q = raw.toUpperCase().startsWith(PREFIX) ? raw : `${PREFIX} ${raw}`;
-
     this.searching.set(true);
     this.searchError.set('');
     this.searchResults.set([]);
 
-    this.gosacService.searchTickets(q).subscribe({
+    this.gosacService.searchTickets(raw).subscribe({
       next: (res) => {
-        const PREFIX = 'MONT.';
-        const filtered = (res.tickets || []).filter((ticket) => {
-          const groupName = (ticket.contact?.name || '').trim().toUpperCase();
-          return ticket.isGroup === true && groupName.startsWith(PREFIX);
-        });
-        this.searchResults.set(filtered);
+        const tickets = res.tickets || [];
+        this.searchResults.set(tickets);
         this.searching.set(false);
-        if (filtered.length === 0) {
+        if (tickets.length === 0) {
           this.searchError.set('Nenhum ticket encontrado para essa pesquisa.');
         }
       },
