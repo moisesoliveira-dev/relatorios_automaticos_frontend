@@ -50,6 +50,15 @@ html.dark .hover\:bg-slate-100:hover {
   background-color: #0f172a !important;
 }
 
+/* Dark mode: keep hovered/selected rows readable */
+html.dark .hover\:bg-slate-50\/60:hover {
+  background-color: #1e293b !important;
+}
+
+html.dark .bg-blue-50\/40 {
+  background-color: #1e293b !important;
+}
+
 html.dark .border-slate-100,
 html.dark .border-slate-200,
 html.dark .border-slate-300 {

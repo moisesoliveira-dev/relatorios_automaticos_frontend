@@ -732,8 +732,9 @@ export class PagamentoMontadorComponent implements OnInit {
         const a = document.createElement('a');
         a.href = url;
         const customerName = (salesOrder.customerName || '').replace(/[<>:"/\\|?*]/g, '').trim();
-        const envName = env.name.replace(/[<>:"/\\|?*]/g, '').trim();
-        a.download = `Pagamento Montador - ${customerName} - ${envName}.pdf`;
+        const firstName = customerName.split(' ')[0] || 'Cliente';
+        const envName = env.name.replace(/[<>:"/\\|?*]/g, '').trim() || 'Ambiente';
+        a.download = `${firstName} - ${envName}.pdf`;
         a.click();
         URL.revokeObjectURL(url);
         this.log('generatePdfs item concluído', { envName: env.name, fileName: a.download });
