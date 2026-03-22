@@ -416,9 +416,18 @@ export class GruposComponent implements OnInit {
   modalSearchError = signal<string>('');
   private modalSearchTimeout: any = null;
 
+  private log(event: string, data?: unknown): void {
+    if (data !== undefined) {
+      console.log(`[GruposUI] ${event}`, data);
+      return;
+    }
+    console.log(`[GruposUI] ${event}`);
+  }
+
   constructor(private gosacService: GosacService) { }
 
   ngOnInit(): void {
+    this.log('ngOnInit -> carregando grupos');
     this.loadGroups();
   }
 
@@ -426,7 +435,12 @@ export class GruposComponent implements OnInit {
 
   searchTickets(): void {
     const raw = this.searchQuery.trim();
-    if (!raw) return;
+    if (!raw) {
+      this.log('searchTickets ignorado: query vazia');
+      return;
+    }
+
+    this.log('searchTickets início', { query: raw });
 
     this.searching.set(true);
     this.searchError.set('');
@@ -435,6 +449,7 @@ export class GruposComponent implements OnInit {
     this.gosacService.searchTickets(raw).subscribe({
       next: (res) => {
         const tickets = res.tickets || [];
+        this.log('searchTickets sucesso', { total: tickets.length, ticketIds: tickets.slice(0, 10).map(t => t.id) });
         this.searchResults.set(tickets);
         this.searching.set(false);
         if (tickets.length === 0) {
@@ -442,6 +457,7 @@ export class GruposComponent implements OnInit {
         }
       },
       error: (err) => {
+        this.log('searchTickets erro', { message: err?.error?.message || err?.message || 'Erro desconhecido' });
         this.searchError.set(err.error?.message || 'Erro ao pesquisar tickets no GOSAC');
         this.searching.set(false);
       },
@@ -451,13 +467,16 @@ export class GruposComponent implements OnInit {
   // ----- Groups -----
 
   loadGroups(): void {
+    this.log('loadGroups início');
     this.loadingGroups.set(true);
     this.gosacService.findAllGroups().subscribe({
       next: (groups) => {
+        this.log('loadGroups sucesso', { total: groups.length });
         this.groups.set(groups);
         this.loadingGroups.set(false);
       },
-      error: () => {
+      error: (err) => {
+        this.log('loadGroups erro', { message: err?.error?.message || err?.message || 'Erro desconhecido' });
         this.loadingGroups.set(false);
       },
     });
@@ -470,57 +489,81 @@ export class GruposComponent implements OnInit {
   addTicketAsGroup(ticket: GosacTicket): void {
     const name = ticket.contact?.name || `Ticket #${ticket.id}`;
     const contactId = ticket.contact?.id || ticket['contactId'] || 0;
+    this.log('addTicketAsGroup início', { ticketId: ticket.id, contactId, name });
     this.gosacService
       .createGroup({ gosacTicketId: ticket.id, gosacContactId: contactId, gosacTicketName: name })
       .subscribe({
         next: (group) => {
+          this.log('addTicketAsGroup sucesso', { groupId: group.id, gosacTicketId: group.gosacTicketId });
           if (!group.salesOrders) group.salesOrders = [];
           this.groups.set([group, ...this.groups()]);
         },
-        error: (err) => this.showToast(err.error?.message || 'Erro ao cadastrar grupo', 'error'),
+        error: (err) => {
+          this.log('addTicketAsGroup erro', { message: err?.error?.message || err?.message || 'Erro desconhecido' });
+          this.showToast(err.error?.message || 'Erro ao cadastrar grupo', 'error');
+        },
       });
   }
 
   toggleGroup(group: GosacGroup): void {
+    this.log('toggleGroup início', { groupId: group.id, currentIsActive: group.isActive });
     this.gosacService.toggleGroup(group.id).subscribe({
       next: (updated) => {
+        this.log('toggleGroup sucesso', { groupId: updated.id, newIsActive: updated.isActive });
         const currentGroup = this.groups().find(g => g.id === updated.id);
         if (!updated.salesOrders && currentGroup) updated.salesOrders = currentGroup.salesOrders;
         this.groups.set(this.groups().map((g) => (g.id === updated.id ? updated : g)));
+      },
+      error: (err) => {
+        this.log('toggleGroup erro', { message: err?.error?.message || err?.message || 'Erro desconhecido' });
       },
     });
   }
 
   deleteGroup(group: GosacGroup): void {
+    this.log('deleteGroup solicitado', { groupId: group.id, ticketId: group.gosacTicketId });
     this.openConfirmDialog({
       title: 'Remover grupo',
       message: `Deseja remover o grupo "${group.gosacTicketName}"? Esta ação não pode ser desfeita.`,
       confirmLabel: 'Remover',
       danger: true,
       onConfirm: () => {
+        this.log('deleteGroup confirmado', { groupId: group.id });
         this.gosacService.deleteGroup(group.id).subscribe({
-          next: () => this.groups.set(this.groups().filter((g) => g.id !== group.id)),
-          error: (err) => this.showToast(err.error?.message || 'Erro ao remover grupo', 'error'),
+          next: () => {
+            this.log('deleteGroup sucesso', { groupId: group.id });
+            this.groups.set(this.groups().filter((g) => g.id !== group.id));
+          },
+          error: (err) => {
+            this.log('deleteGroup erro', { message: err?.error?.message || err?.message || 'Erro desconhecido' });
+            this.showToast(err.error?.message || 'Erro ao remover grupo', 'error');
+          },
         });
       },
     });
   }
 
   unlinkSalesOrder(group: GosacGroup, salesOrderId: string): void {
+    this.log('unlinkSalesOrder solicitado', { groupId: group.id, salesOrderId });
     this.openConfirmDialog({
       title: 'Desvincular pedido de venda',
       message: 'Deseja desvincular este pedido de venda do grupo?',
       confirmLabel: 'Desvincular',
       danger: true,
       onConfirm: () => {
+        this.log('unlinkSalesOrder confirmado', { groupId: group.id, salesOrderId });
         this.gosacService.unlinkSalesOrder(group.id, salesOrderId).subscribe({
           next: () => {
+            this.log('unlinkSalesOrder sucesso', { groupId: group.id, salesOrderId });
             this.groups.update(groups => groups.map((g) => {
               if (g.id !== group.id) return g;
               return { ...g, salesOrders: (g.salesOrders || []).filter((so) => so.id !== salesOrderId) };
             }));
           },
-          error: (err) => this.showToast(err.error?.message || 'Erro ao desvincular pedido de venda', 'error'),
+          error: (err) => {
+            this.log('unlinkSalesOrder erro', { message: err?.error?.message || err?.message || 'Erro desconhecido' });
+            this.showToast(err.error?.message || 'Erro ao desvincular pedido de venda', 'error');
+          },
         });
       },
     });
@@ -553,6 +596,7 @@ export class GruposComponent implements OnInit {
   // ----- Link Modal -----
 
   openLinkModal(group: GosacGroup): void {
+    this.log('openLinkModal', { groupId: group.id, ticketId: group.gosacTicketId });
     this.modalSearchQuery = '';
     this.modalSearchResults.set([]);
     this.modalSearchError.set('');
@@ -561,6 +605,7 @@ export class GruposComponent implements OnInit {
   }
 
   closeLinkModal(force = false): void {
+    this.log('closeLinkModal', { force, linking: this.linkModal().linking });
     if (!force && this.linkModal().linking) return;
     if (this.modalSearchTimeout) clearTimeout(this.modalSearchTimeout);
     this.linkModal.set({ open: false, group: null, step: 'search', selectedSo: null, occurrenceTitle: '', linking: false });
@@ -575,6 +620,7 @@ export class GruposComponent implements OnInit {
   }
 
   onModalSearchInput(query: string): void {
+    this.log('onModalSearchInput', { query });
     if (this.modalSearchTimeout) clearTimeout(this.modalSearchTimeout);
     if (query.trim().length < 2) {
       this.modalSearchResults.set([]);
@@ -587,10 +633,12 @@ export class GruposComponent implements OnInit {
       this.modalSearchError.set('');
       this.gosacService.searchSalesOrders(query.trim()).subscribe({
         next: (results) => {
+          this.log('modal searchSalesOrders sucesso', { total: results.length });
           this.modalSearchResults.set(results);
           this.modalSearching.set(false);
         },
         error: (err) => {
+          this.log('modal searchSalesOrders erro', { message: err?.error?.message || err?.message || 'Erro desconhecido' });
           this.modalSearchError.set(err?.error?.message || 'Erro ao buscar pedidos de venda');
           this.modalSearching.set(false);
         },
@@ -599,6 +647,7 @@ export class GruposComponent implements OnInit {
   }
 
   selectSalesOrder(result: SalesOrderSearchResult): void {
+    this.log('selectSalesOrder', { ponttaId: result.ponttaId, code: result.code });
     const defaultTitle = `Anexos GOSAC - ${this.linkModal().group?.gosacTicketName ?? ''}`;
     this.occurrenceTitleInput = defaultTitle;
     this.linkModal.update(s => ({ ...s, step: 'confirm', selectedSo: result, occurrenceTitle: defaultTitle }));
@@ -606,10 +655,23 @@ export class GruposComponent implements OnInit {
 
   confirmLink(): void {
     const state = this.linkModal();
-    if (!state.group || !state.selectedSo || state.linking) return;
+    if (!state.group || !state.selectedSo || state.linking) {
+      this.log('confirmLink ignorado', {
+        hasGroup: !!state.group,
+        hasSelectedSo: !!state.selectedSo,
+        linking: state.linking,
+      });
+      return;
+    }
 
     const groupId = state.group.id;
     const selectedSo = state.selectedSo;
+    this.log('confirmLink início', {
+      groupId,
+      ticketId: state.group.gosacTicketId,
+      ponttaId: selectedSo.ponttaId,
+      code: selectedSo.code,
+    });
 
     this.linkModal.update(s => ({ ...s, linking: true }));
 
@@ -620,6 +682,11 @@ export class GruposComponent implements OnInit {
       occurrenceTitle: this.occurrenceTitleInput.trim() || undefined,
     }).subscribe({
       next: (res) => {
+        this.log('confirmLink sucesso (resposta inicial)', {
+          groupId,
+          salesOrderId: res?.salesOrder?.id,
+          occurrenceStatus: res?.salesOrder?.ponttaOccurrenceStatus,
+        });
         try {
           const so = res?.salesOrder || {};
           this.groups.update(groups => groups.map((g) => {
@@ -641,10 +708,12 @@ export class GruposComponent implements OnInit {
           console.error('Erro ao atualizar lista de grupos:', e);
         } finally {
           this.closeLinkModal(true);
+          this.log('confirmLink: agendando loadGroups em 6s');
           setTimeout(() => this.loadGroups(), 6000);
         }
       },
       error: (err) => {
+        this.log('confirmLink erro', { message: err?.error?.message || err?.message || 'Erro desconhecido' });
         this.linkModal.update(s => ({ ...s, linking: false }));
         const msg = err?.error?.message || err?.message || 'Erro ao vincular pedido de venda';
         this.showToast(msg, 'error');
