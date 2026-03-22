@@ -433,9 +433,18 @@ export class PagamentoMontadorComponent implements OnInit {
   logoSuccess = signal(false);
   logoName = signal('');
 
+  private log(event: string, data?: unknown): void {
+    if (data !== undefined) {
+      console.log(`[MontadorUI] ${event}`, data);
+      return;
+    }
+    console.log(`[MontadorUI] ${event}`);
+  }
+
   constructor(private gosacService: GosacService) { }
 
   ngOnInit(): void {
+    this.log('ngOnInit -> loadSalesOrders');
     this.loadSalesOrders();
   }
 
@@ -446,6 +455,8 @@ export class PagamentoMontadorComponent implements OnInit {
     const file = input.files?.[0];
     if (!file) return;
 
+    this.log('onLogoUpload início', { name: file.name, size: file.size, type: file.type });
+
     this.logoUploading.set(true);
     this.logoSuccess.set(false);
     this.logoName.set(file.name);
@@ -455,11 +466,13 @@ export class PagamentoMontadorComponent implements OnInit {
 
     this.gosacService.uploadLogo(formData).subscribe({
       next: () => {
+        this.log('onLogoUpload sucesso', { name: file.name });
         this.logoUploading.set(false);
         this.logoSuccess.set(true);
         setTimeout(() => this.logoSuccess.set(false), 3000);
       },
-      error: () => {
+      error: (err) => {
+        this.log('onLogoUpload erro', { message: err?.error?.message || err?.message || 'Erro desconhecido' });
         this.logoUploading.set(false);
         this.logoName.set('');
       },
@@ -471,11 +484,16 @@ export class PagamentoMontadorComponent implements OnInit {
   // --- Sales Orders ---
 
   loadSalesOrders(): void {
+    this.log('loadSalesOrders início', {
+      isSearchMode: this.isSearchMode(),
+      query: this.isSearchMode() ? this.activeSearchTerm() : undefined,
+    });
     this.loading.set(true);
     this.error.set('');
     const query = this.isSearchMode() ? this.activeSearchTerm() : undefined;
     this.gosacService.searchSalesOrders(query).subscribe({
       next: (items) => {
+        this.log('loadSalesOrders sucesso', { total: items.length });
         const normalized: SalesOrderItem[] = items.map((i) => ({
           ...i,
           id: i.ponttaId,
@@ -484,6 +502,7 @@ export class PagamentoMontadorComponent implements OnInit {
         this.loading.set(false);
       },
       error: (err) => {
+        this.log('loadSalesOrders erro', { message: err?.error?.message || err?.message || 'Erro desconhecido' });
         this.error.set(err?.error?.message || 'Erro ao carregar pedidos de venda');
         this.loading.set(false);
       },
@@ -492,6 +511,7 @@ export class PagamentoMontadorComponent implements OnInit {
 
   searchSalesOrders(): void {
     const q = this.searchQuery.trim();
+    this.log('searchSalesOrders acionado', { query: q });
     if (!q) { this.clearSearch(); return; }
     this.isSearchMode.set(true);
     this.activeSearchTerm.set(q);
@@ -499,6 +519,7 @@ export class PagamentoMontadorComponent implements OnInit {
   }
 
   clearSearch(): void {
+    this.log('clearSearch');
     this.searchQuery = '';
     this.isSearchMode.set(false);
     this.activeSearchTerm.set('');
@@ -506,6 +527,7 @@ export class PagamentoMontadorComponent implements OnInit {
   }
 
   onSearchInput(value: string): void {
+    this.log('onSearchInput', { value });
     if (value.trim().length === 0 && this.isSearchMode()) {
       this.clearSearch();
     }
@@ -514,6 +536,7 @@ export class PagamentoMontadorComponent implements OnInit {
   // --- Modal ---
 
   openModal(salesOrder: SalesOrderItem): void {
+    this.log('openModal', { salesOrderId: salesOrder.id, code: salesOrder.code, customerName: salesOrder.customerName });
     this.selectedSalesOrder.set(salesOrder);
     this.environments.set([]);
     this.itemsError.set('');
@@ -527,6 +550,7 @@ export class PagamentoMontadorComponent implements OnInit {
   }
 
   closeModal(): void {
+    this.log('closeModal');
     this.modalOpen.set(false);
     this.selectedSalesOrder.set(null);
   }
@@ -535,11 +559,14 @@ export class PagamentoMontadorComponent implements OnInit {
     const salesOrder = this.selectedSalesOrder();
     if (!salesOrder) return;
 
+    this.log('loadItems início', { salesOrderId: salesOrder.id, code: salesOrder.code });
+
     this.loadingItems.set(true);
     this.itemsError.set('');
 
     this.gosacService.getSalesOrderItems(salesOrder.id).subscribe({
       next: (items: any[]) => {
+        this.log('loadItems sucesso', { total: items.length });
         if (items.length > 0) {
           console.log('[PonttaItems] raw keys:', Object.keys(items[0]));
           console.log('[PonttaItems] raw item[0]:', JSON.stringify(items[0]));
@@ -573,6 +600,7 @@ export class PagamentoMontadorComponent implements OnInit {
         this.loadingItems.set(false);
       },
       error: (err) => {
+        this.log('loadItems erro', { message: err?.error?.message || err?.message || 'Erro desconhecido' });
         this.itemsError.set(err?.error?.message || 'Erro ao carregar ambientes');
         this.loadingItems.set(false);
       },
@@ -585,11 +613,13 @@ export class PagamentoMontadorComponent implements OnInit {
     const envs = [...this.environments()];
     envs[index] = { ...envs[index], selected: !envs[index].selected };
     this.environments.set(envs);
+    this.log('toggleEnv', { index, envId: envs[index].id, selected: envs[index].selected });
   }
 
   toggleAll(): void {
     const allSel = this.allSelected();
     this.environments.set(this.environments().map(e => ({ ...e, selected: !allSel })));
+    this.log('toggleAll', { previousAllSelected: allSel, selectedCount: this.selectedCount() });
   }
 
   allSelected(): boolean {
@@ -603,9 +633,17 @@ export class PagamentoMontadorComponent implements OnInit {
 
   // --- Calculations ---
 
+  private getSalesOrderTotalBaseValue(): number | null {
+    const salesOrderValue = this.selectedSalesOrder()?.value;
+    if (typeof salesOrderValue === 'number' && Number.isFinite(salesOrderValue) && salesOrderValue > 0) {
+      return salesOrderValue;
+    }
+    return null;
+  }
+
   getOriginalValue(env: EnvironmentItem): number {
-    // O valor retornado do Pontta já vem com desconto aplicado.
-    return env.value;
+    // Regra atual: base principal é o total do pedido de venda.
+    return this.getSalesOrderTotalBaseValue() ?? env.value;
   }
 
   getFinalValue(env: EnvironmentItem): number {
@@ -629,6 +667,12 @@ export class PagamentoMontadorComponent implements OnInit {
     if (selected.length === 0) return;
 
     const salesOrder = this.selectedSalesOrder()!;
+    this.log('generatePdfs início', {
+      salesOrderId: salesOrder.id,
+      code: salesOrder.code,
+      selectedCount: selected.length,
+      sendToDrive: this.sendToDrive,
+    });
     this.generatingPdf.set(true);
     this.driveSuccessCount.set(0);
     this.driveErrors.set([]);
@@ -641,12 +685,24 @@ export class PagamentoMontadorComponent implements OnInit {
 
     try {
       for (const env of selected) {
+        const baseValue = this.getOriginalValue(env);
+        const usingSalesOrderTotal = this.getSalesOrderTotalBaseValue() !== null;
+
+        this.log('generatePdfs item início', {
+          envId: env.id,
+          envName: env.name,
+          envValue: env.value,
+          salesOrderTotal: salesOrder.value,
+          baseValueUsed: baseValue,
+          baseSource: usingSalesOrderTotal ? 'salesOrder.total' : 'environment.value',
+        });
+
         const response = await new Promise<HttpResponse<Blob>>((resolve, reject) => {
           this.gosacService.generateMontadorPdf({
             proposalCode: salesOrder.code,
             customerName: salesOrder.customerName,
             environmentName: env.name,
-            environmentValue: env.value,
+            environmentValue: baseValue,
             ponttaDiscount: 0,
             additionalDiscount: 6,
             deliveryDate: formatDateBR(this.deliveryDate),
@@ -661,10 +717,12 @@ export class PagamentoMontadorComponent implements OnInit {
         // Check Drive response headers
         if (this.sendToDrive) {
           if (response.headers.get('X-Drive-Success') === 'true') {
+            this.log('generatePdfs drive sucesso', { envName: env.name });
             this.driveSuccessCount.update(n => n + 1);
           } else {
             const errMsg = response.headers.get('X-Drive-Error');
             if (errMsg) {
+              this.log('generatePdfs drive erro', { envName: env.name, error: errMsg });
               this.driveErrors.update(errs => [...errs, `${env.name}: ${errMsg}`]);
             }
           }
@@ -678,8 +736,14 @@ export class PagamentoMontadorComponent implements OnInit {
         a.download = `Pagamento Montador - ${customerName} - ${envName}.pdf`;
         a.click();
         URL.revokeObjectURL(url);
+        this.log('generatePdfs item concluído', { envName: env.name, fileName: a.download });
       }
+      this.log('generatePdfs concluído', {
+        driveSuccessCount: this.driveSuccessCount(),
+        driveErrorsCount: this.driveErrors().length,
+      });
     } catch (err: any) {
+      this.log('generatePdfs erro', { message: err?.error?.message || err?.message || 'Erro desconhecido' });
       this.itemsError.set(err?.error?.message || 'Erro ao gerar PDF');
     } finally {
       this.generatingPdf.set(false);
