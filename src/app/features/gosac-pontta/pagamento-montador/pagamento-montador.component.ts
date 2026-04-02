@@ -634,8 +634,29 @@ export class PagamentoMontadorComponent implements OnInit {
 
   // --- Calculations ---
 
+  private getEnvironmentsTotal(): number {
+    return this.environments()
+      .reduce((sum, e) => sum + (typeof e.value === 'number' ? e.value : 0), 0);
+  }
+
+  private getDiscountedSalesOrderTotal(): number | null {
+    const salesOrderValue = this.selectedSalesOrder()?.value;
+    if (typeof salesOrderValue === 'number' && Number.isFinite(salesOrderValue) && salesOrderValue > 0) {
+      return salesOrderValue;
+    }
+    return null;
+  }
+
   getOriginalValue(env: EnvironmentItem): number {
-    // Regra de negócio: base sempre pelo total individual do ambiente.
+    // Regra: distribuir o desconto total proporcionalmente por ambiente.
+    const totalItems = this.getEnvironmentsTotal();
+    const discountedTotal = this.getDiscountedSalesOrderTotal();
+
+    if (discountedTotal != null && totalItems > 0) {
+      const ratio = discountedTotal / totalItems;
+      return env.value * ratio;
+    }
+
     return env.value;
   }
 
@@ -679,14 +700,16 @@ export class PagamentoMontadorComponent implements OnInit {
     try {
       for (const env of selected) {
         const baseValue = this.getOriginalValue(env);
-
+        const totalItems = this.getEnvironmentsTotal();
+        const discountedTotal = this.getDiscountedSalesOrderTotal();
         this.log('generatePdfs item início', {
           envId: env.id,
           envName: env.name,
           envValue: env.value,
           salesOrderTotal: salesOrder.value,
+          totalItems,
           baseValueUsed: baseValue,
-          baseSource: 'environment.total',
+          baseSource: discountedTotal != null && totalItems > 0 ? 'environment.total (proporcional ao desconto)' : 'environment.total',
         });
 
         const response = await new Promise<HttpResponse<Blob>>((resolve, reject) => {
