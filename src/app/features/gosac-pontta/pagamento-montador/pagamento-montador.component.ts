@@ -572,12 +572,13 @@ export class PagamentoMontadorComponent implements OnInit {
           console.log('[PonttaItems] raw item[0]:', JSON.stringify(items[0]));
         }
         const envs: EnvironmentItem[] = items.map((item: any) => {
+          // Regra de negócio: no pagamento do montador, usar o total do ambiente.
           const value =
-            item.pvValue ??
+            item.total ??
             item.totalValue ??
+            item.pvValue ??
             item.saleValue ??
             item.salePrice ??
-            item.total ??
             item.price ??
             item.value ??
             0;
@@ -633,17 +634,9 @@ export class PagamentoMontadorComponent implements OnInit {
 
   // --- Calculations ---
 
-  private getSalesOrderTotalBaseValue(): number | null {
-    const salesOrderValue = this.selectedSalesOrder()?.value;
-    if (typeof salesOrderValue === 'number' && Number.isFinite(salesOrderValue) && salesOrderValue > 0) {
-      return salesOrderValue;
-    }
-    return null;
-  }
-
   getOriginalValue(env: EnvironmentItem): number {
-    // Regra atual: base principal é o total do pedido de venda.
-    return this.getSalesOrderTotalBaseValue() ?? env.value;
+    // Regra de negócio: base sempre pelo total individual do ambiente.
+    return env.value;
   }
 
   getFinalValue(env: EnvironmentItem): number {
@@ -686,7 +679,6 @@ export class PagamentoMontadorComponent implements OnInit {
     try {
       for (const env of selected) {
         const baseValue = this.getOriginalValue(env);
-        const usingSalesOrderTotal = this.getSalesOrderTotalBaseValue() !== null;
 
         this.log('generatePdfs item início', {
           envId: env.id,
@@ -694,7 +686,7 @@ export class PagamentoMontadorComponent implements OnInit {
           envValue: env.value,
           salesOrderTotal: salesOrder.value,
           baseValueUsed: baseValue,
-          baseSource: usingSalesOrderTotal ? 'salesOrder.total' : 'environment.value',
+          baseSource: 'environment.total',
         });
 
         const response = await new Promise<HttpResponse<Blob>>((resolve, reject) => {
