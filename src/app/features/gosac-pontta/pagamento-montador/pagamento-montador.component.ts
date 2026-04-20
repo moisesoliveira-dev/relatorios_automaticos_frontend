@@ -27,7 +27,7 @@ interface SalesOrderItem extends SalesOrderSearchResult {
       <!-- Page header -->
       <div>
         <h1 class="text-xl font-semibold text-slate-800">Pagamento de Montador</h1>
-        <p class="text-sm text-slate-500 mt-1">Gere PDFs de pagamento por ambiente a partir dos orçamentos do Pontta.</p>
+        <p class="text-sm text-slate-500 mt-1">Gere um boleto/PDF consolidado com todos os ambientes selecionados.</p>
       </div>
 
       <!-- Logo upload -->
@@ -288,6 +288,7 @@ interface SalesOrderItem extends SalesOrderSearchResult {
                               <span class="font-medium text-slate-800">{{ env.name }}</span>
                             </td>
                             <td class="px-4 py-2.5 text-right font-medium text-slate-800">{{ formatCurrency(getOriginalValue(env)) }}</td>
+                            <td class="px-4 py-2.5 text-right text-slate-600">{{ formatCurrency(env.value) }}</td>
                             <td class="px-4 py-2.5 text-right text-slate-600">6.0%</td>
                             <td class="px-4 py-2.5 text-right font-medium text-slate-800">{{ formatCurrency(getFinalValue(env)) }}</td>
                             <td class="px-4 py-2.5 text-right font-bold text-emerald-700">{{ formatCurrency(getMontadorValue(env)) }}</td>
@@ -389,10 +390,10 @@ interface SalesOrderItem extends SalesOrderSearchResult {
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                   </svg>
-                  Gerando...
+                  Gerando boleto...
                 } @else {
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                  Gerar PDF{{ selectedCount() > 1 ? 's' : '' }}
+                  Gerar boleto
                 }
               </button>
             </div>
@@ -698,65 +699,66 @@ export class PagamentoMontadorComponent implements OnInit {
     };
 
     try {
-      for (const env of selected) {
-        const baseValue = this.getOriginalValue(env);
-        const totalItems = this.getEnvironmentsTotal();
-        const discountedTotal = this.getDiscountedSalesOrderTotal();
-        this.log('generatePdfs item início', {
-          envId: env.id,
-          envName: env.name,
-          envValue: env.value,
-          salesOrderTotal: salesOrder.value,
-          totalItems,
-          baseValueUsed: baseValue,
-          baseSource: discountedTotal != null && totalItems > 0 ? 'environment.total (proporcional ao desconto)' : 'environment.total',
-        });
+      const totalItems = this.getEnvironmentsTotal();
+      const discountedTotal = this.getDiscountedSalesOrderTotal();
+      const environmentsPayload = selected.map((env) => ({
+        environmentName: env.name,
+        environmentValue: this.getOriginalValue(env),
+      }));
 
-        const response = await new Promise<HttpResponse<Blob>>((resolve, reject) => {
-          this.gosacService.generateMontadorPdf({
-            proposalCode: salesOrder.code,
-            customerName: salesOrder.customerName,
-            environmentName: env.name,
-            environmentValue: baseValue,
-            ponttaDiscount: 0,
-            additionalDiscount: 6,
-            deliveryDate: formatDateBR(this.deliveryDate),
-            assemblyStartDate: formatDateBR(this.assemblyStartDate),
-            assemblyEndDate: formatDateBR(this.assemblyEndDate),
-            sendToDrive: this.sendToDrive,
-          }).subscribe({ next: resolve, error: reject });
-        });
+      this.log('generatePdfs payload consolidado', {
+        salesOrderTotal: salesOrder.value,
+        totalItems,
+        selectedCount: selected.length,
+        baseSource: discountedTotal != null && totalItems > 0 ? 'environment.total (proporcional ao desconto)' : 'environment.total',
+        environments: environmentsPayload,
+      });
 
-        const blob = response.body!;
+      const response = await new Promise<HttpResponse<Blob>>((resolve, reject) => {
+        this.gosacService.generateMontadorPdf({
+          proposalCode: salesOrder.code,
+          customerName: salesOrder.customerName,
+          environmentName: selected.length > 1 ? 'Ambientes' : selected[0].name,
+          environmentValue: environmentsPayload.reduce((sum, env) => sum + env.environmentValue, 0),
+          environments: environmentsPayload,
+          ponttaDiscount: 0,
+          additionalDiscount: 6,
+          deliveryDate: formatDateBR(this.deliveryDate),
+          assemblyStartDate: formatDateBR(this.assemblyStartDate),
+          assemblyEndDate: formatDateBR(this.assemblyEndDate),
+          sendToDrive: this.sendToDrive,
+        }).subscribe({ next: resolve, error: reject });
+      });
 
-        // Check Drive response headers
-        if (this.sendToDrive) {
-          if (response.headers.get('X-Drive-Success') === 'true') {
-            this.log('generatePdfs drive sucesso', { envName: env.name });
-            this.driveSuccessCount.update(n => n + 1);
-          } else {
-            const errMsg = response.headers.get('X-Drive-Error');
-            if (errMsg) {
-              this.log('generatePdfs drive erro', { envName: env.name, error: errMsg });
-              this.driveErrors.update(errs => [...errs, `${env.name}: ${errMsg}`]);
-            }
+      const blob = response.body!;
+
+      if (this.sendToDrive) {
+        if (response.headers.get('X-Drive-Success') === 'true') {
+          this.log('generatePdfs drive sucesso', { selectedCount: selected.length });
+          this.driveSuccessCount.set(1);
+        } else {
+          const errMsg = response.headers.get('X-Drive-Error');
+          if (errMsg) {
+            this.log('generatePdfs drive erro', { error: errMsg });
+            this.driveErrors.set([`Boleto consolidado: ${errMsg}`]);
           }
         }
-
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const orderCode = (salesOrder.code || '').replace(/[<>:"/\\|?*]/g, '').trim();
-        const customerName = (salesOrder.customerName || '').replace(/[<>:"/\\|?*]/g, '').trim();
-        const firstName = customerName.split(' ')[0] || 'Cliente';
-        const envName = env.name.replace(/[<>:"/\\|?*]/g, '').trim() || 'Ambiente';
-        a.download = orderCode
-          ? `(${orderCode}) ${firstName} - ${envName}.pdf`
-          : `${firstName} - ${envName}.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
-        this.log('generatePdfs item concluído', { envName: env.name, fileName: a.download });
       }
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const orderCode = (salesOrder.code || '').replace(/[<>:"/\\|?*]/g, '').trim();
+      const customerName = (salesOrder.customerName || '').replace(/[<>:"/\\|?*]/g, '').trim();
+      const firstName = customerName.split(' ')[0] || 'Cliente';
+      const envLabel = selected.length > 1 ? 'Ambientes' : (selected[0].name || 'Ambiente').replace(/[<>:"/\\|?*]/g, '').trim();
+      a.download = orderCode
+        ? `(${orderCode}) ${firstName} - ${envLabel}.pdf`
+        : `${firstName} - ${envLabel}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      this.log('generatePdfs concluído arquivo único', { fileName: a.download, selectedCount: selected.length });
+
       this.log('generatePdfs concluído', {
         driveSuccessCount: this.driveSuccessCount(),
         driveErrorsCount: this.driveErrors().length,
