@@ -289,7 +289,7 @@ interface SalesOrderItem extends SalesOrderSearchResult {
                             </td>
                             <td class="px-4 py-2.5 text-right font-medium text-slate-800">{{ formatCurrency(getOriginalValue(env)) }}</td>
                             <td class="px-4 py-2.5 text-right text-slate-600">{{ formatCurrency(env.value) }}</td>
-                            <td class="px-4 py-2.5 text-right text-slate-600">6.0%</td>
+                            <td class="px-4 py-2.5 text-right text-slate-600">15.0%</td>
                             <td class="px-4 py-2.5 text-right font-medium text-slate-800">{{ formatCurrency(getFinalValue(env)) }}</td>
                             <td class="px-4 py-2.5 text-right font-bold text-emerald-700">{{ formatCurrency(getMontadorValue(env)) }}</td>
                           </tr>
@@ -722,7 +722,7 @@ export class PagamentoMontadorComponent implements OnInit {
           environmentValue: environmentsPayload.reduce((sum, env) => sum + env.environmentValue, 0),
           environments: environmentsPayload,
           ponttaDiscount: 0,
-          additionalDiscount: 6,
+          additionalDiscount: 15,
           deliveryDate: formatDateBR(this.deliveryDate),
           assemblyStartDate: formatDateBR(this.assemblyStartDate),
           assemblyEndDate: formatDateBR(this.assemblyEndDate),
