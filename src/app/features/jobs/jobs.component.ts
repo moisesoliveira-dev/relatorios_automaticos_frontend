@@ -1,341 +1,191 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { ModalService } from '../../shared/services/modal.service';
 
-interface ScheduledJob {
-    id: string;
-    name: string;
-    reportType: string;
-    frequency: 'daily' | 'weekly' | 'monthly';
-    time: string;
-    dayOfWeek?: number;
-    dayOfMonth?: number;
-    isActive: boolean;
-    format: 'excel' | 'csv' | 'pdf';
-    filters?: any;
-    lastRun?: string;
-    nextRun?: string;
-    createdAt: string;
+interface CodeJob {
+  id: string;
+  name: string;
+  description: string;
+  scheduleLabel: string;
+  isActive: boolean;
+  isRunning: boolean;
+  lastStatus: 'idle' | 'running' | 'success' | 'error';
+  lastRunAt: string | null;
+  nextRunAt: string | null;
+  lastSummary: string | null;
 }
 
-interface JobTypeOption {
-    value: string;
-    label: string;
-    category: 'report' | 'gosac';
+interface CodeJobLogEntry {
+  timestamp: string;
+  level: 'info' | 'success' | 'warning' | 'error';
+  message: string;
+  data?: unknown;
 }
 
 @Component({
-    selector: 'app-jobs',
-    standalone: true,
-    imports: [CommonModule, FormsModule],
-    template: `
+  selector: 'app-jobs',
+  standalone: true,
+  imports: [CommonModule],
+  template: `
     <div class="space-y-6">
-      <!-- Page Header -->
       <div class="bg-white rounded-xl p-6 border border-slate-200 flex items-start justify-between">
         <div>
-          <h1 class="text-xl font-semibold text-slate-800">Jobs Agendados</h1>
-          <p class="text-sm text-slate-500 mt-1">Automatize tarefas recorrentes de relatórios e integrações</p>
+          <h1 class="text-xl font-semibold text-slate-800">Jobs do Sistema</h1>
+          <p class="text-sm text-slate-500 mt-1">Jobs definidos em código, com controle de execução e logs em tempo real.</p>
         </div>
         <button
-          (click)="openJobModal()"
+          (click)="refreshNow()"
           class="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-2"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
           </svg>
-          Novo Job
+          Atualizar
         </button>
       </div>
 
-      <!-- Filter Pills -->
-      <div class="flex gap-2">
-        <button
-          (click)="activeFilter.set('all')"
-          class="px-3 py-1.5 text-sm rounded-full border transition-colors"
-          [class.bg-slate-800]="activeFilter() === 'all'"
-          [class.text-white]="activeFilter() === 'all'"
-          [class.border-slate-800]="activeFilter() === 'all'"
-          [class.text-slate-600]="activeFilter() !== 'all'"
-          [class.border-slate-300]="activeFilter() !== 'all'"
-          [class.hover:border-slate-500]="activeFilter() !== 'all'"
-        >
-          Todos ({{ jobs().length }})
-        </button>
-        <button
-          (click)="activeFilter.set('report')"
-          class="px-3 py-1.5 text-sm rounded-full border transition-colors"
-          [class.bg-blue-700]="activeFilter() === 'report'"
-          [class.text-white]="activeFilter() === 'report'"
-          [class.border-blue-700]="activeFilter() === 'report'"
-          [class.text-slate-600]="activeFilter() !== 'report'"
-          [class.border-slate-300]="activeFilter() !== 'report'"
-          [class.hover:border-slate-500]="activeFilter() !== 'report'"
-        >
-          Relatórios ({{ countByCategory('report') }})
-        </button>
-        <button
-          (click)="activeFilter.set('gosac')"
-          class="px-3 py-1.5 text-sm rounded-full border transition-colors"
-          [class.bg-violet-700]="activeFilter() === 'gosac'"
-          [class.text-white]="activeFilter() === 'gosac'"
-          [class.border-violet-700]="activeFilter() === 'gosac'"
-          [class.text-slate-600]="activeFilter() !== 'gosac'"
-          [class.border-slate-300]="activeFilter() !== 'gosac'"
-          [class.hover:border-slate-500]="activeFilter() !== 'gosac'"
-        >
-          Gosac / Pontta ({{ countByCategory('gosac') }})
-        </button>
-      </div>
-
-      <!-- Jobs List -->
-      <div class="bg-white rounded-xl border border-slate-200">
-        @if (loading()) {
-          <div class="flex items-center justify-center py-16">
-            <div class="animate-spin w-6 h-6 border-2 border-slate-200 border-t-slate-600 rounded-full"></div>
-          </div>
-        } @else if (filteredJobs().length === 0) {
-          <div class="text-center py-16 text-slate-500">
-            <svg class="w-10 h-10 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            <p class="font-medium">Nenhum job encontrado</p>
-            <p class="text-sm mt-1">Crie um job para automatizar tarefas recorrentes.</p>
-          </div>
-        } @else {
-          <div class="divide-y divide-slate-100">
-            @for (job of filteredJobs(); track job.id) {
-              <div class="p-5 flex items-center gap-4 hover:bg-slate-50 transition-colors">
-                <!-- Category Badge -->
-                <div
-                  class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                  [class.bg-blue-50]="getJobCategory(job.reportType) === 'report'"
-                  [class.bg-violet-50]="getJobCategory(job.reportType) === 'gosac'"
-                >
-                  @if (getJobCategory(job.reportType) === 'report') {
-                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
-                  } @else {
-                    <svg class="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
-                    </svg>
-                  }
-                </div>
-
-                <!-- Info -->
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2 mb-0.5">
-                    <span class="font-medium text-slate-800 text-sm truncate">{{ job.name }}</span>
-                    <span
-                      class="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0"
-                      [class.bg-blue-100]="getJobCategory(job.reportType) === 'report'"
-                      [class.text-blue-700]="getJobCategory(job.reportType) === 'report'"
-                      [class.bg-violet-100]="getJobCategory(job.reportType) === 'gosac'"
-                      [class.text-violet-700]="getJobCategory(job.reportType) === 'gosac'"
-                    >{{ getReportTypeLabel(job.reportType) }}</span>
-                  </div>
-                  <div class="flex items-center gap-3 text-xs text-slate-500">
-                    <span>{{ getFrequencyLabel(job) }}</span>
-                    <span>·</span>
-                    <span class="uppercase">{{ job.format }}</span>
-                    @if (job.nextRun) {
-                      <span>·</span>
-                      <span>Próx: {{ formatDate(job.nextRun) }}</span>
-                    }
-                    @if (job.lastRun) {
-                      <span>·</span>
-                      <span>Último: {{ formatDate(job.lastRun) }}</span>
-                    }
-                  </div>
-                </div>
-
-                <!-- Toggle + Actions -->
-                <div class="flex items-center gap-3 flex-shrink-0">
-                  <button
-                    (click)="toggleJob(job)"
-                    class="w-11 h-6 rounded-full transition-colors relative"
-                    [class.bg-green-500]="job.isActive"
-                    [class.bg-slate-300]="!job.isActive"
-                    [title]="job.isActive ? 'Desativar' : 'Ativar'"
-                  >
-                    <span
-                      class="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all"
-                      [class.left-1]="!job.isActive"
-                      [class.left-6]="job.isActive"
-                    ></span>
-                  </button>
-                  <button
-                    (click)="editJob(job)"
-                    class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors"
-                    title="Editar"
-                  >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                    </svg>
-                  </button>
-                  <button
-                    (click)="deleteJob(job)"
-                    class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                    title="Excluir"
-                  >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            }
-          </div>
-        }
-      </div>
-    </div>
-
-    <!-- Modal de Job -->
-    @if (showJobModal) {
-      <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-          <div class="p-6 border-b border-slate-200 flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-slate-800">
-              {{ editingJob ? 'Editar Job' : 'Novo Job Agendado' }}
-            </h3>
-            <button (click)="cancelJobModal()" class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div class="xl:col-span-2 bg-white rounded-xl border border-slate-200">
+          @if (loading()) {
+            <div class="flex items-center justify-center py-16">
+              <div class="animate-spin w-6 h-6 border-2 border-slate-200 border-t-slate-600 rounded-full"></div>
+            </div>
+          } @else if (jobs().length === 0) {
+            <div class="text-center py-16 text-slate-500">
+              <svg class="w-10 h-10 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
-            </button>
-          </div>
-
-          <div class="p-6 space-y-4">
-            <!-- Nome -->
-            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Nome do Job</label>
-              <input
-                type="text"
-                [(ngModel)]="jobForm.name"
-                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm"
-                placeholder="Ex: Relatório Diário de Ocorrências"
-              />
+              <p class="font-medium">Nenhum job de código disponível</p>
             </div>
-
-            <!-- Tipo -->
-            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Funcionalidade</label>
-              <select
-                [(ngModel)]="jobForm.reportType"
-                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 text-sm"
-              >
-                <optgroup label="Relatórios">
-                  @for (opt of reportTypeOptions; track opt.value) {
-                    @if (opt.category === 'report') {
-                      <option [value]="opt.value">{{ opt.label }}</option>
-                    }
-                  }
-                </optgroup>
-                <optgroup label="Gosac / Pontta">
-                  @for (opt of reportTypeOptions; track opt.value) {
-                    @if (opt.category === 'gosac') {
-                      <option [value]="opt.value">{{ opt.label }}</option>
-                    }
-                  }
-                </optgroup>
-              </select>
-            </div>
-
-            <!-- Frequência -->
-            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Frequência</label>
-              <select
-                [(ngModel)]="jobForm.frequency"
-                (ngModelChange)="onFrequencyChange()"
-                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 text-sm"
-              >
-                <option value="daily">Diário</option>
-                <option value="weekly">Semanal</option>
-                <option value="monthly">Mensal</option>
-              </select>
-            </div>
-
-            <!-- Horário -->
-            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Horário</label>
-              <input
-                type="time"
-                [(ngModel)]="jobForm.time"
-                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 text-sm"
-              />
-            </div>
-
-            @if (jobForm.frequency === 'weekly') {
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Dia da Semana</label>
-                <select
-                  [(ngModel)]="jobForm.dayOfWeek"
-                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 text-sm"
+          } @else {
+            <div class="divide-y divide-slate-100">
+              @for (job of jobs(); track job.id) {
+                <div
+                  class="p-5 hover:bg-slate-50 transition-colors cursor-pointer"
+                  [class.bg-blue-50/40]="selectedJobId() === job.id"
+                  (click)="selectJob(job.id)"
                 >
-                  <option [ngValue]="0">Domingo</option>
-                  <option [ngValue]="1">Segunda-feira</option>
-                  <option [ngValue]="2">Terça-feira</option>
-                  <option [ngValue]="3">Quarta-feira</option>
-                  <option [ngValue]="4">Quinta-feira</option>
-                  <option [ngValue]="5">Sexta-feira</option>
-                  <option [ngValue]="6">Sábado</option>
-                </select>
-              </div>
-            }
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-2 mb-1">
+                        <h3 class="text-sm font-semibold text-slate-800 truncate">{{ job.name }}</h3>
+                        <span class="text-[11px] px-2 py-0.5 rounded-full border"
+                          [class.bg-emerald-50]="job.isActive"
+                          [class.text-emerald-700]="job.isActive"
+                          [class.border-emerald-200]="job.isActive"
+                          [class.bg-slate-100]="!job.isActive"
+                          [class.text-slate-600]="!job.isActive"
+                          [class.border-slate-200]="!job.isActive"
+                        >{{ job.isActive ? 'Ativo' : 'Parado' }}</span>
 
-            @if (jobForm.frequency === 'monthly') {
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Dia do Mês</label>
-                <input
-                  type="number"
-                  [(ngModel)]="jobForm.dayOfMonth"
-                  min="1"
-                  max="31"
-                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 text-sm"
-                />
-              </div>
-            }
+                        <span class="text-[11px] px-2 py-0.5 rounded-full border"
+                          [class.bg-blue-50]="job.isRunning"
+                          [class.text-blue-700]="job.isRunning"
+                          [class.border-blue-200]="job.isRunning"
+                          [class.bg-slate-100]="!job.isRunning"
+                          [class.text-slate-600]="!job.isRunning"
+                          [class.border-slate-200]="!job.isRunning"
+                        >{{ job.isRunning ? 'Executando' : 'Idle' }}</span>
+                      </div>
 
-            <!-- Formato -->
-            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Formato de saída</label>
-              <select
-                [(ngModel)]="jobForm.format"
-                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 text-sm"
-              >
-                @for (opt of getFormatOptions(); track opt.value) {
-                  <option [value]="opt.value">{{ opt.label }}</option>
-                }
-              </select>
+                      <p class="text-xs text-slate-500">{{ job.description }}</p>
+                      <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                        <span>Agenda: {{ job.scheduleLabel }}</span>
+                        <span>Próx: {{ formatDate(job.nextRunAt) }}</span>
+                        <span>Último: {{ formatDate(job.lastRunAt) }}</span>
+                        <span>Status: {{ formatStatus(job.lastStatus) }}</span>
+                      </div>
+                      @if (job.lastSummary) {
+                        <p class="mt-2 text-xs text-slate-600">Resumo: {{ job.lastSummary }}</p>
+                      }
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row gap-2 flex-shrink-0" (click)="$event.stopPropagation()">
+                      <button
+                        (click)="toggleJob(job)"
+                        class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors"
+                        [class.bg-amber-50]="job.isActive"
+                        [class.text-amber-700]="job.isActive"
+                        [class.border-amber-200]="job.isActive"
+                        [class.hover:bg-amber-100]="job.isActive"
+                        [class.bg-emerald-50]="!job.isActive"
+                        [class.text-emerald-700]="!job.isActive"
+                        [class.border-emerald-200]="!job.isActive"
+                        [class.hover:bg-emerald-100]="!job.isActive"
+                        [disabled]="job.isRunning"
+                      >
+                        {{ job.isActive ? 'Parar' : 'Iniciar' }}
+                      </button>
+
+                      <button
+                        (click)="runNow(job)"
+                        class="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors"
+                        [disabled]="job.isRunning"
+                      >
+                        Executar agora
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              }
             </div>
+          }
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 flex flex-col min-h-[540px]">
+          <div class="px-4 py-3 border-b border-slate-200 bg-slate-50 rounded-t-xl">
+            <h3 class="text-sm font-semibold text-slate-800">Logs do Job</h3>
+            @if (selectedJob()) {
+              <p class="text-xs text-slate-500 mt-0.5">{{ selectedJob()!.name }}</p>
+            }
           </div>
 
-          <div class="p-6 border-t border-slate-200 flex justify-end gap-3">
-            <button
-              (click)="cancelJobModal()"
-              class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              (click)="saveJob()"
-              [disabled]="savingJob()"
-              class="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              @if (savingJob()) {
-                <div class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
-                Salvando...
-              } @else {
-                Salvar
+          @if (!selectedJob()) {
+            <div class="flex-1 flex items-center justify-center text-slate-400 text-sm p-6 text-center">
+              Selecione um job para visualizar os logs.
+            </div>
+          } @else if (loadingLogs()) {
+            <div class="flex-1 flex items-center justify-center">
+              <div class="animate-spin w-5 h-5 border-2 border-slate-200 border-t-slate-600 rounded-full"></div>
+            </div>
+          } @else if (selectedJobLogs().length === 0) {
+          <div class="text-center py-16 text-slate-500">
+              <p class="text-sm">Nenhum log disponível para este job.</p>
+          </div>
+          } @else {
+            <div class="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+              @for (log of selectedJobLogs(); track $index) {
+                <div class="rounded-lg border px-3 py-2"
+                  [class.border-slate-200]="log.level === 'info'"
+                  [class.bg-slate-50]="log.level === 'info'"
+                  [class.border-emerald-200]="log.level === 'success'"
+                  [class.bg-emerald-50]="log.level === 'success'"
+                  [class.border-amber-200]="log.level === 'warning'"
+                  [class.bg-amber-50]="log.level === 'warning'"
+                  [class.border-red-200]="log.level === 'error'"
+                  [class.bg-red-50]="log.level === 'error'"
+                >
+                  <div class="flex items-center justify-between gap-2 mb-1">
+                    <span class="text-[11px] font-semibold uppercase tracking-wider"
+                      [class.text-slate-600]="log.level === 'info'"
+                      [class.text-emerald-700]="log.level === 'success'"
+                      [class.text-amber-700]="log.level === 'warning'"
+                      [class.text-red-700]="log.level === 'error'"
+                    >{{ log.level }}</span>
+                    <span class="text-[11px] text-slate-500">{{ formatDate(log.timestamp) }}</span>
+                  </div>
+                  <p class="text-xs text-slate-700 whitespace-pre-wrap break-words">{{ log.message }}</p>
+                  @if (log.data) {
+                    <pre class="mt-2 text-[11px] text-slate-600 whitespace-pre-wrap break-words">{{ prettyData(log.data) }}</pre>
+                  }
+                </div>
               }
-            </button>
+            </div>
+          }
           </div>
         </div>
       </div>
-    }
 
     <!-- Toast success -->
     @if (successMessage()) {
@@ -358,173 +208,163 @@ interface JobTypeOption {
     }
   `
 })
-export class JobsComponent implements OnInit {
-    private http = inject(HttpClient);
-    private modalService = inject(ModalService);
-    private apiUrl = environment.apiUrl;
+export class JobsComponent implements OnInit, OnDestroy {
+  private http = inject(HttpClient);
+  private apiUrl = environment.apiUrl;
+  private refreshInterval: ReturnType<typeof setInterval> | null = null;
 
-    jobs = signal<ScheduledJob[]>([]);
-    loading = signal(false);
-    activeFilter = signal<'all' | 'report' | 'gosac'>('all');
-    showJobModal = false;
-    editingJob: ScheduledJob | null = null;
-    savingJob = signal(false);
-    successMessage = signal('');
-    errorMessage = signal('');
+  jobs = signal<CodeJob[]>([]);
+  selectedJobId = signal<string | null>(null);
+  selectedJobLogs = signal<CodeJobLogEntry[]>([]);
+  loading = signal(false);
+  loadingLogs = signal(false);
+  successMessage = signal('');
+  errorMessage = signal('');
 
-    reportTypeOptions: JobTypeOption[] = [
-        { value: 'occurrences', label: 'Ocorrências', category: 'report' },
-        { value: 'monthly', label: 'Mensal', category: 'report' },
-        { value: 'custom', label: 'Customizado', category: 'report' },
-        { value: 'gosac-grupos', label: 'Groups — Sincronização', category: 'gosac' },
-        { value: 'gosac-pagamento-montador', label: 'Pagamento de Montador', category: 'gosac' },
-    ];
+  ngOnInit() {
+    this.loadJobs(true);
+    this.refreshInterval = setInterval(() => {
+      this.loadJobs(false);
+      const selected = this.selectedJobId();
+      if (selected) {
+        this.loadLogs(selected, false);
+      }
+    }, 5000);
+  }
 
-    jobForm: any = {
-        name: '',
-        reportType: 'occurrences',
-        frequency: 'daily',
-        time: '09:00',
-        dayOfWeek: 1,
-        dayOfMonth: 1,
-        format: 'excel',
-        sendToFixedEmails: true
-    };
+  ngOnDestroy() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+      this.refreshInterval = null;
+    }
+  }
 
-    ngOnInit() {
-        this.loadJobs();
+  refreshNow() {
+    this.loadJobs(false);
+    const selected = this.selectedJobId();
+    if (selected) {
+      this.loadLogs(selected, true);
+    }
+  }
+
+  loadJobs(withLoader: boolean) {
+    if (withLoader) {
+      this.loading.set(true);
     }
 
-    loadJobs() {
-        this.loading.set(true);
-        this.http.get<ScheduledJob[]>(`${this.apiUrl}/jobs`).subscribe({
-            next: (data) => { this.jobs.set(data); this.loading.set(false); },
-            error: () => { this.loading.set(false); }
-        });
-    }
-
-    filteredJobs(): ScheduledJob[] {
-        const filter = this.activeFilter();
-        if (filter === 'all') return this.jobs();
-        return this.jobs().filter(j => this.getJobCategory(j.reportType) === filter);
-    }
-
-    countByCategory(category: 'report' | 'gosac'): number {
-        return this.jobs().filter(j => this.getJobCategory(j.reportType) === category).length;
-    }
-
-    getJobCategory(reportType: string): 'report' | 'gosac' {
-        return reportType.startsWith('gosac-') ? 'gosac' : 'report';
-    }
-
-    getReportTypeLabel(type: string): string {
-        return this.reportTypeOptions.find(o => o.value === type)?.label ?? type;
-    }
-
-    getFrequencyLabel(job: ScheduledJob): string {
-        const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-        if (job.frequency === 'daily') return `Diário às ${job.time}`;
-        if (job.frequency === 'weekly') return `${days[job.dayOfWeek ?? 0]} às ${job.time}`;
-        return `Dia ${job.dayOfMonth} às ${job.time}`;
-    }
-
-    getFormatOptions(): { value: string; label: string }[] {
-        const type = this.jobForm.reportType as string;
-        if (type.startsWith('gosac-')) {
-            return [{ value: 'pdf', label: 'PDF' }, { value: 'excel', label: 'Excel (.xlsx)' }, { value: 'csv', label: 'CSV' }];
+    this.http.get<CodeJob[]>(`${this.apiUrl}/jobs/code`).subscribe({
+      next: (data) => {
+        this.jobs.set(data || []);
+        if (withLoader) {
+          this.loading.set(false);
         }
-        return [{ value: 'excel', label: 'Excel (.xlsx)' }, { value: 'csv', label: 'CSV' }];
-    }
 
-    openJobModal() {
-        this.editingJob = null;
-        this.jobForm = { name: '', reportType: 'occurrences', frequency: 'daily', time: '09:00', dayOfWeek: 1, dayOfMonth: 1, format: 'excel', sendToFixedEmails: true };
-        this.showJobModal = true;
-    }
-
-    editJob(job: ScheduledJob) {
-        this.editingJob = job;
-        this.jobForm = {
-            name: job.name,
-            reportType: job.reportType,
-            frequency: job.frequency,
-            time: job.time,
-            dayOfWeek: job.dayOfWeek ?? 1,
-            dayOfMonth: job.dayOfMonth ?? 1,
-            format: job.format,
-            sendToFixedEmails: (job as any).sendToFixedEmails ?? true
-        };
-        this.showJobModal = true;
-    }
-
-    cancelJobModal() {
-        this.showJobModal = false;
-        this.editingJob = null;
-    }
-
-    onFrequencyChange() {
-        if (this.jobForm.frequency === 'daily') {
-            delete this.jobForm.dayOfWeek;
-            delete this.jobForm.dayOfMonth;
+        const selected = this.selectedJobId();
+        const selectedStillExists = !!selected && data.some((j) => j.id === selected);
+        if (!selectedStillExists && data.length > 0) {
+          this.selectJob(data[0].id);
         }
+      },
+      error: (err) => {
+        if (withLoader) {
+          this.loading.set(false);
+        }
+        this.errorMessage.set(err?.error?.message || 'Erro ao carregar jobs de código');
+        setTimeout(() => this.errorMessage.set(''), 5000);
+      },
+    });
+  }
+
+  selectJob(jobId: string) {
+    this.selectedJobId.set(jobId);
+    this.loadLogs(jobId, true);
+  }
+
+  selectedJob(): CodeJob | null {
+    const id = this.selectedJobId();
+    if (!id) return null;
+    return this.jobs().find((job) => job.id === id) || null;
+  }
+
+  loadLogs(jobId: string, withLoader: boolean) {
+    if (withLoader) {
+      this.loadingLogs.set(true);
     }
 
-    saveJob() {
-        this.savingJob.set(true);
-        const payload = { ...this.jobForm };
-        if (payload.frequency === 'daily') { delete payload.dayOfWeek; delete payload.dayOfMonth; }
-        else if (payload.frequency === 'weekly') { delete payload.dayOfMonth; }
-        else if (payload.frequency === 'monthly') { delete payload.dayOfWeek; }
+    this.http.get<CodeJobLogEntry[]>(`${this.apiUrl}/jobs/code/${jobId}/logs?limit=200`).subscribe({
+      next: (logs) => {
+        this.selectedJobLogs.set(logs || []);
+        if (withLoader) {
+          this.loadingLogs.set(false);
+        }
+      },
+      error: () => {
+        if (withLoader) {
+          this.loadingLogs.set(false);
+        }
+        this.selectedJobLogs.set([]);
+      },
+    });
+  }
 
-        const req = this.editingJob
-            ? this.http.put(`${this.apiUrl}/jobs/${this.editingJob.id}`, payload)
-            : this.http.post(`${this.apiUrl}/jobs`, payload);
+  toggleJob(job: CodeJob) {
+    const action = job.isActive ? 'stop' : 'start';
+    this.http.post<CodeJob>(`${this.apiUrl}/jobs/code/${job.id}/${action}`, {}).subscribe({
+      next: () => {
+        this.successMessage.set(job.isActive ? 'Job parado com sucesso.' : 'Job iniciado com sucesso.');
+        this.loadJobs(false);
+        this.loadLogs(job.id, false);
+        setTimeout(() => this.successMessage.set(''), 3000);
+      },
+      error: (err) => {
+        this.errorMessage.set(err?.error?.message || 'Erro ao alterar estado do job');
+        setTimeout(() => this.errorMessage.set(''), 5000);
+      },
+    });
+  }
 
-        req.subscribe({
-            next: () => {
-                this.successMessage.set(this.editingJob ? 'Job atualizado!' : 'Job criado!');
-                this.savingJob.set(false);
-                this.cancelJobModal();
-                this.loadJobs();
-                setTimeout(() => this.successMessage.set(''), 3000);
-            },
-            error: (err) => {
-                this.errorMessage.set(err.error?.message ?? 'Erro ao salvar job');
-                this.savingJob.set(false);
-                setTimeout(() => this.errorMessage.set(''), 5000);
-            }
-        });
+  runNow(job: CodeJob) {
+    this.http.post<CodeJob>(`${this.apiUrl}/jobs/code/${job.id}/run`, {}).subscribe({
+      next: () => {
+        this.successMessage.set('Execução manual iniciada.');
+        this.loadJobs(false);
+        this.loadLogs(job.id, false);
+        setTimeout(() => this.successMessage.set(''), 3000);
+      },
+      error: (err) => {
+        this.errorMessage.set(err?.error?.message || 'Erro ao executar job manualmente');
+        setTimeout(() => this.errorMessage.set(''), 5000);
+      },
+    });
+  }
+
+  formatStatus(status: CodeJob['lastStatus']): string {
+    if (status === 'running') return 'Executando';
+    if (status === 'success') return 'Sucesso';
+    if (status === 'error') return 'Erro';
+    return 'Idle';
+  }
+
+  prettyData(data: unknown): string {
+    try {
+      if (typeof data === 'string') return data;
+      return JSON.stringify(data, null, 2);
+    } catch {
+      return String(data);
     }
+  }
 
-    toggleJob(job: ScheduledJob) {
-        this.http.put(`${this.apiUrl}/jobs/${job.id}/toggle`, {}).subscribe({
-            next: () => {
-                this.successMessage.set(`Job ${job.isActive ? 'desativado' : 'ativado'}!`);
-                this.loadJobs();
-                setTimeout(() => this.successMessage.set(''), 3000);
-            },
-            error: () => {
-                this.errorMessage.set('Erro ao alterar status');
-                setTimeout(() => this.errorMessage.set(''), 3000);
-            }
-        });
-    }
-
-    async deleteJob(job: ScheduledJob) {
-        const confirmed = await this.modalService.confirm(
-            'Excluir Job',
-            `Deseja excluir "${job.name}"?`,
-            'Sim, excluir',
-            'Cancelar'
-        );
-        if (!confirmed) return;
-        this.http.delete(`${this.apiUrl}/jobs/${job.id}`).subscribe({
-            next: () => { this.loadJobs(); this.modalService.success('Job excluído!'); },
-            error: () => { this.modalService.error('Erro ao excluir job'); }
-        });
-    }
-
-    formatDate(dateStr: string): string {
-        return new Date(dateStr).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    }
+  formatDate(dateStr: string | null | undefined): string {
+    if (!dateStr) return '—';
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  }
 }
