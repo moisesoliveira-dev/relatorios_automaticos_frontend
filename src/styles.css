@@ -92,3 +92,61 @@ html.dark ::-webkit-scrollbar-thumb {
 html.dark ::-webkit-scrollbar-thumb:hover {
   background: #475569;
 }
+
+/* Jobs: dark-mode log readability */
+html.dark .job-log-card.job-log-info {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+}
+
+html.dark .job-log-card.job-log-success {
+  background-color: #062a22 !important;
+  border-color: #0f766e !important;
+}
+
+html.dark .job-log-card.job-log-warning {
+  background-color: #3b2a06 !important;
+  border-color: #b45309 !important;
+}
+
+html.dark .job-log-card.job-log-error {
+  background-color: #3f0f16 !important;
+  border-color: #b91c1c !important;
+}
+
+html.dark .job-log-card .job-log-level {
+  color: #e2e8f0 !important;
+}
+
+html.dark .job-log-card.job-log-info .job-log-level {
+  color: #93c5fd !important;
+}
+
+html.dark .job-log-card.job-log-success .job-log-level {
+  color: #6ee7b7 !important;
+}
+
+html.dark .job-log-card.job-log-warning .job-log-level {
+  color: #fcd34d !important;
+}
+
+html.dark .job-log-card.job-log-error .job-log-level {
+  color: #fca5a5 !important;
+}
+
+html.dark .job-log-card .job-log-time {
+  color: #cbd5e1 !important;
+  opacity: 0.9;
+}
+
+html.dark .job-log-card .job-log-message {
+  color: #f8fafc !important;
+}
+
+html.dark .job-log-card .job-log-data {
+  color: #e2e8f0 !important;
+  background-color: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 6px;
+  padding: 6px;
+}

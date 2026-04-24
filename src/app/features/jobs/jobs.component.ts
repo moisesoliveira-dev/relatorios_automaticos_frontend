@@ -156,7 +156,11 @@ interface CodeJobLogEntry {
           } @else {
             <div class="flex-1 overflow-y-auto px-4 py-3 space-y-2">
               @for (log of selectedJobLogs(); track $index) {
-                <div class="rounded-lg border px-3 py-2"
+                <div class="job-log-card rounded-lg border px-3 py-2"
+                  [class.job-log-info]="log.level === 'info'"
+                  [class.job-log-success]="log.level === 'success'"
+                  [class.job-log-warning]="log.level === 'warning'"
+                  [class.job-log-error]="log.level === 'error'"
                   [class.border-slate-200]="log.level === 'info'"
                   [class.bg-slate-50]="log.level === 'info'"
                   [class.border-emerald-200]="log.level === 'success'"
@@ -167,17 +171,17 @@ interface CodeJobLogEntry {
                   [class.bg-red-50]="log.level === 'error'"
                 >
                   <div class="flex items-center justify-between gap-2 mb-1">
-                    <span class="text-[11px] font-semibold uppercase tracking-wider"
+                    <span class="job-log-level text-[11px] font-semibold uppercase tracking-wider"
                       [class.text-slate-600]="log.level === 'info'"
                       [class.text-emerald-700]="log.level === 'success'"
                       [class.text-amber-700]="log.level === 'warning'"
                       [class.text-red-700]="log.level === 'error'"
                     >{{ log.level }}</span>
-                    <span class="text-[11px] text-slate-500">{{ formatDate(log.timestamp) }}</span>
+                    <span class="job-log-time text-[11px] text-slate-500">{{ formatDate(log.timestamp) }}</span>
                   </div>
-                  <p class="text-xs text-slate-700 whitespace-pre-wrap break-words">{{ log.message }}</p>
+                  <p class="job-log-message text-xs text-slate-700 whitespace-pre-wrap break-words">{{ log.message }}</p>
                   @if (log.data) {
-                    <pre class="mt-2 text-[11px] text-slate-600 whitespace-pre-wrap break-words">{{ prettyData(log.data) }}</pre>
+                    <pre class="job-log-data mt-2 text-[11px] text-slate-600 whitespace-pre-wrap break-words">{{ prettyData(log.data) }}</pre>
                   }
                 </div>
               }
