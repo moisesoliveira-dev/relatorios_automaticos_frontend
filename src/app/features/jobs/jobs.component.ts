@@ -101,30 +101,45 @@ interface CodeJobLogEntry {
                       }
                     </div>
 
-                    <div class="flex flex-col sm:flex-row gap-2 flex-shrink-0" (click)="$event.stopPropagation()">
-                      <button
-                        (click)="toggleJob(job)"
-                        class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors"
-                        [class.bg-amber-50]="job.isActive"
-                        [class.text-amber-700]="job.isActive"
-                        [class.border-amber-200]="job.isActive"
-                        [class.hover:bg-amber-100]="job.isActive"
-                        [class.bg-emerald-50]="!job.isActive"
-                        [class.text-emerald-700]="!job.isActive"
-                        [class.border-emerald-200]="!job.isActive"
-                        [class.hover:bg-emerald-100]="!job.isActive"
-                        [disabled]="job.isRunning"
-                      >
-                        {{ job.isActive ? 'Parar' : 'Iniciar' }}
-                      </button>
+                    <div class="flex flex-col gap-2 flex-shrink-0" (click)="$event.stopPropagation()">
+                      @if (job.id === 'delivery-material-dates') {
+                        <div class="flex items-center gap-2">
+                          <label class="text-[11px] text-slate-500 whitespace-nowrap">Data PV</label>
+                          <input
+                            type="date"
+                            class="h-8 rounded-lg border border-slate-300 px-2 text-xs text-slate-700 bg-white"
+                            [value]="salesOrderDate()"
+                            [disabled]="job.isRunning"
+                            (input)="onSalesOrderDateChange($event)"
+                          />
+                        </div>
+                      }
 
-                      <button
-                        (click)="runNow(job)"
-                        class="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors"
-                        [disabled]="job.isRunning"
-                      >
-                        Executar agora
-                      </button>
+                      <div class="flex gap-2 justify-end">
+                        <button
+                          (click)="toggleJob(job)"
+                          class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors"
+                          [class.bg-amber-50]="job.isActive"
+                          [class.text-amber-700]="job.isActive"
+                          [class.border-amber-200]="job.isActive"
+                          [class.hover:bg-amber-100]="job.isActive"
+                          [class.bg-emerald-50]="!job.isActive"
+                          [class.text-emerald-700]="!job.isActive"
+                          [class.border-emerald-200]="!job.isActive"
+                          [class.hover:bg-emerald-100]="!job.isActive"
+                          [disabled]="job.isRunning"
+                        >
+                          {{ job.isActive ? 'Parar' : 'Iniciar' }}
+                        </button>
+
+                        <button
+                          (click)="runNow(job, job.id === 'delivery-material-dates' ? salesOrderDate() : undefined)"
+                          class="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors"
+                          [disabled]="job.isRunning || (job.id === 'delivery-material-dates' && !salesOrderDate())"
+                        >
+                          Executar agora
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -218,6 +233,7 @@ export class JobsComponent implements OnInit, OnDestroy {
   private refreshInterval: ReturnType<typeof setInterval> | null = null;
 
   jobs = signal<CodeJob[]>([]);
+  salesOrderDate = signal(this.getTodayManausDate());
   selectedJobId = signal<string | null>(null);
   selectedJobLogs = signal<CodeJobLogEntry[]>([]);
   loading = signal(false);
@@ -327,8 +343,16 @@ export class JobsComponent implements OnInit, OnDestroy {
     });
   }
 
-  runNow(job: CodeJob) {
-    this.http.post<CodeJob>(`${this.apiUrl}/jobs/code/${job.id}/run`, {}).subscribe({
+  runNow(job: CodeJob, salesOrderDate?: string) {
+    if (job.id === 'delivery-material-dates' && !salesOrderDate) {
+      this.errorMessage.set('Selecione a data dos pedidos de venda para executar este job.');
+      setTimeout(() => this.errorMessage.set(''), 5000);
+      return;
+    }
+
+    const payload = salesOrderDate ? { salesOrderDate } : {};
+
+    this.http.post<CodeJob>(`${this.apiUrl}/jobs/code/${job.id}/run`, payload).subscribe({
       next: () => {
         this.successMessage.set('Execução manual iniciada.');
         this.loadJobs(false);
@@ -340,6 +364,11 @@ export class JobsComponent implements OnInit, OnDestroy {
         setTimeout(() => this.errorMessage.set(''), 5000);
       },
     });
+  }
+
+  onSalesOrderDateChange(event: Event) {
+    const input = event.target as HTMLInputElement | null;
+    this.salesOrderDate.set(input?.value || '');
   }
 
   formatStatus(status: CodeJob['lastStatus']): string {
@@ -370,5 +399,14 @@ export class JobsComponent implements OnInit, OnDestroy {
       minute: '2-digit',
       second: '2-digit',
     });
+  }
+
+  private getTodayManausDate(): string {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Manaus',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
   }
 }
