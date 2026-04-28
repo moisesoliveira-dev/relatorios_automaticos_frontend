@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
@@ -148,12 +148,39 @@ interface CodeJobLogEntry {
           }
         </div>
 
-        <div class="bg-white rounded-xl border border-slate-200 flex flex-col min-h-[540px]">
-          <div class="px-4 py-3 border-b border-slate-200 bg-slate-50 rounded-t-xl">
-            <h3 class="text-sm font-semibold text-slate-800">Logs do Job</h3>
-            @if (selectedJob()) {
-              <p class="text-xs text-slate-500 mt-0.5">{{ selectedJob()!.name }}</p>
-            }
+        <div class="bg-white rounded-xl border border-slate-200 flex flex-col" style="height: 600px;">
+          <div class="px-4 py-3 border-b border-slate-200 bg-slate-50 rounded-t-xl flex items-center justify-between gap-2 flex-shrink-0">
+            <div class="min-w-0">
+              <h3 class="text-sm font-semibold text-slate-800">Logs do Job</h3>
+              @if (selectedJob()) {
+                <p class="text-xs text-slate-500 mt-0.5 truncate">{{ selectedJob()!.name }}</p>
+              }
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              @if (selectedJobLogs().length > 0) {
+                <span class="text-[11px] text-slate-400">{{ selectedJobLogs().length }} entr{{ selectedJobLogs().length === 1 ? 'ada' : 'adas' }}</span>
+                <button
+                  (click)="clearLogs()"
+                  class="flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+                  title="Limpar todos os logs deste job"
+                >
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                  Limpar
+                </button>
+              }
+              <button
+                (click)="scrollLogsToBottom()"
+                class="flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md border border-slate-200 text-slate-600 bg-white hover:bg-slate-100 transition-colors"
+                title="Ir para o final"
+              >
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+                Final
+              </button>
+            </div>
           </div>
 
           @if (!selectedJob()) {
@@ -165,44 +192,49 @@ interface CodeJobLogEntry {
               <div class="animate-spin w-5 h-5 border-2 border-slate-200 border-t-slate-600 rounded-full"></div>
             </div>
           } @else if (selectedJobLogs().length === 0) {
-          <div class="text-center py-16 text-slate-500">
-              <p class="text-sm">Nenhum log disponível para este job.</p>
-          </div>
+            <div class="flex-1 flex items-center justify-center text-slate-400 text-sm p-6 text-center">
+              <div>
+                <svg class="w-8 h-8 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Nenhum log disponível.
+              </div>
+            </div>
           } @else {
-            <div class="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+            <div #logsContainer class="flex-1 overflow-y-auto px-3 py-3 space-y-1.5 font-mono text-[11px]">
               @for (log of selectedJobLogs(); track $index) {
-                <div class="job-log-card rounded-lg border px-3 py-2"
+                <div class="job-log-card rounded px-2.5 py-1.5"
                   [class.job-log-info]="log.level === 'info'"
                   [class.job-log-success]="log.level === 'success'"
                   [class.job-log-warning]="log.level === 'warning'"
                   [class.job-log-error]="log.level === 'error'"
-                  [class.border-slate-200]="log.level === 'info'"
+                  [class.border-l-2]="true"
+                  [class.border-l-slate-300]="log.level === 'info'"
                   [class.bg-slate-50]="log.level === 'info'"
-                  [class.border-emerald-200]="log.level === 'success'"
+                  [class.border-l-emerald-400]="log.level === 'success'"
                   [class.bg-emerald-50]="log.level === 'success'"
-                  [class.border-amber-200]="log.level === 'warning'"
+                  [class.border-l-amber-400]="log.level === 'warning'"
                   [class.bg-amber-50]="log.level === 'warning'"
-                  [class.border-red-200]="log.level === 'error'"
+                  [class.border-l-red-400]="log.level === 'error'"
                   [class.bg-red-50]="log.level === 'error'"
                 >
-                  <div class="flex items-center justify-between gap-2 mb-1">
-                    <span class="job-log-level text-[11px] font-semibold uppercase tracking-wider"
-                      [class.text-slate-600]="log.level === 'info'"
+                  <div class="flex items-baseline gap-2 flex-wrap">
+                    <span class="job-log-time text-[10px] text-slate-400 whitespace-nowrap flex-shrink-0">{{ formatDate(log.timestamp) }}</span>
+                    <span class="job-log-level font-bold uppercase tracking-wider text-[10px] flex-shrink-0 w-14"
+                      [class.text-slate-500]="log.level === 'info'"
                       [class.text-emerald-700]="log.level === 'success'"
                       [class.text-amber-700]="log.level === 'warning'"
                       [class.text-red-700]="log.level === 'error'"
                     >{{ log.level }}</span>
-                    <span class="job-log-time text-[11px] text-slate-500">{{ formatDate(log.timestamp) }}</span>
+                    <span class="job-log-message text-slate-700 break-words min-w-0">{{ log.message }}</span>
                   </div>
-                  <p class="job-log-message text-xs text-slate-700 whitespace-pre-wrap break-words">{{ log.message }}</p>
                   @if (log.data) {
-                    <pre class="job-log-data mt-2 text-[11px] text-slate-600 whitespace-pre-wrap break-words">{{ prettyData(log.data) }}</pre>
+                    <pre class="job-log-data mt-1 ml-[122px] text-[10px] text-slate-500 whitespace-pre-wrap break-words">{{ prettyData(log.data) }}</pre>
                   }
                 </div>
               }
             </div>
           }
-          </div>
         </div>
       </div>
 
@@ -228,6 +260,8 @@ interface CodeJobLogEntry {
   `
 })
 export class JobsComponent implements OnInit, OnDestroy {
+  @ViewChild('logsContainer') private logsContainerRef!: ElementRef<HTMLDivElement>;
+
   private http = inject(HttpClient);
   private apiUrl = environment.apiUrl;
   private refreshInterval: ReturnType<typeof setInterval> | null = null;
@@ -313,9 +347,14 @@ export class JobsComponent implements OnInit, OnDestroy {
 
     this.http.get<CodeJobLogEntry[]>(`${this.apiUrl}/jobs/code/${jobId}/logs?limit=200`).subscribe({
       next: (logs) => {
+        const wasAtBottom = this.isLogsScrolledToBottom();
         this.selectedJobLogs.set(logs || []);
         if (withLoader) {
           this.loadingLogs.set(false);
+        }
+        if (wasAtBottom) {
+          // aguarda render antes de scrollar
+          setTimeout(() => this.scrollLogsToBottom(), 0);
         }
       },
       error: () => {
@@ -364,6 +403,34 @@ export class JobsComponent implements OnInit, OnDestroy {
         setTimeout(() => this.errorMessage.set(''), 5000);
       },
     });
+  }
+
+  clearLogs() {
+    const jobId = this.selectedJobId();
+    if (!jobId) return;
+
+    this.http.delete(`${this.apiUrl}/jobs/code/${jobId}/logs`).subscribe({
+      next: () => {
+        this.selectedJobLogs.set([]);
+        this.successMessage.set('Logs limpos com sucesso.');
+        setTimeout(() => this.successMessage.set(''), 3000);
+      },
+      error: () => {
+        this.errorMessage.set('Erro ao limpar logs.');
+        setTimeout(() => this.errorMessage.set(''), 4000);
+      },
+    });
+  }
+
+  scrollLogsToBottom() {
+    const el = this.logsContainerRef?.nativeElement;
+    if (el) el.scrollTop = el.scrollHeight;
+  }
+
+  private isLogsScrolledToBottom(): boolean {
+    const el = this.logsContainerRef?.nativeElement;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 60;
   }
 
   onSalesOrderDateChange(event: Event) {
