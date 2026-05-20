@@ -265,7 +265,7 @@ interface SalesOrderItem extends SalesOrderSearchResult {
                           <th class="px-4 py-2.5 text-right">Valor Original</th>
                           <th class="px-4 py-2.5 text-right">Desc. Adic.</th>
                           <th class="px-4 py-2.5 text-right">Valor c/ Desc.</th>
-                          <th class="px-4 py-2.5 text-right">Montador (7%)</th>
+                          <th class="px-4 py-2.5 text-right">Montador ({{ montadorPercent() }}%)</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-100">
@@ -289,7 +289,7 @@ interface SalesOrderItem extends SalesOrderSearchResult {
                             </td>
                             <td class="px-4 py-2.5 text-right font-medium text-slate-800">{{ formatCurrency(getOriginalValue(env)) }}</td>
                             <td class="px-4 py-2.5 text-right text-slate-600">{{ formatCurrency(env.value) }}</td>
-                            <td class="px-4 py-2.5 text-right text-slate-600">15.0%</td>
+                            <td class="px-4 py-2.5 text-right text-slate-600">{{ additionalDiscountPercent().toFixed(1) }}%</td>
                             <td class="px-4 py-2.5 text-right font-medium text-slate-800">{{ formatCurrency(getFinalValue(env)) }}</td>
                             <td class="px-4 py-2.5 text-right font-bold text-emerald-700">{{ formatCurrency(getMontadorValue(env)) }}</td>
                           </tr>
@@ -307,6 +307,45 @@ interface SalesOrderItem extends SalesOrderSearchResult {
                     </div>
                   }
                 }
+              </div>
+
+              <!-- Percentuais -->
+              <div>
+                <p class="text-sm font-semibold text-slate-700 mb-3">Percentuais</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs text-slate-500 mb-1">Desconto adicional aplicado antes da nota (%)</label>
+                    <div class="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        [ngModel]="additionalDiscountPercent()"
+                        (ngModelChange)="additionalDiscountPercent.set(toPercent($event))"
+                        class="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none"
+                      />
+                      <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">%</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-1">Padrão: 15%</p>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-slate-500 mb-1">Percentual do montador (%)</label>
+                    <div class="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        [ngModel]="montadorPercent()"
+                        (ngModelChange)="montadorPercent.set(toPercent($event))"
+                        class="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none"
+                      />
+                      <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">%</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-1">Padrão: 7%</p>
+                  </div>
+                </div>
               </div>
 
               <!-- Date Fields -->
@@ -428,6 +467,17 @@ export class PagamentoMontadorComponent implements OnInit {
   assemblyStartDate = '';
   assemblyEndDate = '';
   sendToDrive = true;
+
+  // Percentuais editáveis (padrão mantido)
+  additionalDiscountPercent = signal<number>(15);
+  montadorPercent = signal<number>(7);
+
+  toPercent(value: unknown): number {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n < 0) return 0;
+    if (n > 100) return 100;
+    return n;
+  }
 
   // Logo upload
   logoUploading = signal(false);
@@ -662,11 +712,12 @@ export class PagamentoMontadorComponent implements OnInit {
   }
 
   getFinalValue(env: EnvironmentItem): number {
-    return this.getOriginalValue(env) * 0.94;
+    const discountFactor = 1 - this.additionalDiscountPercent() / 100;
+    return this.getOriginalValue(env) * discountFactor;
   }
 
   getMontadorValue(env: EnvironmentItem): number {
-    return this.getFinalValue(env) * 0.07;
+    return this.getFinalValue(env) * (this.montadorPercent() / 100);
   }
 
   totalMontador(): number {
@@ -722,7 +773,8 @@ export class PagamentoMontadorComponent implements OnInit {
           environmentValue: environmentsPayload.reduce((sum, env) => sum + env.environmentValue, 0),
           environments: environmentsPayload,
           ponttaDiscount: 0,
-          additionalDiscount: 15,
+          additionalDiscount: this.additionalDiscountPercent(),
+          montadorPercent: this.montadorPercent(),
           deliveryDate: formatDateBR(this.deliveryDate),
           assemblyStartDate: formatDateBR(this.assemblyStartDate),
           assemblyEndDate: formatDateBR(this.assemblyEndDate),

@@ -171,6 +171,7 @@ export class GosacService {
         environments?: Array<{ environmentName: string; environmentValue: number }>;
         ponttaDiscount?: number;
         additionalDiscount?: number;
+        montadorPercent?: number;
         deliveryDate?: string;
         assemblyStartDate?: string;
         assemblyEndDate?: string;
