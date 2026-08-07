@@ -25,6 +25,8 @@ interface ConfirmState {
   open: boolean;
   title: string;
   message: string;
+  confirmLabel: string;
+  danger: boolean;
   onConfirm: (() => void) | null;
 }
 
@@ -335,10 +337,10 @@ interface ConfirmState {
     }
 
     @if (confirm().open) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" (click)="closeConfirm()">
+      <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" (click)="closeConfirm()">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
           <h3 class="text-lg font-semibold text-slate-800">{{ confirm().title }}</h3>
-          <p class="text-sm text-slate-500 mt-2">{{ confirm().message }}</p>
+          <p class="text-sm text-slate-500 mt-2 whitespace-pre-line">{{ confirm().message }}</p>
           <div class="mt-6 flex justify-end gap-2">
             <button
               type="button"
@@ -350,9 +352,13 @@ interface ConfirmState {
             <button
               type="button"
               (click)="runConfirm()"
-              class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
+              class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
+              [class.bg-red-600]="confirm().danger"
+              [class.hover:bg-red-700]="confirm().danger"
+              [class.bg-slate-800]="!confirm().danger"
+              [class.hover:bg-slate-700]="!confirm().danger"
             >
-              Excluir
+              {{ confirm().confirmLabel }}
             </button>
           </div>
         </div>
@@ -413,6 +419,8 @@ export class RodizioComponent implements OnInit {
     open: false,
     title: '',
     message: '',
+    confirmLabel: 'Confirmar',
+    danger: false,
     onConfirm: null,
   });
 
@@ -559,6 +567,30 @@ export class RodizioComponent implements OnInit {
       return;
     }
 
+    const currentTurn = this.items().find(
+      (item) => item.turn && item.id !== (f.editingId || f.id),
+    );
+
+    if (f.turn && currentTurn) {
+      this.confirm.set({
+        open: true,
+        title: 'Alterar pessoa da vez?',
+        message: `Atualmente a vez é de "${currentTurn.name}".\n\nDeseja passar a vez para "${f.name}"?`,
+        confirmLabel: 'Sim, alterar',
+        danger: false,
+        onConfirm: () => {
+          this.closeConfirm();
+          this.persistSave();
+        },
+      });
+      return;
+    }
+
+    this.persistSave();
+  }
+
+  private persistSave(): void {
+    const f = this.form();
     this.patchForm({ saving: true });
 
     if (f.mode === 'create') {
@@ -566,8 +598,8 @@ export class RodizioComponent implements OnInit {
         .create({
           id: f.id,
           name: f.name,
-          identificacao: f.identificacao,
-          queueid: f.queueid,
+          identificacao: f.identificacao!,
+          queueid: f.queueid!,
           turn: f.turn,
         })
         .subscribe({
@@ -587,8 +619,8 @@ export class RodizioComponent implements OnInit {
     this.rotationService
       .update(f.editingId!, {
         name: f.name,
-        identificacao: f.identificacao,
-        queueid: f.queueid,
+        identificacao: f.identificacao!,
+        queueid: f.queueid!,
         turn: f.turn,
       })
       .subscribe({
@@ -609,6 +641,8 @@ export class RodizioComponent implements OnInit {
       open: true,
       title: 'Excluir do rodízio',
       message: `Remover "${item.name}"? Esta ação não pode ser desfeita.`,
+      confirmLabel: 'Excluir',
+      danger: true,
       onConfirm: () => {
         this.rotationService.remove(item.id).subscribe({
           next: () => {
@@ -626,7 +660,14 @@ export class RodizioComponent implements OnInit {
   }
 
   closeConfirm(): void {
-    this.confirm.set({ open: false, title: '', message: '', onConfirm: null });
+    this.confirm.set({
+      open: false,
+      title: '',
+      message: '',
+      confirmLabel: 'Confirmar',
+      danger: false,
+      onConfirm: null,
+    });
   }
 
   runConfirm(): void {
