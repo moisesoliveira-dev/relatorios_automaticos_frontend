@@ -77,6 +77,10 @@ export const routes: Routes = [
                         loadComponent: () => import('./features/gosac-pontta/rodizio/rodizio.component').then(m => m.RodizioComponent)
                     },
                     {
+                        path: 'rodizio-pontta',
+                        loadComponent: () => import('./features/gosac-pontta/rodizio-pontta/rodizio-pontta.component').then(m => m.RodizioPonttaComponent)
+                    },
+                    {
                         path: 'pagamento-montador',
                         loadComponent: () => import('./features/gosac-pontta/pagamento-montador/pagamento-montador.component').then(m => m.PagamentoMontadorComponent)
                     },
