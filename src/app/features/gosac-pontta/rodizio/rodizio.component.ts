@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -34,90 +34,135 @@ interface ConfirmState {
   imports: [CommonModule, FormsModule],
   template: `
     <div class="space-y-6">
-      <div class="flex items-start justify-between gap-4">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 class="text-xl font-semibold text-slate-800">Rodízio GOSAC</h1>
-          <p class="text-sm text-slate-500 mt-1">
-            Gerencie os atendentes do rodízio (tb_rotation). O campo turn é controlado por outra API.
-          </p>
+          <h1 class="text-2xl font-bold text-slate-800">Rodízio GOSAC</h1>
+          <p class="text-slate-500 mt-1">Cadastre e edite os atendentes do rodízio de atendimento.</p>
         </div>
-        <button
-          (click)="openCreate()"
-          class="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors"
-        >
-          Novo registro
-        </button>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            (click)="load()"
+            [disabled]="loading()"
+            class="px-4 py-2 border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+          >
+            Atualizar
+          </button>
+          <button
+            type="button"
+            (click)="openCreate()"
+            class="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-2"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Adicionar pessoa
+          </button>
+        </div>
       </div>
 
       @if (toast()) {
         <div
-          class="px-4 py-3 rounded-lg text-sm"
+          class="px-4 py-3 rounded-lg text-sm border"
           [class.bg-red-50]="toast()!.type === 'error'"
+          [class.border-red-200]="toast()!.type === 'error'"
           [class.text-red-700]="toast()!.type === 'error'"
           [class.bg-emerald-50]="toast()!.type === 'success'"
+          [class.border-emerald-200]="toast()!.type === 'success'"
           [class.text-emerald-700]="toast()!.type === 'success'"
         >
           {{ toast()!.message }}
         </div>
       }
 
-      <div class="border border-slate-200 rounded-lg overflow-hidden">
-        <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-          <span class="text-sm font-semibold text-slate-700">
-            Registros <span class="text-slate-400 font-normal">({{ items().length }})</span>
-          </span>
-          <button (click)="load()" class="text-xs text-slate-500 hover:text-slate-800 transition-colors">
-            Atualizar
-          </button>
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+          <div>
+            <p class="text-sm font-semibold text-slate-800">Pessoas no rodízio</p>
+            <p class="text-xs text-slate-500 mt-0.5">{{ items().length }} registro(s)</p>
+          </div>
+          <input
+            type="search"
+            [ngModel]="tableFilter()"
+            (ngModelChange)="tableFilter.set($event)"
+            placeholder="Filtrar por nome..."
+            class="w-full max-w-xs px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
+          />
         </div>
 
         @if (loading()) {
-          <div class="p-10 text-center">
-            <svg class="w-5 h-5 animate-spin mx-auto text-slate-400" fill="none" viewBox="0 0 24 24">
+          <div class="p-12 text-center">
+            <svg class="w-6 h-6 animate-spin mx-auto text-slate-400" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
             </svg>
           </div>
-        } @else if (items().length === 0) {
-          <div class="p-10 text-center text-slate-400 text-sm">Nenhum registro no rodízio.</div>
+        } @else if (filteredItems().length === 0) {
+          <div class="p-12 text-center text-slate-500 text-sm">
+            {{ items().length === 0 ? 'Nenhuma pessoa cadastrada no rodízio.' : 'Nenhum resultado para o filtro.' }}
+          </div>
         } @else {
           <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead class="bg-slate-50 border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
+            <table class="w-full">
+              <thead class="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th class="px-4 py-2.5 font-semibold">Nome</th>
-                  <th class="px-4 py-2.5 font-semibold">ID Pontta</th>
-                  <th class="px-4 py-2.5 font-semibold">Identificação</th>
-                  <th class="px-4 py-2.5 font-semibold">Fila</th>
-                  <th class="px-4 py-2.5 font-semibold">Turn</th>
-                  <th class="px-4 py-2.5 font-semibold text-right">Ações</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Nome</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Usuário GOSAC</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Fila</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Da vez</th>
+                  <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Ações</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-100">
-                @for (item of items(); track item.id) {
+              <tbody class="divide-y divide-slate-200">
+                @for (item of filteredItems(); track item.id) {
                   <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="px-4 py-3 font-medium text-slate-800">{{ item.name }}</td>
-                    <td class="px-4 py-3 text-slate-500 font-mono text-xs">{{ item.id }}</td>
-                    <td class="px-4 py-3 text-slate-600">{{ item.identificacao }}</td>
-                    <td class="px-4 py-3 text-slate-600">
+                    <td class="px-6 py-4">
+                      <div class="font-medium text-slate-800">{{ item.name }}</div>
+                      <div class="text-xs text-slate-400 font-mono mt-0.5 truncate max-w-[220px]" [title]="item.id">{{ item.id }}</div>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-slate-600">
+                      {{ userLabel(item.identificacao) }}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-slate-600">
                       {{ queueLabel(item.queueid) }}
                     </td>
-                    <td class="px-4 py-3">
-                      @if (item.turn) {
-                        <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700">Sim</span>
-                      } @else {
-                        <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-500">Não</span>
-                      }
+                    <td class="px-6 py-4">
+                      <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          class="h-4 w-4 rounded border-slate-300 text-slate-800 focus:ring-slate-500"
+                          [checked]="item.turn"
+                          [disabled]="togglingId() === item.id"
+                          (change)="toggleTurn(item, $any($event.target).checked)"
+                        />
+                        <span class="text-sm" [class.text-emerald-700]="item.turn" [class.text-slate-500]="!item.turn">
+                          {{ item.turn ? 'Sim' : 'Não' }}
+                        </span>
+                      </label>
                     </td>
-                    <td class="px-4 py-3 text-right space-x-2">
-                      <button
-                        (click)="openEdit(item)"
-                        class="text-xs font-medium text-slate-600 hover:text-slate-900"
-                      >Editar</button>
-                      <button
-                        (click)="askDelete(item)"
-                        class="text-xs font-medium text-red-600 hover:text-red-800"
-                      >Excluir</button>
+                    <td class="px-6 py-4 whitespace-nowrap text-right">
+                      <div class="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          (click)="openEdit(item)"
+                          class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Editar"
+                        >
+                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          (click)="askDelete(item)"
+                          class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Excluir"
+                        >
+                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 }
@@ -129,50 +174,69 @@ interface ConfirmState {
     </div>
 
     @if (form().open) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-          <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
-            <h2 class="text-base font-semibold text-slate-800">
-              {{ form().mode === 'create' ? 'Novo registro' : 'Editar registro' }}
-            </h2>
-            <button (click)="closeForm()" class="text-slate-400 hover:text-slate-700 text-lg leading-none">&times;</button>
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" (click)="closeForm()">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
+          <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+            <div>
+              <h2 class="text-lg font-semibold text-slate-800">
+                {{ form().mode === 'create' ? 'Adicionar pessoa' : 'Editar pessoa' }}
+              </h2>
+              <p class="text-xs text-slate-500 mt-0.5">
+                {{ form().mode === 'create' ? 'Busque no Pontta e vincule ao usuário/fila do GOSAC.' : 'Atualize os dados do registro.' }}
+              </p>
+            </div>
+            <button type="button" (click)="closeForm()" class="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
           </div>
 
-          <div class="p-5 space-y-5">
+          <div class="p-6 space-y-5">
             @if (form().mode === 'create') {
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">1. Buscar perfil no Pontta</label>
+              <div class="space-y-2">
+                <label class="block text-sm font-medium text-slate-700">Perfil no Pontta</label>
                 <div class="flex gap-2">
                   <input
                     type="text"
                     [(ngModel)]="ponttaQuery"
-                    placeholder="Nome da pessoa"
-                    class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-slate-400"
+                    placeholder="Digite o nome e pressione Enter"
+                    class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                     (keyup.enter)="searchPontta()"
                   />
                   <button
+                    type="button"
                     (click)="searchPontta()"
-                    [disabled]="searchingPontta()"
-                    class="px-3 py-2 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700 disabled:opacity-50"
-                  >Buscar</button>
+                    [disabled]="searchingPontta() || !ponttaQuery.trim()"
+                    class="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {{ searchingPontta() ? 'Buscando...' : 'Buscar' }}
+                  </button>
                 </div>
+
                 @if (ponttaResults().length > 0) {
-                  <div class="mt-2 border border-slate-200 rounded-lg max-h-40 overflow-y-auto divide-y divide-slate-100">
+                  <div class="border border-slate-200 rounded-lg max-h-44 overflow-y-auto divide-y divide-slate-100">
                     @for (p of ponttaResults(); track p.id) {
                       <button
                         type="button"
                         (click)="selectPontta(p)"
-                        class="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm"
-                        [class.bg-blue-50]="form().id === p.id"
+                        class="w-full text-left px-3 py-2.5 hover:bg-slate-50 transition-colors"
+                        [class.bg-slate-100]="form().id === p.id"
+                        [class.ring-1]="form().id === p.id"
+                        [class.ring-slate-300]="form().id === p.id"
                       >
-                        <span class="font-medium text-slate-800">{{ p.name }}</span>
-                        <span class="block text-xs text-slate-500">{{ p.email || p.position || p.id }}</span>
+                        <span class="block text-sm font-medium text-slate-800">{{ p.name }}</span>
+                        <span class="block text-xs text-slate-500 mt-0.5">{{ p.email || p.position || 'Sem email' }}</span>
                       </button>
                     }
                   </div>
                 }
+
                 @if (form().id) {
-                  <p class="mt-2 text-xs text-slate-500">ID selecionado: <span class="font-mono">{{ form().id }}</span></p>
+                  <div class="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-600">
+                    Selecionado: <span class="font-medium text-slate-800">{{ selectedPonttaName || 'Perfil Pontta' }}</span>
+                    <span class="font-mono text-slate-400 ml-2">{{ form().id }}</span>
+                  </div>
                 }
               </div>
             } @else {
@@ -187,77 +251,90 @@ interface ConfirmState {
               </div>
             }
 
-            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">
-                {{ form().mode === 'create' ? '2. Usuário GOSAC' : 'Usuário GOSAC' }}
-              </label>
+            <div class="space-y-2">
+              <label class="block text-sm font-medium text-slate-700">Usuário no GOSAC</label>
+              <input
+                type="search"
+                [ngModel]="userFilter()"
+                (ngModelChange)="userFilter.set($event)"
+                placeholder="Filtrar usuários..."
+                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
+              />
               @if (loadingLookups()) {
                 <p class="text-sm text-slate-400">Carregando usuários...</p>
               } @else {
                 <select
-                  class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-slate-400"
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                   [ngModel]="form().identificacao"
                   (ngModelChange)="onUserChange($event)"
                 >
                   <option [ngValue]="null">Selecione o usuário</option>
-                  @for (u of gosacUsers(); track u.id) {
-                    <option [ngValue]="u.id">{{ u.name }} (id {{ u.id }})</option>
+                  @for (u of filteredUsers(); track u.id) {
+                    <option [ngValue]="u.id">{{ u.name }} — id {{ u.id }}</option>
                   }
                 </select>
               }
             </div>
 
-            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">
-                {{ form().mode === 'create' ? '3. Fila GOSAC' : 'Fila GOSAC' }}
-              </label>
+            <div class="space-y-2">
+              <label class="block text-sm font-medium text-slate-700">Fila no GOSAC</label>
               @if (loadingLookups()) {
                 <p class="text-sm text-slate-400">Carregando filas...</p>
               } @else {
                 <select
-                  class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-slate-400"
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                   [ngModel]="form().queueid"
                   (ngModelChange)="patchForm({ queueid: $event })"
                 >
                   <option [ngValue]="null">Selecione a fila</option>
-                  @for (q of gosacQueues(); track q.id) {
-                    <option [ngValue]="q.id">{{ q.name }} (id {{ q.id }})</option>
+                  @for (q of suggestedQueues(); track q.id) {
+                    <option [ngValue]="q.id">{{ q.name }} — id {{ q.id }}</option>
                   }
                 </select>
+                @if (form().identificacao && suggestedQueues().length === 0) {
+                  <p class="text-xs text-amber-600">Este usuário não tem filas vinculadas; mostrando todas as filas.</p>
+                }
               }
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Nome</label>
-                <input
-                  type="text"
-                  [ngModel]="form().name"
-                  (ngModelChange)="patchForm({ name: $event })"
-                  class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-slate-400"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Turn</label>
-                <input
-                  type="text"
-                  [value]="form().turn ? 'Sim' : 'Não'"
-                  disabled
-                  class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-500"
-                />
-              </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">Nome exibido</label>
+              <input
+                type="text"
+                [ngModel]="form().name"
+                (ngModelChange)="patchForm({ name: $event })"
+                placeholder="Nome que aparece no rodízio"
+                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
+              />
             </div>
+
+            <label class="flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors select-none">
+              <input
+                type="checkbox"
+                class="h-4 w-4 rounded border-slate-300 text-slate-800 focus:ring-slate-500"
+                [ngModel]="form().turn"
+                (ngModelChange)="patchForm({ turn: $event })"
+              />
+              <div>
+                <p class="text-sm font-medium text-slate-800">É a pessoa da vez</p>
+                <p class="text-xs text-slate-500">Marque se este atendente está com o turn ativo.</p>
+              </div>
+            </label>
           </div>
 
-          <div class="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
+          <div class="px-6 py-4 border-t border-slate-200 flex justify-end gap-2 bg-slate-50">
             <button
+              type="button"
               (click)="closeForm()"
-              class="px-4 py-2 text-sm text-slate-600 hover:text-slate-900"
-            >Cancelar</button>
+              class="px-4 py-2 text-sm font-medium text-slate-700 border border-slate-300 rounded-lg hover:bg-white transition-colors"
+            >
+              Cancelar
+            </button>
             <button
+              type="button"
               (click)="save()"
               [disabled]="form().saving"
-              class="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 disabled:opacity-50"
+              class="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {{ form().saving ? 'Salvando...' : 'Salvar' }}
             </button>
@@ -267,16 +344,25 @@ interface ConfirmState {
     }
 
     @if (confirm().open) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-5">
-          <h3 class="text-base font-semibold text-slate-800">{{ confirm().title }}</h3>
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" (click)="closeConfirm()">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
+          <h3 class="text-lg font-semibold text-slate-800">{{ confirm().title }}</h3>
           <p class="text-sm text-slate-500 mt-2">{{ confirm().message }}</p>
-          <div class="mt-5 flex justify-end gap-2">
-            <button (click)="closeConfirm()" class="px-4 py-2 text-sm text-slate-600">Cancelar</button>
+          <div class="mt-6 flex justify-end gap-2">
             <button
+              type="button"
+              (click)="closeConfirm()"
+              class="px-4 py-2 text-sm font-medium text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
               (click)="runConfirm()"
-              class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700"
-            >Excluir</button>
+              class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Excluir
+            </button>
           </div>
         </div>
       </div>
@@ -288,11 +374,48 @@ export class RodizioComponent implements OnInit {
   loading = signal(false);
   loadingLookups = signal(false);
   searchingPontta = signal(false);
+  togglingId = signal<string | null>(null);
+
   ponttaQuery = '';
+  userFilter = signal('');
+  tableFilter = signal('');
+  selectedPonttaName = '';
+
   ponttaResults = signal<PonttaProfile[]>([]);
   gosacUsers = signal<GosacUser[]>([]);
   gosacQueues = signal<GosacQueue[]>([]);
   toast = signal<{ message: string; type: 'error' | 'success' } | null>(null);
+
+  filteredItems = computed(() => {
+    const q = this.tableFilter().trim().toLowerCase();
+    if (!q) return this.items();
+    return this.items().filter((item) =>
+      [item.name, String(item.identificacao), String(item.queueid), item.id]
+        .join(' ')
+        .toLowerCase()
+        .includes(q),
+    );
+  });
+
+  filteredUsers = computed(() => {
+    const q = this.userFilter().trim().toLowerCase();
+    const users = this.gosacUsers();
+    if (!q) return users;
+    return users.filter((u) =>
+      [u.name, u.email, u.username, String(u.id)].join(' ').toLowerCase().includes(q),
+    );
+  });
+
+  suggestedQueues = computed(() => {
+    const all = this.gosacQueues();
+    const userId = this.form().identificacao;
+    if (userId == null) return all;
+    const user = this.gosacUsers().find((u) => u.id === userId);
+    const userQueueIds = new Set((user?.queues || []).map((q) => q.id));
+    if (userQueueIds.size === 0) return all;
+    const filtered = all.filter((q) => userQueueIds.has(q.id));
+    return filtered.length > 0 ? filtered : all;
+  });
 
   form = signal<FormState>({
     open: false,
@@ -354,11 +477,18 @@ export class RodizioComponent implements OnInit {
 
   queueLabel(queueid: number): string {
     const q = this.gosacQueues().find((x) => x.id === queueid);
-    return q ? `${q.name} (${queueid})` : String(queueid);
+    return q ? `${q.name} (${queueid})` : `Fila ${queueid}`;
+  }
+
+  userLabel(identificacao: number): string {
+    const u = this.gosacUsers().find((x) => x.id === identificacao);
+    return u ? `${u.name} (${identificacao})` : `ID ${identificacao}`;
   }
 
   openCreate(): void {
     this.ponttaQuery = '';
+    this.userFilter.set('');
+    this.selectedPonttaName = '';
     this.ponttaResults.set([]);
     this.form.set({
       open: true,
@@ -375,6 +505,8 @@ export class RodizioComponent implements OnInit {
 
   openEdit(item: Rotation): void {
     this.ponttaResults.set([]);
+    this.userFilter.set('');
+    this.selectedPonttaName = item.name;
     this.form.set({
       open: true,
       mode: 'edit',
@@ -383,7 +515,7 @@ export class RodizioComponent implements OnInit {
       name: item.name,
       identificacao: item.identificacao,
       queueid: item.queueid,
-      turn: item.turn,
+      turn: !!item.turn,
       saving: false,
     });
   }
@@ -416,7 +548,11 @@ export class RodizioComponent implements OnInit {
   }
 
   selectPontta(profile: PonttaProfile): void {
-    this.patchForm({ id: profile.id });
+    this.selectedPonttaName = profile.name;
+    this.patchForm({
+      id: profile.id,
+      name: this.form().name || profile.name,
+    });
   }
 
   onUserChange(userId: number | null): void {
@@ -425,17 +561,39 @@ export class RodizioComponent implements OnInit {
       return;
     }
     const user = this.gosacUsers().find((u) => u.id === userId);
+    const preferredQueue =
+      this.form().queueid ??
+      user?.defaultQueueId ??
+      user?.queues?.[0]?.id ??
+      null;
+
     this.patchForm({
       identificacao: userId,
       name: user?.name || this.form().name,
-      queueid: this.form().queueid ?? user?.defaultQueueId ?? null,
+      queueid: preferredQueue,
+    });
+  }
+
+  toggleTurn(item: Rotation, turn: boolean): void {
+    this.togglingId.set(item.id);
+    this.rotationService.update(item.id, { turn }).subscribe({
+      next: (updated) => {
+        this.items.update((list) => list.map((row) => (row.id === updated.id ? updated : row)));
+        this.togglingId.set(null);
+        this.showToast(turn ? `${item.name} marcada como da vez` : `${item.name} desmarcada`, 'success');
+      },
+      error: (err) => {
+        this.togglingId.set(null);
+        this.load();
+        this.showToast(err.error?.message || 'Erro ao alterar turn', 'error');
+      },
     });
   }
 
   save(): void {
     const f = this.form();
     if (!f.id || !f.name || f.identificacao == null || f.queueid == null) {
-      this.showToast('Preencha id, nome, usuário e fila', 'error');
+      this.showToast('Selecione perfil Pontta, usuário GOSAC e fila', 'error');
       return;
     }
 
@@ -448,11 +606,12 @@ export class RodizioComponent implements OnInit {
           name: f.name,
           identificacao: f.identificacao,
           queueid: f.queueid,
+          turn: f.turn,
         })
         .subscribe({
           next: () => {
             this.closeForm();
-            this.showToast('Registro criado', 'success');
+            this.showToast('Pessoa adicionada ao rodízio', 'success');
             this.load();
           },
           error: (err) => {
@@ -468,6 +627,7 @@ export class RodizioComponent implements OnInit {
         name: f.name,
         identificacao: f.identificacao,
         queueid: f.queueid,
+        turn: f.turn,
       })
       .subscribe({
         next: () => {
@@ -485,8 +645,8 @@ export class RodizioComponent implements OnInit {
   askDelete(item: Rotation): void {
     this.confirm.set({
       open: true,
-      title: 'Excluir registro',
-      message: `Remover "${item.name}" do rodízio?`,
+      title: 'Excluir do rodízio',
+      message: `Remover "${item.name}"? Esta ação não pode ser desfeita.`,
       onConfirm: () => {
         this.rotationService.remove(item.id).subscribe({
           next: () => {

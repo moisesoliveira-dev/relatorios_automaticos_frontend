@@ -16,12 +16,14 @@ export interface CreateRotationPayload {
   name: string;
   identificacao: number;
   queueid: number;
+  turn?: boolean;
 }
 
 export interface UpdateRotationPayload {
   name?: string;
   identificacao?: number;
   queueid?: number;
+  turn?: boolean;
 }
 
 export interface PonttaProfile {
