@@ -127,18 +127,16 @@ interface ConfirmState {
                       {{ queueLabel(item.queueid) }}
                     </td>
                     <td class="px-6 py-4">
-                      <label class="inline-flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          class="h-4 w-4 rounded border-slate-300 text-slate-800 focus:ring-slate-500"
-                          [checked]="item.turn"
-                          [disabled]="togglingId() === item.id"
-                          (change)="toggleTurn(item, $any($event.target).checked)"
-                        />
-                        <span class="text-sm" [class.text-emerald-700]="item.turn" [class.text-slate-500]="!item.turn">
-                          {{ item.turn ? 'Sim' : 'Não' }}
+                      @if (item.turn) {
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                          Sim
                         </span>
-                      </label>
+                      } @else {
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-500">
+                          Não
+                        </span>
+                      }
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right">
                       <div class="flex items-center justify-end gap-2">
@@ -253,13 +251,6 @@ interface ConfirmState {
 
             <div class="space-y-2">
               <label class="block text-sm font-medium text-slate-700">Usuário no GOSAC</label>
-              <input
-                type="search"
-                [ngModel]="userFilter()"
-                (ngModelChange)="userFilter.set($event)"
-                placeholder="Filtrar usuários..."
-                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
-              />
               @if (loadingLookups()) {
                 <p class="text-sm text-slate-400">Carregando usuários...</p>
               } @else {
@@ -269,7 +260,7 @@ interface ConfirmState {
                   (ngModelChange)="onUserChange($event)"
                 >
                   <option [ngValue]="null">Selecione o usuário</option>
-                  @for (u of filteredUsers(); track u.id) {
+                  @for (u of gosacUsers(); track u.id) {
                     <option [ngValue]="u.id">{{ u.name }} — id {{ u.id }}</option>
                   }
                 </select>
@@ -317,7 +308,7 @@ interface ConfirmState {
               />
               <div>
                 <p class="text-sm font-medium text-slate-800">É a pessoa da vez</p>
-                <p class="text-xs text-slate-500">Marque se este atendente está com o turn ativo.</p>
+                <p class="text-xs text-slate-500">Só pode haver uma pessoa marcada. Ao salvar, as demais serão desmarcadas.</p>
               </div>
             </label>
           </div>
@@ -374,10 +365,8 @@ export class RodizioComponent implements OnInit {
   loading = signal(false);
   loadingLookups = signal(false);
   searchingPontta = signal(false);
-  togglingId = signal<string | null>(null);
 
   ponttaQuery = '';
-  userFilter = signal('');
   tableFilter = signal('');
   selectedPonttaName = '';
 
@@ -394,15 +383,6 @@ export class RodizioComponent implements OnInit {
         .join(' ')
         .toLowerCase()
         .includes(q),
-    );
-  });
-
-  filteredUsers = computed(() => {
-    const q = this.userFilter().trim().toLowerCase();
-    const users = this.gosacUsers();
-    if (!q) return users;
-    return users.filter((u) =>
-      [u.name, u.email, u.username, String(u.id)].join(' ').toLowerCase().includes(q),
     );
   });
 
@@ -487,7 +467,6 @@ export class RodizioComponent implements OnInit {
 
   openCreate(): void {
     this.ponttaQuery = '';
-    this.userFilter.set('');
     this.selectedPonttaName = '';
     this.ponttaResults.set([]);
     this.form.set({
@@ -505,7 +484,6 @@ export class RodizioComponent implements OnInit {
 
   openEdit(item: Rotation): void {
     this.ponttaResults.set([]);
-    this.userFilter.set('');
     this.selectedPonttaName = item.name;
     this.form.set({
       open: true,
@@ -571,22 +549,6 @@ export class RodizioComponent implements OnInit {
       identificacao: userId,
       name: user?.name || this.form().name,
       queueid: preferredQueue,
-    });
-  }
-
-  toggleTurn(item: Rotation, turn: boolean): void {
-    this.togglingId.set(item.id);
-    this.rotationService.update(item.id, { turn }).subscribe({
-      next: (updated) => {
-        this.items.update((list) => list.map((row) => (row.id === updated.id ? updated : row)));
-        this.togglingId.set(null);
-        this.showToast(turn ? `${item.name} marcada como da vez` : `${item.name} desmarcada`, 'success');
-      },
-      error: (err) => {
-        this.togglingId.set(null);
-        this.load();
-        this.showToast(err.error?.message || 'Erro ao alterar turn', 'error');
-      },
     });
   }
 
