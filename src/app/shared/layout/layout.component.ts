@@ -246,6 +246,7 @@ export class LayoutComponent implements OnInit {
       route: '/gosac-pontta',
       children: [
         { label: 'Grupos', route: '/gosac-pontta/grupos' },
+        { label: 'Rodízio GOSAC', route: '/gosac-pontta/rodizio' },
         { label: 'Pagamento Montador', route: '/gosac-pontta/pagamento-montador' },
       ],
     },

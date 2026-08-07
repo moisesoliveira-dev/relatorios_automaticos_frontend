@@ -73,6 +73,10 @@ export const routes: Routes = [
                         loadComponent: () => import('./features/gosac-pontta/grupos/grupos.component').then(m => m.GruposComponent)
                     },
                     {
+                        path: 'rodizio',
+                        loadComponent: () => import('./features/gosac-pontta/rodizio/rodizio.component').then(m => m.RodizioComponent)
+                    },
+                    {
                         path: 'pagamento-montador',
                         loadComponent: () => import('./features/gosac-pontta/pagamento-montador/pagamento-montador.component').then(m => m.PagamentoMontadorComponent)
                     },
