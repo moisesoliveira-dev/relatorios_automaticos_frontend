@@ -190,25 +190,63 @@ interface ConfirmState {
                 </div>
 
                 @if (ponttaResults().length > 0) {
-                  <div class="panel max-h-44 overflow-y-auto divide-y" style="border-color: var(--cmm-border);">
-                    @for (p of ponttaResults(); track p.id) {
-                      <button
-                        type="button"
-                        (click)="selectPontta(p)"
-                        class="w-full text-left px-3 py-2.5 transition-colors"
-                        [style.background]="form().id === p.id ? 'color-mix(in srgb, var(--cmm-accent) 8%, var(--cmm-panel))' : 'transparent'"
-                      >
-                        <span class="block text-sm font-medium" style="color: var(--cmm-ink);">{{ p.name }}</span>
-                        <span class="block text-xs mt-0.5" style="color: var(--cmm-muted);">{{ p.email || p.position || 'Sem email' }}</span>
-                      </button>
-                    }
+                  <div class="space-y-1.5">
+                    <p class="text-xs" style="color: var(--cmm-muted);">
+                      {{ ponttaResults().length }} resultado(s) — clique para selecionar
+                    </p>
+                    <div class="space-y-2 max-h-52 overflow-y-auto pr-0.5">
+                      @for (p of ponttaResults(); track p.id) {
+                        <button
+                          type="button"
+                          (click)="selectPontta(p)"
+                          class="w-full text-left px-3 py-3 rounded-lg transition-colors flex items-start gap-3"
+                          [style.background]="form().id === p.id ? 'var(--cmm-accent-soft)' : 'var(--cmm-panel)'"
+                          [style.border]="form().id === p.id ? '2px solid var(--cmm-accent)' : '1px solid var(--cmm-border)'"
+                          [attr.aria-pressed]="form().id === p.id"
+                        >
+                          <span
+                            class="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                            [style.background]="form().id === p.id ? 'var(--cmm-accent)' : 'transparent'"
+                            [style.border]="form().id === p.id ? 'none' : '2px solid var(--cmm-border)'"
+                            [style.color]="form().id === p.id ? '#042f2e' : 'transparent'"
+                          >
+                            @if (form().id === p.id) {
+                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                              </svg>
+                            }
+                          </span>
+                          <span class="min-w-0 flex-1">
+                            <span class="flex items-center gap-2 flex-wrap">
+                              <span class="block text-sm font-medium" style="color: var(--cmm-ink);">{{ p.name }}</span>
+                              @if (form().id === p.id) {
+                                <span class="badge badge-accent">Selecionado</span>
+                              }
+                            </span>
+                            <span class="block text-xs mt-0.5" style="color: var(--cmm-muted);">{{ p.email || p.position || 'Sem email' }}</span>
+                          </span>
+                        </button>
+                      }
+                    </div>
                   </div>
                 }
 
                 @if (form().id) {
-                  <div class="panel panel-pad text-xs" style="color: var(--cmm-muted); padding: 0.75rem 1rem;">
-                    Selecionado: <span class="font-medium" style="color: var(--cmm-ink);">{{ selectedPonttaName || 'Perfil Pontta' }}</span>
-                    <span class="font-mono ml-2">{{ form().id }}</span>
+                  <div
+                    class="flex items-start gap-3 rounded-lg px-3 py-3"
+                    style="background: var(--cmm-accent-soft); border: 1px solid color-mix(in srgb, var(--cmm-accent) 35%, transparent);"
+                  >
+                    <span
+                      class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold"
+                      style="background: var(--cmm-accent); color: #042f2e;"
+                    >
+                      {{ (selectedPonttaName || form().name || '?').slice(0, 1).toUpperCase() }}
+                    </span>
+                    <div class="min-w-0">
+                      <p class="text-xs font-medium uppercase tracking-wide" style="color: var(--cmm-accent);">Perfil selecionado</p>
+                      <p class="text-sm font-semibold" style="color: var(--cmm-ink);">{{ selectedPonttaName || form().name || 'Perfil Pontta' }}</p>
+                      <p class="text-xs font-mono mt-0.5 truncate" style="color: var(--cmm-muted);">{{ form().id }}</p>
+                    </div>
                   </div>
                 }
               </div>
