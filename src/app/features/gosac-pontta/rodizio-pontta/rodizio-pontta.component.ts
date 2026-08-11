@@ -280,19 +280,19 @@ interface ConfirmState {
               </div>
             </label>
 
-            <label class="flex items-center gap-3 panel panel-pad cursor-pointer select-none" style="padding: 0.875rem 1rem;">
+            <div class="flex items-center gap-3 panel panel-pad select-none opacity-80" style="padding: 0.875rem 1rem;">
               <input
                 type="checkbox"
                 class="h-4 w-4 rounded"
                 style="accent-color: var(--cmm-accent);"
-                [ngModel]="form().turn_v"
-                (ngModelChange)="patchForm({ turn_v: $event })"
+                [checked]="true"
+                disabled
               />
               <div>
                 <p class="text-sm font-medium" style="color: var(--cmm-ink);">Turn V</p>
-                <p class="text-xs" style="color: var(--cmm-muted);">Novos registros nascem marcados; você pode alterar depois.</p>
+                <p class="text-xs" style="color: var(--cmm-muted);">Sempre ativo. Não pode ser alterado.</p>
               </div>
-            </label>
+            </div>
           </div>
 
           <div class="flex justify-end gap-2 px-5 py-4 border-t flex-shrink-0" style="border-color: var(--cmm-border); background: color-mix(in srgb, var(--cmm-surface) 70%, var(--cmm-panel));">
@@ -489,7 +489,7 @@ export class RodizioPonttaComponent implements OnInit {
           projetistaid: f.projetistaid,
           name: f.name,
           turn: f.turn,
-          turn_v: f.turn_v,
+          turn_v: true,
         })
         .subscribe({
           next: () => {
@@ -510,7 +510,7 @@ export class RodizioPonttaComponent implements OnInit {
         projetistaid: f.projetistaid,
         name: f.name,
         turn: f.turn,
-        turn_v: f.turn_v,
+        turn_v: true,
       })
       .subscribe({
         next: () => {
