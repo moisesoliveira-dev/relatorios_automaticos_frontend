@@ -339,7 +339,29 @@ export class LayoutComponent implements OnInit, OnDestroy {
   menuItems = computed(() => {
     const allowed = new Set(this.allowedTabs());
     if (allowed.size === 0) return this.allMenuItems;
-    return this.allMenuItems.filter((item) => allowed.has(this.menuKeyFromRoute(item.route)));
+
+    return this.allMenuItems
+      .map((item) => {
+        if (!item.children?.length) {
+          return allowed.has(this.menuKeyFromRoute(item.route)) ? item : null;
+        }
+
+        const parentKey = this.menuKeyFromRoute(item.route);
+        const filteredChildren = item.children.filter((child) => {
+          const childKey = child.route.replace(/^\//, '');
+          return allowed.has(childKey) || allowed.has(parentKey);
+        });
+
+        // Se só o pai está liberado sem filhos específicos, mostra todos
+        const hasSpecificChild = item.children.some((c) => allowed.has(c.route.replace(/^\//, '')));
+        const children = hasSpecificChild
+          ? item.children.filter((c) => allowed.has(c.route.replace(/^\//, '')))
+          : (allowed.has(parentKey) ? item.children : filteredChildren);
+
+        if (!allowed.has(parentKey) && children.length === 0) return null;
+        return { ...item, children };
+      })
+      .filter((item): item is MenuItem => !!item);
   });
 
   constructor(public authService: AuthService, private router: Router) {
@@ -467,9 +489,17 @@ export class LayoutComponent implements OnInit, OnDestroy {
   private isCurrentRouteAllowed(url: string): boolean {
     const allowed = new Set(this.allowedTabs());
     if (allowed.size === 0) return true;
-    const key = this.menuKeyFromRoute(url);
-    if (key === 'perfil') return true;
-    return allowed.has(key);
+    const path = url.replace(/^\//, '').split('?')[0];
+    if (path.startsWith('perfil')) return true;
+    if (allowed.has(path)) return true;
+    const top = path.split('/')[0] || 'dashboard';
+    if (allowed.has(top)) {
+      // Se há filhos específicos, exige match do filho
+      const hasSpecificChild = [...allowed].some((k) => k.startsWith(`${top}/`));
+      if (!hasSpecificChild) return true;
+      return [...allowed].some((k) => path === k || path.startsWith(`${k}/`));
+    }
+    return false;
   }
 
   private redirectIfTabForbidden(url: string): void {

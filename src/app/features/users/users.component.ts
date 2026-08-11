@@ -2,14 +2,22 @@ import { Component, signal, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { User, UserRole, UserStatus } from '../../core/models/user.model';
+import {
+  TAB_TREE,
+  ALL_TAB_KEYS,
+  TabNode,
+  User,
+  UserRole,
+  UserStatus,
+} from '../../core/models/user.model';
 import { AuthService } from '../../core/services/auth.service';
 import { ModalService } from '../../shared/services/modal.service';
 
 interface Invite {
   id: string;
   email: string;
-  role: UserRole;
+  role?: UserRole;
+  tabs?: string[];
   inviteToken: string;
   inviteExpiresAt: string;
   invitedBy: User;
@@ -78,7 +86,7 @@ interface Invite {
               <tr>
                 <th>Usuário</th>
                 <th>Email</th>
-                <th>Função</th>
+                <th>Acesso</th>
                 <th>Status</th>
                 <th>Criado em</th>
                 @if (canManageUsers()) {
@@ -114,14 +122,19 @@ interface Invite {
                   </td>
                   <td style="color: var(--cmm-muted);">{{ user.email }}</td>
                   <td>
-                    <span
-                      class="badge"
-                      [class.badge-warning]="user.role === 'master'"
-                      [class.badge-accent]="user.role === 'admin' || user.role === 'manager'"
-                      [class.badge-neutral]="user.role === 'user'"
-                    >
-                      {{ getRoleLabel(user.role) }}
-                    </span>
+                    <div class="flex flex-wrap gap-1">
+                      @if (user.role === 'master') {
+                        <span class="badge badge-warning">Todas as abas</span>
+                      } @else if (getTopLevelTabLabels(user.tabs).length > 3) {
+                        <span class="badge badge-neutral">{{ formatTabsSummary(user.tabs) }}</span>
+                      } @else {
+                        @for (label of getTopLevelTabLabels(user.tabs); track label) {
+                          <span class="badge badge-neutral">{{ label }}</span>
+                        } @empty {
+                          <span class="badge badge-neutral">Sem acesso</span>
+                        }
+                      }
+                    </div>
                   </td>
                   <td>
                     <span
@@ -186,7 +199,7 @@ interface Invite {
             <thead>
               <tr>
                 <th>Email</th>
-                <th>Função</th>
+                <th>Acesso</th>
                 <th>Convidado por</th>
                 <th>Expira em</th>
                 <th>Link</th>
@@ -198,13 +211,17 @@ interface Invite {
                 <tr>
                   <td class="font-medium">{{ invite.email }}</td>
                   <td>
-                    <span
-                      class="badge"
-                      [class.badge-accent]="invite.role === 'admin' || invite.role === 'manager'"
-                      [class.badge-neutral]="invite.role === 'user'"
-                    >
-                      {{ getRoleLabel(invite.role) }}
-                    </span>
+                    <div class="flex flex-wrap gap-1">
+                      @if (getTopLevelTabLabels(invite.tabs).length > 3) {
+                        <span class="badge badge-neutral">{{ formatTabsSummary(invite.tabs) }}</span>
+                      } @else {
+                        @for (label of getTopLevelTabLabels(invite.tabs); track label) {
+                          <span class="badge badge-neutral">{{ label }}</span>
+                        } @empty {
+                          <span class="badge badge-neutral">Sem acesso</span>
+                        }
+                      }
+                    </div>
                   </td>
                   <td style="color: var(--cmm-muted);">{{ invite.invitedBy?.name || '-' }}</td>
                   <td class="text-sm" style="color: var(--cmm-muted);">
@@ -256,7 +273,6 @@ interface Invite {
                 <th>Nome</th>
                 <th>Email</th>
                 <th>Data</th>
-                <th>Função</th>
                 <th style="text-align: right;">Ações</th>
               </tr>
             </thead>
@@ -266,22 +282,10 @@ interface Invite {
                   <td class="font-medium">{{ reg.name || '—' }}</td>
                   <td style="color: var(--cmm-muted);">{{ reg.email }}</td>
                   <td class="text-sm" style="color: var(--cmm-muted);">{{ formatDate(reg.createdAt) }}</td>
-                  <td>
-                    <select
-                      [(ngModel)]="approvalRoles[reg.id]"
-                      [name]="'role_' + reg.id"
-                      class="form-input"
-                      style="min-height: 2rem; width: auto;"
-                    >
-                      <option value="user">Usuário</option>
-                      <option value="manager">Gerente</option>
-                      <option value="admin">Administrador</option>
-                    </select>
-                  </td>
                   <td style="text-align: right;">
                     <div class="flex items-center justify-end gap-2">
-                      <button type="button" (click)="approveRegistration(reg)" class="btn btn-sm btn-accent">
-                        Aprovar
+                      <button type="button" (click)="openApproveModal(reg)" class="btn btn-sm btn-accent">
+                        Definir abas e aprovar
                       </button>
                       <button type="button" (click)="rejectRegistration(reg)" class="btn btn-sm btn-danger">
                         Rejeitar
@@ -291,7 +295,7 @@ interface Invite {
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="5">
+                  <td colspan="4">
                     <div class="empty-state">Nenhum cadastro pendente de aprovação</div>
                   </td>
                 </tr>
@@ -303,7 +307,7 @@ interface Invite {
 
       @if (showInviteModal()) {
         <div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(10, 16, 24, 0.55);">
-          <div class="panel panel-pad max-w-md w-full">
+          <div class="panel panel-pad max-w-lg w-full" style="max-height: 90vh; overflow-y: auto;">
             <div class="flex items-center justify-between mb-6">
               <h3 class="text-lg font-semibold" style="color: var(--cmm-ink);">Convidar Novo Usuário</h3>
               <button type="button" (click)="closeInviteModal()" class="btn btn-ghost btn-sm">
@@ -371,7 +375,7 @@ interface Invite {
                   <label class="form-label">Email</label>
                   <input
                     type="email"
-                    [(ngModel)]="inviteData.email"
+                    [(ngModel)]="inviteEmail"
                     name="email"
                     required
                     class="form-input"
@@ -380,12 +384,51 @@ interface Invite {
                 </div>
 
                 <div>
-                  <label class="form-label">Função</label>
-                  <select [(ngModel)]="inviteData.role" name="role" class="form-input">
-                    <option value="user">Usuário</option>
-                    <option value="manager">Gerente</option>
-                    <option value="admin">Administrador</option>
-                  </select>
+                  <div class="flex items-center justify-between mb-2">
+                    <label class="form-label mb-0">Abas de acesso</label>
+                    <div class="flex gap-2">
+                      <button type="button" class="btn btn-ghost btn-sm" (click)="selectAllTabs()">
+                        Selecionar todas
+                      </button>
+                      <button type="button" class="btn btn-ghost btn-sm" (click)="deselectAllTabs()">
+                        Limpar
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    class="rounded-lg p-3 space-y-1"
+                    style="background: var(--cmm-surface); border: 1px solid var(--cmm-border); max-height: 240px; overflow-y: auto;"
+                  >
+                    @for (node of tabTree; track node.key) {
+                      <div>
+                        <label class="flex items-center gap-2 py-1 cursor-pointer text-sm" style="color: var(--cmm-ink);">
+                          <input
+                            type="checkbox"
+                            class="form-checkbox"
+                            [checked]="isParentChecked(node)"
+                            [indeterminate]="isParentIndeterminate(node)"
+                            (change)="toggleParent(node)"
+                          />
+                          <span class="font-medium">{{ node.label }}</span>
+                        </label>
+                        @if (node.children?.length) {
+                          <div class="ml-6 space-y-1">
+                            @for (child of node.children; track child.key) {
+                              <label class="flex items-center gap-2 py-1 cursor-pointer text-sm" style="color: var(--cmm-muted);">
+                                <input
+                                  type="checkbox"
+                                  class="form-checkbox"
+                                  [checked]="isTabSelected(child.key)"
+                                  (change)="toggleTab(child.key, node)"
+                                />
+                                <span>{{ child.label }}</span>
+                              </label>
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
                 </div>
 
                 <div class="flex gap-3 pt-2">
@@ -404,7 +447,7 @@ interface Invite {
 
       @if (showEditModal()) {
         <div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(10, 16, 24, 0.55);">
-          <div class="panel panel-pad max-w-md w-full">
+          <div class="panel panel-pad max-w-lg w-full" style="max-height: 90vh; overflow-y: auto;">
             <div class="flex items-center justify-between mb-6">
               <h3 class="text-lg font-semibold" style="color: var(--cmm-ink);">Editar Usuário</h3>
               <button type="button" (click)="closeEditModal()" class="btn btn-ghost btn-sm">
@@ -415,6 +458,15 @@ interface Invite {
             </div>
 
             <form (ngSubmit)="saveUser()" class="space-y-4">
+              @if (editError()) {
+                <div
+                  class="p-3 rounded-lg text-sm"
+                  style="background: color-mix(in srgb, var(--cmm-danger) 12%, var(--cmm-panel)); border: 1px solid color-mix(in srgb, var(--cmm-danger) 30%, transparent); color: var(--cmm-danger);"
+                >
+                  {{ editError() }}
+                </div>
+              }
+
               <div>
                 <label class="form-label">Nome</label>
                 <input type="text" [(ngModel)]="editData.name" name="name" required class="form-input" />
@@ -422,16 +474,7 @@ interface Invite {
 
               <div>
                 <label class="form-label">Email</label>
-                <input type="email" [(ngModel)]="editData.email" name="email" required class="form-input" />
-              </div>
-
-              <div>
-                <label class="form-label">Função</label>
-                <select [(ngModel)]="editData.role" name="role" class="form-input">
-                  <option value="user">Usuário</option>
-                  <option value="manager">Gerente</option>
-                  <option value="admin">Administrador</option>
-                </select>
+                <input type="email" [value]="editData.email" name="email" disabled class="form-input" />
               </div>
 
               <div>
@@ -440,6 +483,54 @@ interface Invite {
                   <option value="active">Ativo</option>
                   <option value="inactive">Inativo</option>
                 </select>
+              </div>
+
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <label class="form-label mb-0">Abas de acesso</label>
+                  <div class="flex gap-2">
+                    <button type="button" class="btn btn-ghost btn-sm" (click)="selectAllTabs()">
+                      Selecionar todas
+                    </button>
+                    <button type="button" class="btn btn-ghost btn-sm" (click)="deselectAllTabs()">
+                      Limpar
+                    </button>
+                  </div>
+                </div>
+                <div
+                  class="rounded-lg p-3 space-y-1"
+                  style="background: var(--cmm-surface); border: 1px solid var(--cmm-border); max-height: 240px; overflow-y: auto;"
+                >
+                  @for (node of tabTree; track node.key) {
+                    <div>
+                      <label class="flex items-center gap-2 py-1 cursor-pointer text-sm" style="color: var(--cmm-ink);">
+                        <input
+                          type="checkbox"
+                          class="form-checkbox"
+                          [checked]="isParentChecked(node)"
+                          [indeterminate]="isParentIndeterminate(node)"
+                          (change)="toggleParent(node)"
+                        />
+                        <span class="font-medium">{{ node.label }}</span>
+                      </label>
+                      @if (node.children?.length) {
+                        <div class="ml-6 space-y-1">
+                          @for (child of node.children; track child.key) {
+                            <label class="flex items-center gap-2 py-1 cursor-pointer text-sm" style="color: var(--cmm-muted);">
+                              <input
+                                type="checkbox"
+                                class="form-checkbox"
+                                [checked]="isTabSelected(child.key)"
+                                (change)="toggleTab(child.key, node)"
+                              />
+                              <span>{{ child.label }}</span>
+                            </label>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
               </div>
 
               <div class="flex gap-3 pt-2">
@@ -454,18 +545,113 @@ interface Invite {
           </div>
         </div>
       }
+
+      @if (showApproveModal()) {
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(10, 16, 24, 0.55);">
+          <div class="panel panel-pad max-w-lg w-full" style="max-height: 90vh; overflow-y: auto;">
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="text-lg font-semibold" style="color: var(--cmm-ink);">Definir abas e aprovar</h3>
+              <button type="button" (click)="closeApproveModal()" class="btn btn-ghost btn-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+
+            @if (approvingUser(); as reg) {
+              <p class="text-sm mb-4" style="color: var(--cmm-muted);">
+                Selecione as abas de acesso para
+                <span class="font-medium" style="color: var(--cmm-ink);">{{ reg.name || reg.email }}</span>
+              </p>
+            }
+
+            @if (approveError()) {
+              <div
+                class="mb-4 p-3 rounded-lg text-sm"
+                style="background: color-mix(in srgb, var(--cmm-danger) 12%, var(--cmm-panel)); border: 1px solid color-mix(in srgb, var(--cmm-danger) 30%, transparent); color: var(--cmm-danger);"
+              >
+                {{ approveError() }}
+              </div>
+            }
+
+            <div class="mb-4">
+              <div class="flex items-center justify-between mb-2">
+                <label class="form-label mb-0">Abas de acesso</label>
+                <div class="flex gap-2">
+                  <button type="button" class="btn btn-ghost btn-sm" (click)="selectAllTabs()">
+                    Selecionar todas
+                  </button>
+                  <button type="button" class="btn btn-ghost btn-sm" (click)="deselectAllTabs()">
+                    Limpar
+                  </button>
+                </div>
+              </div>
+              <div
+                class="rounded-lg p-3 space-y-1"
+                style="background: var(--cmm-surface); border: 1px solid var(--cmm-border); max-height: 280px; overflow-y: auto;"
+              >
+                @for (node of tabTree; track node.key) {
+                  <div>
+                    <label class="flex items-center gap-2 py-1 cursor-pointer text-sm" style="color: var(--cmm-ink);">
+                      <input
+                        type="checkbox"
+                        class="form-checkbox"
+                        [checked]="isParentChecked(node)"
+                        [indeterminate]="isParentIndeterminate(node)"
+                        (change)="toggleParent(node)"
+                      />
+                      <span class="font-medium">{{ node.label }}</span>
+                    </label>
+                    @if (node.children?.length) {
+                      <div class="ml-6 space-y-1">
+                        @for (child of node.children; track child.key) {
+                          <label class="flex items-center gap-2 py-1 cursor-pointer text-sm" style="color: var(--cmm-muted);">
+                            <input
+                              type="checkbox"
+                              class="form-checkbox"
+                              [checked]="isTabSelected(child.key)"
+                              (change)="toggleTab(child.key, node)"
+                            />
+                            <span>{{ child.label }}</span>
+                          </label>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+
+            <div class="flex gap-3 pt-2">
+              <button type="button" (click)="closeApproveModal()" class="btn btn-secondary flex-1">
+                Cancelar
+              </button>
+              <button
+                type="button"
+                (click)="confirmApproveRegistration()"
+                [disabled]="isLoading()"
+                class="btn btn-accent flex-1"
+              >
+                {{ isLoading() ? 'Aprovando...' : 'Aprovar' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      }
     </div>
   `
 })
 export class UsersComponent implements OnInit {
+  readonly tabTree = TAB_TREE;
+
   users = signal<User[]>([]);
   pendingInvites = signal<Invite[]>([]);
   pendingRegistrations = signal<User[]>([]);
-  approvalRoles: Record<string, string> = {};
   activeTab = signal<'users' | 'invites' | 'registrations'>('users');
 
   showInviteModal = signal(false);
   showEditModal = signal(false);
+  showApproveModal = signal(false);
   isLoading = signal(false);
   inviteSuccess = signal(false);
   inviteLink = signal('');
@@ -473,18 +659,20 @@ export class UsersComponent implements OnInit {
   inviteEmailSent = signal(true);
   inviteEmailError = signal('');
   inviteCodeResult = signal('');
+  editError = signal('');
+  approveError = signal('');
 
   editingUser = signal<User | null>(null);
+  approvingUser = signal<User | null>(null);
 
-  inviteData = {
-    email: '',
-    role: 'user' as UserRole
-  };
+  /** Shared selected tabs for the active invite / edit / approve modal */
+  selectedTabs = signal<string[]>([]);
+
+  inviteEmail = '';
 
   editData = {
     name: '',
     email: '',
-    role: 'user' as UserRole,
     status: 'active' as UserStatus
   };
 
@@ -505,8 +693,94 @@ export class UsersComponent implements OnInit {
   }
 
   canManageUsers(): boolean {
-    const role = this.authService.user()?.role;
-    return role === 'master' || role === 'admin';
+    const user = this.authService.user();
+    const role = user?.role;
+    return role === 'master' || role === 'admin' || (user?.tabs || []).includes('usuarios');
+  }
+
+  isTabSelected(key: string): boolean {
+    return this.selectedTabs().includes(key);
+  }
+
+  isParentChecked(node: TabNode): boolean {
+    if (!node.children?.length) {
+      return this.isTabSelected(node.key);
+    }
+    return node.children.every((child) => this.isTabSelected(child.key));
+  }
+
+  isParentIndeterminate(node: TabNode): boolean {
+    if (!node.children?.length) return false;
+    const selectedCount = node.children.filter((child) => this.isTabSelected(child.key)).length;
+    return selectedCount > 0 && selectedCount < node.children.length;
+  }
+
+  toggleTab(key: string, parent?: TabNode): void {
+    const next = new Set(this.selectedTabs());
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+    }
+
+    if (parent?.children?.length) {
+      const allChildren = parent.children.every((child) => next.has(child.key));
+      if (allChildren) {
+        next.add(parent.key);
+      } else {
+        next.delete(parent.key);
+      }
+    }
+
+    this.selectedTabs.set([...next]);
+  }
+
+  toggleParent(node: TabNode): void {
+    const next = new Set(this.selectedTabs());
+    const childKeys = node.children?.map((c) => c.key) ?? [];
+
+    if (childKeys.length) {
+      const allSelected = childKeys.every((k) => next.has(k));
+      if (allSelected) {
+        next.delete(node.key);
+        childKeys.forEach((k) => next.delete(k));
+      } else {
+        next.add(node.key);
+        childKeys.forEach((k) => next.add(k));
+      }
+    } else if (next.has(node.key)) {
+      next.delete(node.key);
+    } else {
+      next.add(node.key);
+    }
+
+    this.selectedTabs.set([...next]);
+  }
+
+  selectAllTabs(): void {
+    this.selectedTabs.set([...ALL_TAB_KEYS]);
+  }
+
+  deselectAllTabs(): void {
+    this.selectedTabs.set([]);
+  }
+
+  formatTabsSummary(tabs?: string[] | null): string {
+    const labels = this.getTopLevelTabLabels(tabs);
+    if (!labels.length) return 'Sem acesso';
+    if (labels.length <= 3) return labels.join(', ');
+    return `${labels.length} abas`;
+  }
+
+  getTopLevelTabLabels(tabs?: string[] | null): string[] {
+    if (!tabs?.length) return [];
+    const set = new Set(tabs);
+    return TAB_TREE
+      .filter((node) => {
+        if (set.has(node.key)) return true;
+        return !!node.children?.some((child) => set.has(child.key));
+      })
+      .map((node) => node.label);
   }
 
   loadUsers() {
@@ -525,26 +799,49 @@ export class UsersComponent implements OnInit {
 
   loadPendingRegistrations() {
     this.http.get<User[]>(`${this.apiUrl}/users/registrations/pending`).subscribe({
-      next: (users) => {
-        this.pendingRegistrations.set(users);
-        users.forEach(u => {
-          if (!this.approvalRoles[u.id]) this.approvalRoles[u.id] = 'user';
-        });
-      },
+      next: (users) => this.pendingRegistrations.set(users),
       error: (err) => console.error('Erro ao carregar cadastros pendentes:', err)
     });
   }
 
-  approveRegistration(user: User) {
-    const role = (this.approvalRoles[user.id] || 'user') as UserRole;
-    this.http.post(`${this.apiUrl}/users/registrations/${user.id}/approve`, { role }).subscribe({
+  openApproveModal(user: User) {
+    this.approvingUser.set(user);
+    this.selectedTabs.set([...(user.tabs || [])]);
+    this.approveError.set('');
+    this.showApproveModal.set(true);
+  }
+
+  closeApproveModal() {
+    this.showApproveModal.set(false);
+    this.approvingUser.set(null);
+    this.approveError.set('');
+    this.selectedTabs.set([]);
+  }
+
+  confirmApproveRegistration() {
+    const user = this.approvingUser();
+    if (!user) return;
+
+    const tabs = this.selectedTabs();
+    if (!tabs.length) {
+      this.approveError.set('Selecione ao menos uma aba');
+      return;
+    }
+
+    this.isLoading.set(true);
+    this.approveError.set('');
+
+    this.http.post(`${this.apiUrl}/users/registrations/${user.id}/approve`, { tabs }).subscribe({
       next: () => {
+        this.isLoading.set(false);
+        this.closeApproveModal();
         this.loadPendingRegistrations();
         this.loadUsers();
-        this.modalService.success(`Usuário "${user.name}" aprovado com sucesso!`);
+        this.modalService.success(`Usuário "${user.name || user.email}" aprovado com sucesso!`);
       },
       error: (err) => {
-        this.modalService.error(err.error?.message || 'Erro ao aprovar usuário');
+        this.isLoading.set(false);
+        this.approveError.set(err.error?.message || 'Erro ao aprovar usuário');
       }
     });
   }
@@ -570,7 +867,8 @@ export class UsersComponent implements OnInit {
   }
 
   openInviteModal() {
-    this.inviteData = { email: '', role: 'user' };
+    this.inviteEmail = '';
+    this.selectedTabs.set([]);
     this.inviteSuccess.set(false);
     this.inviteError.set('');
     this.inviteLink.set('');
@@ -585,15 +883,24 @@ export class UsersComponent implements OnInit {
   }
 
   sendInvite() {
-    if (!this.inviteData.email) {
+    if (!this.inviteEmail) {
       this.inviteError.set('Informe o email');
+      return;
+    }
+
+    const tabs = this.selectedTabs();
+    if (!tabs.length) {
+      this.inviteError.set('Selecione ao menos uma aba');
       return;
     }
 
     this.isLoading.set(true);
     this.inviteError.set('');
 
-    this.http.post<{ user: User; inviteLink: string; inviteCode: string; emailSent: boolean; emailError?: string }>(`${this.apiUrl}/users/invite`, this.inviteData).subscribe({
+    this.http.post<{ user: User; inviteLink: string; inviteCode: string; emailSent: boolean; emailError?: string }>(
+      `${this.apiUrl}/users/invite`,
+      { email: this.inviteEmail, tabs }
+    ).subscribe({
       next: (response) => {
         this.inviteLink.set(response.inviteLink);
         this.inviteEmailSent.set(response.emailSent !== false);
@@ -639,40 +946,57 @@ export class UsersComponent implements OnInit {
   }
 
   editUser(user: User) {
+    if (user.role === 'master') {
+      this.modalService.warning('O usuário master não pode ser editado');
+      return;
+    }
+
     this.editingUser.set(user);
     this.editData = {
       name: user.name,
       email: user.email,
-      role: user.role === 'master' ? 'admin' : user.role,
       status: user.status || 'active'
     };
+    this.selectedTabs.set([...(user.tabs || [])]);
+    this.editError.set('');
     this.showEditModal.set(true);
   }
 
   closeEditModal() {
     this.showEditModal.set(false);
     this.editingUser.set(null);
+    this.editError.set('');
+    this.selectedTabs.set([]);
   }
 
   saveUser() {
     const editing = this.editingUser();
     if (!editing) return;
 
+    const tabs = this.selectedTabs();
+    if (!tabs.length) {
+      this.editError.set('Selecione ao menos uma aba');
+      return;
+    }
+
     this.isLoading.set(true);
+    this.editError.set('');
 
     this.http.patch<User>(`${this.apiUrl}/users/${editing.id}`, {
       name: this.editData.name,
-      email: this.editData.email,
-      role: this.editData.role,
-      status: this.editData.status
+      status: this.editData.status,
+      isActive: this.editData.status === 'active',
+      tabs
     }).subscribe({
       next: () => {
         this.loadUsers();
         this.closeEditModal();
         this.isLoading.set(false);
+        this.modalService.success('Usuário atualizado com sucesso!');
       },
       error: (err) => {
         console.error('Erro ao atualizar:', err);
+        this.editError.set(err.error?.message || 'Erro ao atualizar usuário');
         this.isLoading.set(false);
       }
     });
@@ -712,16 +1036,6 @@ export class UsersComponent implements OnInit {
       .join('')
       .toUpperCase()
       .slice(0, 2);
-  }
-
-  getRoleLabel(role: UserRole): string {
-    const labels: Record<UserRole, string> = {
-      master: 'Master',
-      admin: 'Administrador',
-      manager: 'Gerente',
-      user: 'Usuário'
-    };
-    return labels[role] || role;
   }
 
   getStatusLabel(status?: UserStatus): string {
