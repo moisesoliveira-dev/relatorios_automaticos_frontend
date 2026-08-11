@@ -19,19 +19,22 @@ interface EnvironmentSetting {
   imports: [CommonModule, FormsModule],
   template: `
     <div class="space-y-6">
-      <!-- Header -->
-      <div class="bg-white rounded-xl p-6 border border-slate-200 flex items-start justify-between">
+      <div class="page-header">
         <div>
-          <h1 class="text-xl font-semibold text-slate-800">Configurações</h1>
-          <p class="text-sm text-slate-500 mt-1">Configure variáveis de ambiente, SMTP e integrações do sistema</p>
+          <h1 class="page-title">Configurações</h1>
+          <p class="page-subtitle">Configure variáveis de ambiente, SMTP e integrações do sistema</p>
         </div>
         <button
+          type="button"
           (click)="saveEnvironmentSettings()"
           [disabled]="savingSettings()"
-          class="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+          class="btn btn-primary"
         >
           @if (savingSettings()) {
-            <div class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+            <div
+              class="animate-spin w-4 h-4 rounded-full border-2"
+              style="border-color: transparent; border-top-color: currentColor;"
+            ></div>
             Salvando...
           } @else {
             Salvar alterações
@@ -39,163 +42,178 @@ interface EnvironmentSetting {
         </button>
       </div>
 
-      <div class="bg-white rounded-xl border border-slate-200">
+      <div class="panel">
         @if (loadingSettings()) {
           <div class="flex items-center justify-center py-16">
-            <div class="animate-spin w-6 h-6 border-2 border-slate-200 border-t-slate-600 rounded-full"></div>
+            <div
+              class="animate-spin w-6 h-6 rounded-full border-2"
+              style="border-color: var(--cmm-border); border-top-color: var(--cmm-accent);"
+            ></div>
           </div>
         } @else {
-          <div class="p-6 space-y-8">
-
-            <!-- Email -->
-            <div>
-              <h3 class="text-sm font-semibold text-slate-700 mb-1">Configurações de Email</h3>
-              <p class="text-xs text-slate-500 mb-4">Use <strong>smtp</strong> para envio local ou <strong>resend</strong> para plataformas cloud (Railway, Render, etc.).</p>
+          <div class="panel-pad space-y-8">
+            <section>
+              <h3 class="text-sm font-semibold mb-1" style="color: var(--cmm-ink);">Configurações de Email</h3>
+              <p class="text-xs mb-4" style="color: var(--cmm-muted);">
+                Use <strong style="color: var(--cmm-ink);">smtp</strong> para envio local ou
+                <strong style="color: var(--cmm-ink);">resend</strong> para plataformas cloud (Railway, Render, etc.).
+              </p>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 @for (setting of getSettingsByCategory('email'); track setting.key) {
                   <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">
+                    <label class="form-label">
                       {{ setting.description }}
                       @if (setting.isEncrypted) {
-                        <span class="text-xs text-slate-400 ml-1">(criptografado)</span>
+                        <span class="ml-1 font-normal" style="color: var(--cmm-muted);">(criptografado)</span>
                       }
                     </label>
                     <input
                       [type]="setting.isEncrypted ? 'password' : 'text'"
                       [(ngModel)]="setting.value"
-                      class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm"
+                      class="form-input"
                       [placeholder]="setting.description"
                     />
                   </div>
                 }
               </div>
-            </div>
+            </section>
 
-            <!-- Geral -->
-            <div>
-              <h3 class="text-sm font-semibold text-slate-700 mb-4">Configurações Gerais</h3>
+            <section style="border-top: 1px solid var(--cmm-border); padding-top: 2rem;">
+              <h3 class="text-sm font-semibold mb-4" style="color: var(--cmm-ink);">Configurações Gerais</h3>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 @for (setting of getSettingsByCategory('general'); track setting.key) {
                   <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">{{ setting.description }}</label>
+                    <label class="form-label">{{ setting.description }}</label>
                     <input
                       type="text"
                       [(ngModel)]="setting.value"
-                      class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm"
+                      class="form-input"
                       [placeholder]="setting.description"
                     />
                   </div>
                 }
               </div>
-            </div>
+            </section>
 
-            <!-- API Pontta -->
-            <div>
-              <h3 class="text-sm font-semibold text-slate-700 mb-4">Configurações da API Pontta</h3>
+            <section style="border-top: 1px solid var(--cmm-border); padding-top: 2rem;">
+              <h3 class="text-sm font-semibold mb-4" style="color: var(--cmm-ink);">Configurações da API Pontta</h3>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 @for (setting of getSettingsByCategory('api'); track setting.key) {
                   <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">
+                    <label class="form-label">
                       {{ setting.description }}
                       @if (setting.isEncrypted) {
-                        <span class="text-xs text-slate-400 ml-1">(criptografado)</span>
+                        <span class="ml-1 font-normal" style="color: var(--cmm-muted);">(criptografado)</span>
                       }
                     </label>
                     <input
                       [type]="setting.isEncrypted ? 'password' : 'text'"
                       [(ngModel)]="setting.value"
-                      class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm"
+                      class="form-input"
                       [placeholder]="setting.description"
                     />
                   </div>
                 }
               </div>
-            </div>
+            </section>
 
-            <!-- Jobs -->
             @if (getSettingsByCategory('jobs').length > 0) {
-              <div>
-                <h3 class="text-sm font-semibold text-slate-700 mb-4">Configurações de Jobs</h3>
+              <section style="border-top: 1px solid var(--cmm-border); padding-top: 2rem;">
+                <h3 class="text-sm font-semibold mb-4" style="color: var(--cmm-ink);">Configurações de Jobs</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   @for (setting of getSettingsByCategory('jobs'); track setting.key) {
                     <div>
-                      <label class="block text-sm font-medium text-slate-700 mb-1">{{ setting.description }}</label>
+                      <label class="form-label">{{ setting.description }}</label>
                       <input
                         type="text"
                         [(ngModel)]="setting.value"
-                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm"
+                        class="form-input"
                         [placeholder]="setting.description"
                       />
                     </div>
                   }
                 </div>
-              </div>
+              </section>
             }
 
-            <!-- Controle de Abas -->
             @if (getSettingsByCategory('access').length > 0) {
-              <div>
-                <h3 class="text-sm font-semibold text-slate-700 mb-1">Controle de Abas por Perfil</h3>
-                <p class="text-xs text-slate-500 mb-4">
+              <section style="border-top: 1px solid var(--cmm-border); padding-top: 2rem;">
+                <h3 class="text-sm font-semibold mb-1" style="color: var(--cmm-ink);">Controle de Abas por Perfil</h3>
+                <p class="text-xs mb-4" style="color: var(--cmm-muted);">
                   Formato: lista separada por vírgula com os identificadores de abas
-                  <code class="bg-slate-100 px-1 rounded text-xs">dashboard,reports,jobs,gosac-pontta,usuarios,configuracoes</code>
+                  <code
+                    class="px-1 rounded text-xs"
+                    style="background: var(--cmm-surface); color: var(--cmm-ink);"
+                  >dashboard,reports,jobs,gosac-pontta,usuarios,configuracoes</code>
                 </p>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   @for (setting of getSettingsByCategory('access'); track setting.key) {
                     <div>
-                      <label class="block text-sm font-medium text-slate-700 mb-1">{{ setting.description }}</label>
+                      <label class="form-label">{{ setting.description }}</label>
                       <input
                         type="text"
                         [(ngModel)]="setting.value"
-                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm"
+                        class="form-input"
                         [placeholder]="setting.description"
                       />
                     </div>
                   }
                 </div>
-              </div>
+              </section>
             }
 
-            <!-- Google Drive -->
             @if (getSettingsByCategory('drive').length > 0) {
-              <div>
-                <h3 class="text-sm font-semibold text-slate-700 mb-1">Integração com Google Drive</h3>
-                <p class="text-xs text-slate-500 mb-4">
-                  No <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" class="underline hover:text-slate-700">Google Cloud Console</a>,
-                  crie credenciais <strong>OAuth 2.0</strong> e preencha
-                  <code class="bg-slate-100 px-1 rounded text-xs">Client ID</code>,
-                  <code class="bg-slate-100 px-1 rounded text-xs">Client Secret</code> e
-                  <code class="bg-slate-100 px-1 rounded text-xs">Refresh Token</code>.
-                  O <strong>ID da pasta raiz</strong> é o trecho final da URL da pasta no Google Drive.
+              <section style="border-top: 1px solid var(--cmm-border); padding-top: 2rem;">
+                <h3 class="text-sm font-semibold mb-1" style="color: var(--cmm-ink);">Integração com Google Drive</h3>
+                <p class="text-xs mb-4" style="color: var(--cmm-muted);">
+                  No
+                  <a
+                    href="https://console.cloud.google.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="underline"
+                    style="color: var(--cmm-accent);"
+                  >Google Cloud Console</a>,
+                  crie credenciais <strong style="color: var(--cmm-ink);">OAuth 2.0</strong> e preencha
+                  <code class="px-1 rounded text-xs" style="background: var(--cmm-surface); color: var(--cmm-ink);">Client ID</code>,
+                  <code class="px-1 rounded text-xs" style="background: var(--cmm-surface); color: var(--cmm-ink);">Client Secret</code> e
+                  <code class="px-1 rounded text-xs" style="background: var(--cmm-surface); color: var(--cmm-ink);">Refresh Token</code>.
+                  O <strong style="color: var(--cmm-ink);">ID da pasta raiz</strong> é o trecho final da URL da pasta no Google Drive.
                 </p>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   @for (setting of getSettingsByCategory('drive'); track setting.key) {
                     <div>
-                      <label class="block text-sm font-medium text-slate-700 mb-1">
+                      <label class="form-label">
                         {{ setting.description }}
                         @if (setting.isEncrypted) {
-                          <span class="text-xs text-slate-400 ml-1">(criptografado)</span>
+                          <span class="ml-1 font-normal" style="color: var(--cmm-muted);">(criptografado)</span>
                         }
                       </label>
                       <input
                         [type]="setting.isEncrypted ? 'password' : 'text'"
                         [(ngModel)]="setting.value"
-                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm"
+                        class="form-input"
                         [placeholder]="setting.description"
                       />
                     </div>
                   }
                 </div>
-              </div>
+              </section>
             }
 
             @if (settingsSuccessMessage()) {
-              <div class="p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+              <div
+                class="p-4 rounded-lg text-sm"
+                style="background: color-mix(in srgb, var(--cmm-success) 12%, var(--cmm-panel)); border: 1px solid color-mix(in srgb, var(--cmm-success) 30%, transparent); color: var(--cmm-success);"
+              >
                 {{ settingsSuccessMessage() }}
               </div>
             }
             @if (settingsErrorMessage()) {
-              <div class="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              <div
+                class="p-4 rounded-lg text-sm"
+                style="background: color-mix(in srgb, var(--cmm-danger) 12%, var(--cmm-panel)); border: 1px solid color-mix(in srgb, var(--cmm-danger) 30%, transparent); color: var(--cmm-danger);"
+              >
                 {{ settingsErrorMessage() }}
               </div>
             }

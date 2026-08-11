@@ -1,9 +1,9 @@
-import { Component, OnInit, inject, computed, signal } from '@angular/core';
+import { Component, OnInit, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
-import { DashboardService, ReportEmail } from '../../services/dashboard.service';
+import { DashboardService } from '../../services/dashboard.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -11,52 +11,63 @@ import { DashboardService, ReportEmail } from '../../services/dashboard.service'
   imports: [CommonModule, RouterLink, FormsModule],
   template: `
     <div class="space-y-6">
-      <!-- Page header -->
-      <div>
-        <h2 class="text-xl font-semibold text-slate-800">Olá, {{ authService.user()?.name }}</h2>
-        <p class="text-sm text-slate-500 mt-0.5">Resumo do sistema de relatórios</p>
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Olá, {{ authService.user()?.name }}</h1>
+          <p class="page-subtitle">Resumo do sistema de relatórios</p>
+        </div>
       </div>
 
-      <!-- Stats Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <!-- Stats -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         @for (stat of statsDisplay(); track stat.label) {
-          <div class="bg-white rounded-xl p-6 border border-slate-200 hover:shadow-lg transition-shadow">
-            <div class="flex items-center justify-between">
+          <div class="panel panel-pad">
+            <div class="flex items-start justify-between gap-3">
               <div>
-                <p class="text-sm text-slate-500">{{ stat.label }}</p>
-                <p class="text-2xl font-bold text-slate-800 mt-1">{{ stat.value }}</p>
+                <p class="text-sm" style="color: var(--cmm-muted);">{{ stat.label }}</p>
+                <p class="text-2xl font-semibold mt-1" style="color: var(--cmm-ink);">{{ stat.value }}</p>
               </div>
-              <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
-                <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div
+                class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style="background: var(--cmm-accent-soft); color: var(--cmm-accent);"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" [attr.d]="stat.svgPath"/>
                 </svg>
               </div>
             </div>
-            <div class="mt-4 flex items-center gap-1 text-sm">
-              <span [class]="stat.trend >= 0 ? 'text-green-600' : 'text-red-600'">
+            <div class="mt-3 flex items-center gap-1.5 text-sm">
+              <span
+                class="badge"
+                [class.badge-success]="stat.trend >= 0"
+                [class.badge-danger]="stat.trend < 0"
+              >
                 {{ stat.trend >= 0 ? '↑' : '↓' }} {{ stat.trend >= 0 ? stat.trend : -stat.trend }}%
               </span>
-              <span class="text-slate-400">vs mês anterior</span>
+              <span style="color: var(--cmm-muted);">vs mês anterior</span>
             </div>
           </div>
         }
       </div>
 
       <!-- Quick Actions -->
-      <div class="bg-white rounded-xl p-6 border border-slate-200">
-        <h3 class="text-lg font-semibold text-slate-800 mb-4">Ações Rápidas</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="panel">
+        <div class="panel-pad" style="border-bottom: 1px solid var(--cmm-border);">
+          <h2 class="text-base font-semibold" style="color: var(--cmm-ink);">Ações Rápidas</h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x" style="border-color: var(--cmm-border);">
           @for (action of quickActions; track action.label) {
-            <a 
+            <a
               [routerLink]="action.route"
-              class="flex items-center gap-3 p-4 rounded-lg border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
+              class="flex items-center gap-3 p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--cmm-accent)_5%,var(--cmm-panel))]"
+              style="color: var(--cmm-ink);"
             >
-              <svg class="w-5 h-5 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5 flex-shrink-0" style="color: var(--cmm-accent);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" [attr.d]="action.icon"/>
               </svg>
               <div>
-                <p class="font-medium text-slate-800">{{ action.label }}</p>
-                <p class="text-sm text-slate-500">{{ action.description }}</p>
+                <p class="font-medium text-sm">{{ action.label }}</p>
+                <p class="text-sm" style="color: var(--cmm-muted);">{{ action.description }}</p>
               </div>
             </a>
           }
@@ -64,67 +75,74 @@ import { DashboardService, ReportEmail } from '../../services/dashboard.service'
       </div>
 
       <!-- Recent Activity + System Status -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Recent Reports -->
-        <div class="bg-white rounded-xl p-6 border border-slate-200">
-          <h3 class="text-lg font-semibold text-slate-800 mb-4">Relatórios Recentes</h3>
-          @if (dashboardService.loading()) {
-            <div class="flex items-center justify-center py-8">
-              <div class="animate-spin w-6 h-6 border-2 border-slate-200 border-t-slate-600 rounded-full"></div>
-            </div>
-          } @else if (dashboardService.recentReports().length === 0) {
-            <div class="text-center py-8 text-slate-500">
-              <p>Nenhum relatório gerado ainda.</p>
-              <a routerLink="/reports/ocorrencias" class="text-slate-600 hover:underline mt-2 inline-block">
-                Gerar primeiro relatório →
-              </a>
-            </div>
-          } @else {
-            <div class="space-y-3">
-              @for (report of dashboardService.recentReports(); track report.id) {
-                <div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors">
-                  <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
-                      <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="panel">
+          <div class="panel-pad" style="border-bottom: 1px solid var(--cmm-border);">
+            <h2 class="text-base font-semibold" style="color: var(--cmm-ink);">Relatórios Recentes</h2>
+          </div>
+          <div class="panel-pad">
+            @if (dashboardService.loading()) {
+              <div class="flex items-center justify-center py-8">
+                <div
+                  class="animate-spin w-6 h-6 rounded-full"
+                  style="border: 2px solid var(--cmm-border); border-top-color: var(--cmm-accent);"
+                ></div>
+              </div>
+            } @else if (dashboardService.recentReports().length === 0) {
+              <div class="empty-state">
+                <p>Nenhum relatório gerado ainda.</p>
+                <a
+                  routerLink="/reports/ocorrencias"
+                  class="inline-block mt-2 text-sm font-medium"
+                  style="color: var(--cmm-accent);"
+                >
+                  Gerar primeiro relatório →
+                </a>
+              </div>
+            } @else {
+              <div class="divide-y" style="border-color: var(--cmm-border);">
+                @for (report of dashboardService.recentReports(); track report.id) {
+                  <div class="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                    <div class="min-w-0">
+                      <p class="font-medium text-sm truncate" style="color: var(--cmm-ink);">{{ report.name }}</p>
+                      <p class="text-sm mt-0.5" style="color: var(--cmm-muted);">
+                        {{ report.date }} · {{ report.records }} registros
+                      </p>
                     </div>
-                    <div>
-                      <p class="font-medium text-slate-800">{{ report.name }}</p>
-                      <p class="text-sm text-slate-500">{{ report.date }} • {{ report.records }} registros</p>
-                    </div>
+                    <span
+                      class="badge flex-shrink-0"
+                      [class.badge-success]="report.status === 'success'"
+                      [class.badge-danger]="report.status === 'failed'"
+                      [class.badge-warning]="report.status === 'pending'"
+                    >
+                      {{ report.status === 'success' ? 'Concluído' : report.status === 'failed' ? 'Falhou' : 'Processando' }}
+                    </span>
                   </div>
-                  <span 
-                    class="px-2 py-1 text-xs font-medium rounded-full"
-                    [class.bg-green-100]="report.status === 'success'"
-                    [class.text-green-700]="report.status === 'success'"
-                    [class.bg-red-100]="report.status === 'failed'"
-                    [class.text-red-700]="report.status === 'failed'"
-                    [class.bg-yellow-100]="report.status === 'pending'"
-                    [class.text-yellow-700]="report.status === 'pending'"
-                  >
-                    {{ report.status === 'success' ? 'Concluído' : report.status === 'failed' ? 'Falhou' : 'Processando' }}
-                  </span>
-                </div>
-              }
-            </div>
-          }
+                }
+              </div>
+            }
+          </div>
         </div>
 
-        <!-- System Status -->
-        <div class="bg-white rounded-xl p-6 border border-slate-200">
-          <h3 class="text-lg font-semibold text-slate-800 mb-4">Status do Sistema</h3>
-          <div class="space-y-4">
+        <div class="panel">
+          <div class="panel-pad" style="border-bottom: 1px solid var(--cmm-border);">
+            <h2 class="text-base font-semibold" style="color: var(--cmm-ink);">Status do Sistema</h2>
+          </div>
+          <div class="panel-pad space-y-4">
             @for (service of dashboardService.systemStatus(); track service.name) {
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                  <div 
-                    class="w-3 h-3 rounded-full"
-                    [class.bg-green-500]="service.status === 'online'"
-                    [class.bg-yellow-500]="service.status === 'warning'"
-                    [class.bg-red-500]="service.status === 'offline'"
-                  ></div>
-                  <span class="text-slate-700">{{ service.name }}</span>
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3 min-w-0">
+                  <span
+                    class="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    [style.background]="
+                      service.status === 'online' ? 'var(--cmm-success)' :
+                      service.status === 'warning' ? 'var(--cmm-warning)' :
+                      'var(--cmm-danger)'
+                    "
+                  ></span>
+                  <span class="text-sm" style="color: var(--cmm-ink);">{{ service.name }}</span>
                 </div>
-                <span class="text-sm text-slate-500">{{ service.latency }}</span>
+                <span class="text-sm flex-shrink-0" style="color: var(--cmm-muted);">{{ service.latency }}</span>
               </div>
             }
           </div>

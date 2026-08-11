@@ -12,59 +12,66 @@ import { ModalService } from '../../shared/services/modal.service';
   imports: [CommonModule, FormsModule],
   template: `
     <div class="max-w-4xl mx-auto space-y-6">
-      <!-- Header -->
-      <div class="bg-white rounded-xl p-6 border border-slate-200">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Meu Perfil</h1>
+          <p class="page-subtitle">Gerencie suas informações pessoais e segurança da conta</p>
+        </div>
+      </div>
+
+      <div class="panel panel-pad">
         <div class="flex items-center gap-6">
-          <div class="w-20 h-20 bg-slate-700 rounded-xl flex items-center justify-center text-white text-2xl font-semibold">
+          <div
+            class="w-20 h-20 rounded-xl flex items-center justify-center text-2xl font-semibold"
+            style="background: var(--cmm-ink); color: var(--cmm-panel);"
+          >
             {{ authService.userInitials() }}
           </div>
-          <div class="flex-1">
-            <h1 class="text-2xl font-bold text-slate-800">{{ authService.user()?.name }}</h1>
-            <p class="text-slate-500">{{ authService.user()?.email }}</p>
+          <div class="flex-1 min-w-0">
+            <h2 class="text-lg font-semibold" style="color: var(--cmm-ink);">{{ authService.user()?.name }}</h2>
+            <p class="text-sm" style="color: var(--cmm-muted);">{{ authService.user()?.email }}</p>
             <div class="mt-2">
-              <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium"
-                    class="bg-slate-100 text-slate-700">
-                {{ getRoleLabel() }}
-              </span>
+              <span class="badge badge-neutral">{{ getRoleLabel() }}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Editar Nome -->
-      <div class="bg-white rounded-xl p-6 border border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800 mb-4">Informações Pessoais</h2>
-        
+      <div class="panel panel-pad">
+        <h2 class="text-base font-semibold mb-4" style="color: var(--cmm-ink);">Informações Pessoais</h2>
+
         @if (nameSuccessMessage()) {
-          <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+          <div
+            class="mb-4 p-4 rounded-lg text-sm"
+            style="background: color-mix(in srgb, var(--cmm-success) 12%, var(--cmm-panel)); border: 1px solid color-mix(in srgb, var(--cmm-success) 30%, transparent); color: var(--cmm-success);"
+          >
             {{ nameSuccessMessage() }}
           </div>
         }
-        
+
         @if (nameErrorMessage()) {
-          <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          <div
+            class="mb-4 p-4 rounded-lg text-sm"
+            style="background: color-mix(in srgb, var(--cmm-danger) 12%, var(--cmm-panel)); border: 1px solid color-mix(in srgb, var(--cmm-danger) 30%, transparent); color: var(--cmm-danger);"
+          >
             {{ nameErrorMessage() }}
           </div>
         }
 
         <form (ngSubmit)="updateName()" class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-2">Nome Completo</label>
+            <label class="form-label">Nome Completo</label>
             <input
               type="text"
               [(ngModel)]="newName"
               name="name"
               required
-              class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-400"
+              class="form-input"
               placeholder="Seu nome completo"
             />
           </div>
-          
-          <button
-            type="submit"
-            [disabled]="isUpdatingName()"
-            class="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-lg transition disabled:opacity-50"
-          >
+
+          <button type="submit" [disabled]="isUpdatingName()" class="btn btn-primary">
             @if (isUpdatingName()) {
               Salvando...
             } @else {
@@ -74,65 +81,66 @@ import { ModalService } from '../../shared/services/modal.service';
         </form>
       </div>
 
-      <!-- Alterar Senha -->
-      <div class="bg-white rounded-xl p-6 border border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800 mb-4">Segurança</h2>
-        
+      <div class="panel panel-pad">
+        <h2 class="text-base font-semibold mb-4" style="color: var(--cmm-ink);">Segurança</h2>
+
         @if (passwordSuccessMessage()) {
-          <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+          <div
+            class="mb-4 p-4 rounded-lg text-sm"
+            style="background: color-mix(in srgb, var(--cmm-success) 12%, var(--cmm-panel)); border: 1px solid color-mix(in srgb, var(--cmm-success) 30%, transparent); color: var(--cmm-success);"
+          >
             {{ passwordSuccessMessage() }}
           </div>
         }
-        
+
         @if (passwordErrorMessage()) {
-          <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          <div
+            class="mb-4 p-4 rounded-lg text-sm"
+            style="background: color-mix(in srgb, var(--cmm-danger) 12%, var(--cmm-panel)); border: 1px solid color-mix(in srgb, var(--cmm-danger) 30%, transparent); color: var(--cmm-danger);"
+          >
             {{ passwordErrorMessage() }}
           </div>
         }
 
         <form (ngSubmit)="updatePassword()" class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-2">Senha Atual</label>
+            <label class="form-label">Senha Atual</label>
             <input
               type="password"
               [(ngModel)]="currentPassword"
               name="currentPassword"
               required
-              class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-400"
+              class="form-input"
               placeholder="Digite sua senha atual"
             />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-2">Nova Senha</label>
+            <label class="form-label">Nova Senha</label>
             <input
               type="password"
               [(ngModel)]="newPassword"
               name="newPassword"
               required
               minlength="6"
-              class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-400"
+              class="form-input"
               placeholder="Mínimo 6 caracteres"
             />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-2">Confirmar Nova Senha</label>
+            <label class="form-label">Confirmar Nova Senha</label>
             <input
               type="password"
               [(ngModel)]="confirmNewPassword"
               name="confirmNewPassword"
               required
-              class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-400"
+              class="form-input"
               placeholder="Repita a nova senha"
             />
           </div>
-          
-          <button
-            type="submit"
-            [disabled]="isUpdatingPassword()"
-            class="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-lg transition disabled:opacity-50"
-          >
+
+          <button type="submit" [disabled]="isUpdatingPassword()" class="btn btn-primary">
             @if (isUpdatingPassword()) {
               Alterando...
             } @else {
@@ -142,21 +150,20 @@ import { ModalService } from '../../shared/services/modal.service';
         </form>
       </div>
 
-      <!-- Informações da Conta -->
-      <div class="bg-white rounded-xl p-6 border border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800 mb-4">Informações da Conta</h2>
+      <div class="panel panel-pad">
+        <h2 class="text-base font-semibold mb-4" style="color: var(--cmm-ink);">Informações da Conta</h2>
         <div class="space-y-3 text-sm">
-          <div class="flex justify-between py-2 border-b border-slate-100">
-            <span class="text-slate-500">Perfil:</span>
-            <span class="text-slate-800 font-medium">{{ getRoleLabel() }}</span>
+          <div class="flex justify-between py-2" style="border-bottom: 1px solid var(--cmm-border);">
+            <span style="color: var(--cmm-muted);">Perfil:</span>
+            <span class="font-medium" style="color: var(--cmm-ink);">{{ getRoleLabel() }}</span>
           </div>
-          <div class="flex justify-between py-2 border-b border-slate-100">
-            <span class="text-slate-500">Status:</span>
-            <span class="text-green-600 font-medium">Ativo</span>
+          <div class="flex justify-between py-2" style="border-bottom: 1px solid var(--cmm-border);">
+            <span style="color: var(--cmm-muted);">Status:</span>
+            <span class="badge badge-success">Ativo</span>
           </div>
           <div class="flex justify-between py-2">
-            <span class="text-slate-500">Membro desde:</span>
-            <span class="text-slate-800 font-medium">{{ formatDate(authService.user()?.createdAt) }}</span>
+            <span style="color: var(--cmm-muted);">Membro desde:</span>
+            <span class="font-medium" style="color: var(--cmm-ink);">{{ formatDate(authService.user()?.createdAt) }}</span>
           </div>
         </div>
       </div>
@@ -186,6 +193,7 @@ export class ProfileComponent {
     switch (role) {
       case 'master': return 'Master';
       case 'admin': return 'Administrador';
+      case 'manager': return 'Gerente';
       case 'user': return 'Usuário';
       default: return 'Usuário';
     }

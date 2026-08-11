@@ -35,11 +35,11 @@ interface PreviewResponse {
   imports: [CommonModule, FormsModule],
   template: `
     <div class="space-y-6">
-      <!-- Breadcrumb e Header -->
-      <div class="flex items-center gap-3 text-sm text-slate-500">
-        <button 
+      <div class="flex items-center gap-3 text-sm" style="color: var(--cmm-muted);">
+        <button
+          type="button"
           (click)="goBack()"
-          class="flex items-center gap-1 hover:text-slate-700 transition-colors"
+          class="btn btn-ghost btn-sm"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
@@ -47,35 +47,27 @@ interface PreviewResponse {
           Relatórios
         </button>
         <span>/</span>
-        <span class="text-slate-800 font-medium">Ocorrências Pontta</span>
+        <span class="font-medium" style="color: var(--cmm-ink);">Ocorrências Pontta</span>
       </div>
 
-      <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div class="page-header">
         <div>
-          <h1 class="text-xl font-semibold text-slate-800">Relatório de Ocorrências Pontta</h1>
-          <p class="text-slate-500 mt-1">Gere relatórios em Excel ou CSV e envie por email</p>
+          <h1 class="page-title">Relatório de Ocorrências Pontta</h1>
+          <p class="page-subtitle">Gere relatórios em Excel ou CSV e envie por email</p>
         </div>
       </div>
 
-      <!-- Actions Card -->
-      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div class="p-6 border-b border-slate-200">
-          <h2 class="text-lg font-semibold text-slate-800">Filtros e Configurações</h2>
+      <!-- Filtros -->
+      <div class="panel">
+        <div class="panel-pad" style="border-bottom: 1px solid var(--cmm-border);">
+          <h2 class="text-base font-semibold" style="color: var(--cmm-ink);">Filtros e Configurações</h2>
         </div>
 
-        <div class="p-6 space-y-6">
-          <!-- Filtros Grid -->
+        <div class="panel-pad space-y-6">
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <!-- Limite de Registros -->
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-2">
-                Limite de Registros
-              </label>
-              <select
-                [(ngModel)]="filters.limit"
-                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
-              >
+              <label class="form-label">Limite de Registros</label>
+              <select [(ngModel)]="filters.limit" class="form-input">
                 <option [ngValue]="0">Todos</option>
                 <option [ngValue]="100">100 registros</option>
                 <option [ngValue]="500">500 registros</option>
@@ -84,39 +76,19 @@ interface PreviewResponse {
               </select>
             </div>
 
-            <!-- Data Inicial -->
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-2">
-                Data Inicial
-              </label>
-              <input
-                type="date"
-                [(ngModel)]="filters.startDate"
-                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
-              />
+              <label class="form-label">Data Inicial</label>
+              <input type="date" [(ngModel)]="filters.startDate" class="form-input" />
             </div>
 
-            <!-- Data Final -->
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-2">
-                Data Final
-              </label>
-              <input
-                type="date"
-                [(ngModel)]="filters.endDate"
-                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
-              />
+              <label class="form-label">Data Final</label>
+              <input type="date" [(ngModel)]="filters.endDate" class="form-input" />
             </div>
 
-            <!-- Registros por Página -->
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-2">
-                Registros por Página
-              </label>
-              <select
-                [(ngModel)]="filters.pageSize"
-                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
-              >
+              <label class="form-label">Registros por Página</label>
+              <select [(ngModel)]="filters.pageSize" class="form-input">
                 <option [ngValue]="10">10</option>
                 <option [ngValue]="25">25</option>
                 <option [ngValue]="50">50</option>
@@ -125,71 +97,51 @@ interface PreviewResponse {
             </div>
           </div>
 
-          <!-- Email Input -->
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-2">
-              Email de Destino (Opcional)
-            </label>
-            <div class="flex gap-3">
-              <input
-                type="email"
-                [(ngModel)]="email"
-                placeholder="destinatario@email.com"
-                class="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
-              />
-            </div>
-              <p class="text-xs text-slate-500 mt-1">Deixe vazio para enviar apenas aos emails fixos cadastrados</p>
+            <label class="form-label">Email de Destino (Opcional)</label>
+            <input
+              type="email"
+              [(ngModel)]="email"
+              placeholder="destinatario@email.com"
+              class="form-input"
+            />
+            <p class="text-xs mt-1" style="color: var(--cmm-muted);">
+              Deixe vazio para enviar apenas aos emails fixos cadastrados
+            </p>
           </div>
 
-          <!-- Action Buttons -->
           <div class="flex flex-wrap gap-3">
-            <button
-              (click)="previewData()"
-              [disabled]="isLoading()"
-              class="px-6 py-2.5 bg-slate-100 text-slate-700 font-medium rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button type="button" (click)="previewData()" [disabled]="isLoading()" class="btn btn-secondary">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
               </svg>
               Visualizar Dados
             </button>
 
-            <button
-              (click)="downloadExcel()"
-              [disabled]="isLoading()"
-              class="px-6 py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button type="button" (click)="downloadExcel()" [disabled]="isLoading()" class="btn btn-primary">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
               </svg>
               Baixar Excel
             </button>
 
-            <button
-              (click)="downloadCsv()"
-              [disabled]="isLoading()"
-              class="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button type="button" (click)="downloadCsv()" [disabled]="isLoading()" class="btn btn-secondary">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
               </svg>
               Baixar CSV
             </button>
 
-            <button
-              (click)="sendEmail()"
-              [disabled]="isLoading() || !email"
-              class="px-6 py-2.5 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
+            <button type="button" (click)="sendEmail()" [disabled]="isLoading() || !email" class="btn btn-accent">
               @if (isLoading() && currentAction() === 'send') {
-                <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
                 Enviando...
               } @else {
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                 </svg>
                 Enviar para Este Email
@@ -197,18 +149,19 @@ interface PreviewResponse {
             </button>
 
             <button
+              type="button"
               (click)="confirmSendToFixedEmails()"
               [disabled]="isLoading() || getOccurrencesEmails().length === 0"
-              class="px-6 py-2.5 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              class="btn btn-accent"
             >
               @if (isLoading() && currentAction() === 'sendFixed') {
-                <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
                 Enviando...
               } @else {
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5m0 0l-1.14.76a2 2 0 01-2.22 0l-1.14-.76"></path>
                 </svg>
                 Enviar para Emails Fixos ({{ getOccurrencesEmails().length }})
@@ -218,101 +171,99 @@ interface PreviewResponse {
         </div>
       </div>
 
-      <!-- Emails Fixos para este Relatório - Layout Compacto -->
-      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div class="p-4 border-b border-slate-200 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-
-            <h2 class="font-semibold text-slate-800">Emails Fixos</h2>
-            <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
-              {{ getOccurrencesEmails().length }} cadastrados
-            </span>
+      <!-- Emails Fixos -->
+      <div class="panel">
+        <div class="panel-pad flex items-center justify-between gap-3" style="border-bottom: 1px solid var(--cmm-border);">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h2 class="font-semibold" style="color: var(--cmm-ink);">Emails Fixos</h2>
+            <span class="badge badge-neutral">{{ getOccurrencesEmails().length }} cadastrados</span>
           </div>
-          <button 
-            (click)="openEmailModal()"
-            class="px-3 py-1.5 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-1"
-          >
-            <span>+</span> Adicionar
+          <button type="button" (click)="openEmailModal()" class="btn btn-primary btn-sm">
+            Adicionar
           </button>
         </div>
 
-        <div class="p-4">
+        <div class="panel-pad">
           @if (getOccurrencesEmails().length === 0) {
-            <div class="text-center py-4 text-slate-500 text-sm border border-dashed border-slate-200 rounded-lg">
+            <div class="empty-state" style="padding: 1.5rem; border: 1px dashed var(--cmm-border); border-radius: 0.5rem;">
               <p>Nenhum email cadastrado.</p>
             </div>
           } @else {
             <div class="flex flex-wrap gap-2">
               @for (emailItem of getOccurrencesEmails(); track emailItem.id) {
-                <div 
-                  class="flex items-center gap-2 px-3 py-2 rounded-lg border transition-all cursor-pointer"
-                  [class.bg-green-50]="emailItem.isActive"
-                  [class.border-green-200]="emailItem.isActive"
-                  [class.bg-slate-50]="!emailItem.isActive"
-                  [class.border-slate-200]="!emailItem.isActive"
+                <button
+                  type="button"
+                  class="flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-colors"
+                  style="border-color: var(--cmm-border); background: var(--cmm-panel); color: var(--cmm-ink);"
                   [class.opacity-60]="!emailItem.isActive"
                   (click)="openEmailDetailModal(emailItem)"
                 >
-                  <span class="text-sm">{{ emailItem.isActive ? 'Ativo' : 'Pausado' }}</span>
-                  <div class="text-sm">
-                    <span class="font-medium text-slate-800">{{ emailItem.name }}</span>
-                    <span class="text-slate-400 mx-1">·</span>
-                    <span class="text-slate-500">{{ emailItem.email }}</span>
-                  </div>
-                </div>
+                  <span
+                    class="badge"
+                    [class.badge-success]="emailItem.isActive"
+                    [class.badge-neutral]="!emailItem.isActive"
+                  >
+                    {{ emailItem.isActive ? 'Ativo' : 'Pausado' }}
+                  </span>
+                  <span class="text-sm">
+                    <span class="font-medium">{{ emailItem.name }}</span>
+                    <span style="color: var(--cmm-muted);"> · {{ emailItem.email }}</span>
+                  </span>
+                </button>
               }
             </div>
-            <p class="text-xs text-slate-400 mt-3">Clique em um email para editar ou remover</p>
+            <p class="text-xs mt-3" style="color: var(--cmm-muted);">Clique em um email para editar ou remover</p>
           }
         </div>
       </div>
 
       <!-- Modal de Detalhes/Edição do Email -->
       @if (showEmailDetailModal) {
-        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div class="bg-white rounded-xl p-5 w-full max-w-sm mx-4">
-            <h3 class="text-lg font-semibold text-slate-800 mb-4">Detalhes do Email</h3>
-            
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(10, 16, 24, 0.55);">
+          <div class="panel w-full max-w-sm panel-pad">
+            <h3 class="text-lg font-semibold mb-4" style="color: var(--cmm-ink);">Detalhes do Email</h3>
+
             <div class="space-y-3">
-              <div class="p-3 bg-slate-50 rounded-lg">
-                <p class="text-xs text-slate-500 mb-1">Nome</p>
-                <p class="font-medium text-slate-800">{{ selectedEmail?.name }}</p>
+              <div class="p-3 rounded-lg" style="background: color-mix(in srgb, var(--cmm-surface) 80%, var(--cmm-panel));">
+                <p class="text-xs mb-1" style="color: var(--cmm-muted);">Nome</p>
+                <p class="font-medium" style="color: var(--cmm-ink);">{{ selectedEmail?.name }}</p>
               </div>
-              <div class="p-3 bg-slate-50 rounded-lg">
-                <p class="text-xs text-slate-500 mb-1">Email</p>
-                <p class="font-medium text-slate-800">{{ selectedEmail?.email }}</p>
+              <div class="p-3 rounded-lg" style="background: color-mix(in srgb, var(--cmm-surface) 80%, var(--cmm-panel));">
+                <p class="text-xs mb-1" style="color: var(--cmm-muted);">Email</p>
+                <p class="font-medium" style="color: var(--cmm-ink);">{{ selectedEmail?.email }}</p>
               </div>
-              <div class="p-3 bg-slate-50 rounded-lg flex items-center justify-between">
+              <div class="p-3 rounded-lg flex items-center justify-between gap-3" style="background: color-mix(in srgb, var(--cmm-surface) 80%, var(--cmm-panel));">
                 <div>
-                  <p class="text-xs text-slate-500 mb-1">Status</p>
-                  <p class="font-medium" [class.text-green-600]="selectedEmail?.isActive" [class.text-slate-500]="!selectedEmail?.isActive">
+                  <p class="text-xs mb-1" style="color: var(--cmm-muted);">Status</p>
+                  <span
+                    class="badge"
+                    [class.badge-success]="selectedEmail?.isActive"
+                    [class.badge-neutral]="!selectedEmail?.isActive"
+                  >
                     {{ selectedEmail?.isActive ? 'Ativo' : 'Inativo' }}
-                  </p>
+                  </span>
                 </div>
-                <button 
+                <button
+                  type="button"
                   (click)="toggleEmail(selectedEmail!)"
-                  class="px-3 py-1.5 text-sm rounded-lg transition-colors"
-                  [class.bg-slate-200]="selectedEmail?.isActive"
-                  [class.text-slate-700]="selectedEmail?.isActive"
-                  [class.bg-green-600]="!selectedEmail?.isActive"
-                  [class.text-white]="!selectedEmail?.isActive"
+                  class="btn btn-sm"
+                  [class.btn-secondary]="selectedEmail?.isActive"
+                  [class.btn-accent]="!selectedEmail?.isActive"
                 >
                   {{ selectedEmail?.isActive ? 'Desativar' : 'Ativar' }}
                 </button>
               </div>
             </div>
-            
+
             <div class="flex gap-2 mt-5">
-              <button 
+              <button
+                type="button"
                 (click)="deleteEmail(selectedEmail!); closeEmailDetailModal()"
-                class="flex-1 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
+                class="btn btn-danger flex-1"
               >
                 Remover
               </button>
-              <button 
-                (click)="closeEmailDetailModal()"
-                class="flex-1 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium"
-              >
+              <button type="button" (click)="closeEmailDetailModal()" class="btn btn-secondary flex-1">
                 Fechar
               </button>
             </div>
@@ -322,50 +273,43 @@ interface PreviewResponse {
 
       <!-- Modal de Adicionar Email -->
       @if (showEmailModal) {
-        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div class="bg-white rounded-xl p-6 w-full max-w-md mx-4">
-            <h3 class="text-lg font-semibold text-slate-800 mb-4">Adicionar Email Fixo</h3>
-            
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(10, 16, 24, 0.55);">
+          <div class="panel w-full max-w-md panel-pad">
+            <h3 class="text-lg font-semibold mb-4" style="color: var(--cmm-ink);">Adicionar Email Fixo</h3>
+
             <div class="space-y-4">
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Nome</label>
-                <input 
-                  type="text" 
+                <label class="form-label">Nome</label>
+                <input
+                  type="text"
                   [(ngModel)]="newEmail.name"
-                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent"
+                  class="form-input"
                   placeholder="Ex: João Silva - Gerente"
                 />
               </div>
-              
+
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                <input 
-                  type="email" 
+                <label class="form-label">Email</label>
+                <input
+                  type="email"
                   [(ngModel)]="newEmail.email"
-                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent"
+                  class="form-input"
                   placeholder="email@exemplo.com"
                 />
               </div>
 
-              <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                <p class="text-sm text-slate-600">
+              <div class="p-3 rounded-lg" style="background: var(--cmm-accent-soft); border: 1px solid color-mix(in srgb, var(--cmm-accent) 25%, transparent);">
+                <p class="text-sm" style="color: var(--cmm-ink);">
                   Este email receberá automaticamente todos os <strong>Relatórios de Ocorrências</strong>
                 </p>
               </div>
             </div>
-            
+
             <div class="flex justify-end gap-3 mt-6">
-              <button 
-                (click)="cancelEmailModal()"
-                class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-              >
+              <button type="button" (click)="cancelEmailModal()" class="btn btn-ghost">
                 Cancelar
               </button>
-              <button 
-                (click)="saveEmail()"
-                [disabled]="savingEmail"
-                class="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
-              >
+              <button type="button" (click)="saveEmail()" [disabled]="savingEmail" class="btn btn-primary">
                 {{ savingEmail ? 'Salvando...' : 'Salvar' }}
               </button>
             </div>
@@ -375,50 +319,45 @@ interface PreviewResponse {
 
       <!-- Modal de Confirmação de Envio -->
       @if (showConfirmSendModal) {
-        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div class="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(10, 16, 24, 0.55);">
+          <div class="panel w-full max-w-md panel-pad">
             <div class="flex items-center gap-3 mb-4">
-              <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div
+                class="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                style="background: color-mix(in srgb, var(--cmm-warning) 16%, var(--cmm-panel));"
+              >
+                <svg class="w-6 h-6" style="color: var(--cmm-warning);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                 </svg>
               </div>
-              <h3 class="text-lg font-semibold text-slate-800">Confirmar Envio</h3>
+              <h3 class="text-lg font-semibold" style="color: var(--cmm-ink);">Confirmar Envio</h3>
             </div>
 
             <div class="space-y-3 mb-6">
-              <p class="text-slate-700">
+              <p style="color: var(--cmm-ink);">
                 Deseja enviar o relatório para <strong>{{ getOccurrencesEmails().length }} email(s) fixo(s)</strong>?
               </p>
-              
-              <div class="bg-slate-50 rounded-lg p-3 max-h-40 overflow-y-auto">
+
+              <div class="rounded-lg p-3 max-h-40 overflow-y-auto" style="background: color-mix(in srgb, var(--cmm-surface) 80%, var(--cmm-panel));">
                 <ul class="space-y-2">
                   @for (email of getOccurrencesEmails(); track email.id) {
                     @if (email.isActive) {
                       <li class="flex items-center gap-2 text-sm">
-                        <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        <span class="font-medium text-slate-800">{{ email.name }}</span>
-                        <span class="text-slate-500">({{ email.email }})</span>
+                        <span class="badge badge-success">Ativo</span>
+                        <span class="font-medium" style="color: var(--cmm-ink);">{{ email.name }}</span>
+                        <span style="color: var(--cmm-muted);">({{ email.email }})</span>
                       </li>
                     }
                   }
                 </ul>
               </div>
             </div>
-            
+
             <div class="flex justify-end gap-3">
-              <button 
-                (click)="cancelConfirmSend()"
-                class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-              >
+              <button type="button" (click)="cancelConfirmSend()" class="btn btn-ghost">
                 Cancelar
               </button>
-              <button 
-                (click)="sendToFixedEmails()"
-                class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-              >
+              <button type="button" (click)="sendToFixedEmails()" class="btn btn-accent">
                 Confirmar Envio
               </button>
             </div>
@@ -428,79 +367,75 @@ interface PreviewResponse {
 
       <!-- Notifications -->
       @if (successMessage()) {
-        <div class="p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
-          <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div
+          class="panel panel-pad flex items-center gap-3"
+          style="border-color: color-mix(in srgb, var(--cmm-success) 35%, var(--cmm-border));"
+        >
+          <svg class="w-5 h-5 flex-shrink-0" style="color: var(--cmm-success);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
-          <span class="text-green-700">{{ successMessage() }}</span>
+          <span style="color: var(--cmm-success);">{{ successMessage() }}</span>
         </div>
       }
 
       @if (errorMessage()) {
-        <div class="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
-          <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div
+          class="panel panel-pad flex items-center gap-3"
+          style="border-color: color-mix(in srgb, var(--cmm-danger) 35%, var(--cmm-border));"
+        >
+          <svg class="w-5 h-5 flex-shrink-0" style="color: var(--cmm-danger);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
-          <span class="text-red-700">{{ errorMessage() }}</span>
+          <span style="color: var(--cmm-danger);">{{ errorMessage() }}</span>
         </div>
       }
 
       <!-- Modal de Visualização de Dados -->
       @if (showPreviewModal && previewData$ && previewData$.length > 0) {
-        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div class="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-            <!-- Header do Modal -->
-            <div class="p-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(10, 16, 24, 0.55);">
+          <div class="panel w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="panel-pad flex items-center justify-between flex-shrink-0" style="border-bottom: 1px solid var(--cmm-border);">
               <div>
-                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
-                  Visualização dos Dados
-                </h3>
+                <h3 class="font-semibold" style="color: var(--cmm-ink);">Visualização dos Dados</h3>
                 @if (pagination) {
-                  <p class="text-sm text-slate-500 mt-1">
+                  <p class="text-sm mt-1" style="color: var(--cmm-muted);">
                     {{ pagination.total }} registros | Página {{ pagination.page + 1 }} de {{ pagination.totalPages }}
                   </p>
                 }
               </div>
-              <button
-                (click)="closePreview()"
-                class="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <button type="button" (click)="closePreview()" class="btn btn-ghost btn-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
               </button>
             </div>
 
-            <!-- Lista de Cards (scroll interno) -->
             <div class="flex-1 overflow-y-auto p-4">
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 @for (item of previewData$; track item.number) {
-                  <div 
-                    class="p-3 border border-slate-200 rounded-lg hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer"
+                  <button
+                    type="button"
+                    class="p-3 rounded-lg border text-left transition-colors hover:bg-[color-mix(in_srgb,var(--cmm-accent)_5%,var(--cmm-panel))]"
+                    style="border-color: var(--cmm-border); background: var(--cmm-panel);"
                     (click)="openItemDetailModal(item)"
                   >
                     <div class="flex items-start justify-between gap-2">
                       <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2">
-                          <span class="text-xs font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">#{{ item.number }}</span>
-                          <span 
-                            class="px-2 py-0.5 text-xs font-medium rounded-full"
-                            [class.bg-green-100]="item.status === 'Concluída'"
-                            [class.text-green-700]="item.status === 'Concluída'"
-                            [class.bg-yellow-100]="item.status === 'Em Andamento'"
-                            [class.text-yellow-700]="item.status === 'Em Andamento'"
-                            [class.bg-blue-100]="item.status === 'Aberta'"
-                            [class.text-blue-700]="item.status === 'Aberta'"
-                            [class.bg-red-100]="item.status === 'Cancelada'"
-                            [class.text-red-700]="item.status === 'Cancelada'"
-                            [class.bg-slate-100]="!['Concluída', 'Em Andamento', 'Aberta', 'Cancelada'].includes(item.status)"
-                            [class.text-slate-700]="!['Concluída', 'Em Andamento', 'Aberta', 'Cancelada'].includes(item.status)"
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <span class="badge badge-neutral font-mono">#{{ item.number }}</span>
+                          <span
+                            class="badge"
+                            [class.badge-success]="item.status === 'Concluída'"
+                            [class.badge-warning]="item.status === 'Em Andamento'"
+                            [class.badge-accent]="item.status === 'Aberta'"
+                            [class.badge-danger]="item.status === 'Cancelada'"
+                            [class.badge-neutral]="!['Concluída', 'Em Andamento', 'Aberta', 'Cancelada'].includes(item.status)"
                           >
                             {{ item.status }}
                           </span>
                         </div>
-                        <p class="font-medium text-slate-800 mt-1 text-sm line-clamp-2">{{ item.title }}</p>
-                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-slate-500">
+                        <p class="font-medium mt-1 text-sm line-clamp-2" style="color: var(--cmm-ink);">{{ item.title }}</p>
+                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs" style="color: var(--cmm-muted);">
                           @if (item.responsibleName) {
                             <span>{{ item.responsibleName }}</span>
                           }
@@ -508,38 +443,39 @@ interface PreviewResponse {
                             <span>{{ item.deadline }}</span>
                           }
                           @if (item.tagName) {
-                            <span class="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded">{{ item.tagName }}</span>
+                            <span class="badge badge-neutral">{{ item.tagName }}</span>
                           }
                         </div>
                       </div>
-                      <span class="text-slate-300">›</span>
+                      <span style="color: var(--cmm-muted);">›</span>
                     </div>
-                  </div>
+                  </button>
                 }
               </div>
             </div>
 
-            <!-- Paginação -->
             @if (pagination && pagination.totalPages > 1) {
-              <div class="p-4 border-t border-slate-200 flex items-center justify-between flex-shrink-0">
-                <div class="text-sm text-slate-600">
+              <div class="panel-pad flex items-center justify-between flex-shrink-0" style="border-top: 1px solid var(--cmm-border);">
+                <div class="text-sm" style="color: var(--cmm-muted);">
                   {{ (pagination.page * pagination.size) + 1 }}-{{ Math.min((pagination.page + 1) * pagination.size, pagination.total) }} de {{ pagination.total }}
                 </div>
                 <div class="flex gap-2">
                   <button
+                    type="button"
                     (click)="changePage(pagination.page - 1)"
                     [disabled]="pagination.page === 0 || isLoading()"
-                    class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    class="btn btn-secondary btn-sm"
                   >
                     ← Anterior
                   </button>
-                  <span class="px-3 py-1.5 text-sm text-slate-600">
+                  <span class="px-3 py-1.5 text-sm" style="color: var(--cmm-muted);">
                     {{ pagination.page + 1 }} / {{ pagination.totalPages }}
                   </span>
                   <button
+                    type="button"
                     (click)="changePage(pagination.page + 1)"
                     [disabled]="pagination.page >= pagination.totalPages - 1 || isLoading()"
-                    class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    class="btn btn-secondary btn-sm"
                   >
                     Próxima →
                   </button>
@@ -552,81 +488,75 @@ interface PreviewResponse {
 
       <!-- Modal de Detalhe do Item -->
       @if (showItemDetailModal && selectedItem) {
-        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div class="bg-white rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div class="p-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">
-              <h3 class="font-semibold text-slate-800">Detalhes da Ocorrência</h3>
-              <button
-                (click)="closeItemDetailModal()"
-                class="p-1 hover:bg-slate-100 rounded transition-colors"
-              >
-                <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="fixed inset-0 z-[60] flex items-center justify-center p-4" style="background: rgba(10, 16, 24, 0.55);">
+          <div class="panel w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div
+              class="panel-pad flex items-center justify-between sticky top-0"
+              style="border-bottom: 1px solid var(--cmm-border); background: var(--cmm-panel);"
+            >
+              <h3 class="font-semibold" style="color: var(--cmm-ink);">Detalhes da Ocorrência</h3>
+              <button type="button" (click)="closeItemDetailModal()" class="btn btn-ghost btn-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
               </button>
             </div>
-            <div class="p-4 space-y-3">
-              <div class="flex items-center gap-2">
-                <span class="font-mono bg-slate-100 px-2 py-1 rounded text-sm">#{{ selectedItem.number }}</span>
-                <span 
-                  class="px-2 py-1 text-xs font-medium rounded-full"
-                  [class.bg-green-100]="selectedItem.status === 'Concluída'"
-                  [class.text-green-700]="selectedItem.status === 'Concluída'"
-                  [class.bg-yellow-100]="selectedItem.status === 'Em Andamento'"
-                  [class.text-yellow-700]="selectedItem.status === 'Em Andamento'"
-                  [class.bg-blue-100]="selectedItem.status === 'Aberta'"
-                  [class.text-blue-700]="selectedItem.status === 'Aberta'"
-                  [class.bg-red-100]="selectedItem.status === 'Cancelada'"
-                  [class.text-red-700]="selectedItem.status === 'Cancelada'"
+            <div class="panel-pad space-y-3">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="badge badge-neutral font-mono">#{{ selectedItem.number }}</span>
+                <span
+                  class="badge"
+                  [class.badge-success]="selectedItem.status === 'Concluída'"
+                  [class.badge-warning]="selectedItem.status === 'Em Andamento'"
+                  [class.badge-accent]="selectedItem.status === 'Aberta'"
+                  [class.badge-danger]="selectedItem.status === 'Cancelada'"
+                  [class.badge-neutral]="!['Concluída', 'Em Andamento', 'Aberta', 'Cancelada'].includes(selectedItem.status)"
                 >
                   {{ selectedItem.status }}
                 </span>
               </div>
-              
-              <h4 class="font-semibold text-slate-800">{{ selectedItem.title }}</h4>
-              
+
+              <h4 class="font-semibold" style="color: var(--cmm-ink);">{{ selectedItem.title }}</h4>
+
               <div class="grid grid-cols-2 gap-3 text-sm">
-                <div class="p-2 bg-slate-50 rounded">
-                  <p class="text-xs text-slate-500">Responsável</p>
-                  <p class="font-medium text-slate-700">{{ selectedItem.responsibleName || '-' }}</p>
+                <div class="p-2 rounded" style="background: color-mix(in srgb, var(--cmm-surface) 80%, var(--cmm-panel));">
+                  <p class="text-xs" style="color: var(--cmm-muted);">Responsável</p>
+                  <p class="font-medium" style="color: var(--cmm-ink);">{{ selectedItem.responsibleName || '-' }}</p>
                 </div>
-                <div class="p-2 bg-slate-50 rounded">
-                  <p class="text-xs text-slate-500">Prazo</p>
-                  <p class="font-medium text-slate-700">{{ selectedItem.deadline || '-' }}</p>
+                <div class="p-2 rounded" style="background: color-mix(in srgb, var(--cmm-surface) 80%, var(--cmm-panel));">
+                  <p class="text-xs" style="color: var(--cmm-muted);">Prazo</p>
+                  <p class="font-medium" style="color: var(--cmm-ink);">{{ selectedItem.deadline || '-' }}</p>
                 </div>
-                <div class="p-2 bg-slate-50 rounded">
-                  <p class="text-xs text-slate-500">Criado em</p>
-                  <p class="font-medium text-slate-700">{{ selectedItem.createdDate || '-' }}</p>
+                <div class="p-2 rounded" style="background: color-mix(in srgb, var(--cmm-surface) 80%, var(--cmm-panel));">
+                  <p class="text-xs" style="color: var(--cmm-muted);">Criado em</p>
+                  <p class="font-medium" style="color: var(--cmm-ink);">{{ selectedItem.createdDate || '-' }}</p>
                 </div>
-                <div class="p-2 bg-slate-50 rounded">
-                  <p class="text-xs text-slate-500">Tipo</p>
-                  <p class="font-medium text-slate-700">{{ selectedItem.occurrenceTypeName || '-' }}</p>
+                <div class="p-2 rounded" style="background: color-mix(in srgb, var(--cmm-surface) 80%, var(--cmm-panel));">
+                  <p class="text-xs" style="color: var(--cmm-muted);">Tipo</p>
+                  <p class="font-medium" style="color: var(--cmm-ink);">{{ selectedItem.occurrenceTypeName || '-' }}</p>
                 </div>
-                <div class="p-2 bg-slate-50 rounded">
-                  <p class="text-xs text-slate-500">Tag</p>
-                  <p class="font-medium text-slate-700">
+                <div class="p-2 rounded" style="background: color-mix(in srgb, var(--cmm-surface) 80%, var(--cmm-panel));">
+                  <p class="text-xs" style="color: var(--cmm-muted);">Tag</p>
+                  <p class="font-medium" style="color: var(--cmm-ink);">
                     @if (selectedItem.tagName) {
-                      <span class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs">{{ selectedItem.tagName }}</span>
+                      <span class="badge badge-neutral">{{ selectedItem.tagName }}</span>
                     } @else {
                       -
                     }
                   </p>
                 </div>
-                <div class="p-2 bg-slate-50 rounded">
-                  <p class="text-xs text-slate-500">Contato</p>
-                  <p class="font-medium text-slate-700">{{ selectedItem.contactName || '-' }}</p>
+                <div class="p-2 rounded" style="background: color-mix(in srgb, var(--cmm-surface) 80%, var(--cmm-panel));">
+                  <p class="text-xs" style="color: var(--cmm-muted);">Contato</p>
+                  <p class="font-medium" style="color: var(--cmm-ink);">{{ selectedItem.contactName || '-' }}</p>
                 </div>
-                <div class="p-2 bg-slate-50 rounded col-span-2">
-                  <p class="text-xs text-slate-500">Pedido</p>
-                  <p class="font-medium text-slate-700">{{ selectedItem.salesOrderCode || '-' }}</p>
+                <div class="p-2 rounded col-span-2" style="background: color-mix(in srgb, var(--cmm-surface) 80%, var(--cmm-panel));">
+                  <p class="text-xs" style="color: var(--cmm-muted);">Pedido</p>
+                  <p class="font-medium" style="color: var(--cmm-ink);">{{ selectedItem.salesOrderCode || '-' }}</p>
                 </div>
               </div>
             </div>
-            <div class="p-4 border-t border-slate-200">
-              <button
-                (click)="closeItemDetailModal()"
-                class="w-full px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
-              >
+            <div class="panel-pad" style="border-top: 1px solid var(--cmm-border);">
+              <button type="button" (click)="closeItemDetailModal()" class="btn btn-secondary w-full">
                 Fechar
               </button>
             </div>

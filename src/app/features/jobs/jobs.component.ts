@@ -29,15 +29,12 @@ interface CodeJobLogEntry {
   imports: [CommonModule],
   template: `
     <div class="space-y-6">
-      <div class="bg-white rounded-xl p-6 border border-slate-200 flex items-start justify-between">
+      <div class="page-header">
         <div>
-          <h1 class="text-xl font-semibold text-slate-800">Jobs do Sistema</h1>
-          <p class="text-sm text-slate-500 mt-1">Jobs definidos em código, com controle de execução e logs em tempo real.</p>
+          <h1 class="page-title">Jobs do Sistema</h1>
+          <p class="page-subtitle">Jobs definidos em código, com controle de execução e logs em tempo real.</p>
         </div>
-        <button
-          (click)="refreshNow()"
-          class="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-2"
-        >
+        <button type="button" (click)="refreshNow()" class="btn btn-primary">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
           </svg>
@@ -46,68 +43,65 @@ interface CodeJobLogEntry {
       </div>
 
       <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div class="xl:col-span-2 bg-white rounded-xl border border-slate-200">
+        <div class="xl:col-span-2 panel">
           @if (loading()) {
             <div class="flex items-center justify-center py-16">
-              <div class="animate-spin w-6 h-6 border-2 border-slate-200 border-t-slate-600 rounded-full"></div>
+              <div
+                class="animate-spin w-6 h-6 rounded-full border-2"
+                style="border-color: var(--cmm-border); border-top-color: var(--cmm-accent);"
+              ></div>
             </div>
           } @else if (jobs().length === 0) {
-            <div class="text-center py-16 text-slate-500">
-              <svg class="w-10 h-10 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="empty-state">
+              <svg class="w-10 h-10 mx-auto mb-3" style="color: var(--cmm-border);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
-              <p class="font-medium">Nenhum job de código disponível</p>
+              <p class="font-medium" style="color: var(--cmm-ink);">Nenhum job de código disponível</p>
             </div>
           } @else {
-            <div class="divide-y divide-slate-100">
+            <div style="border-color: var(--cmm-border);" class="divide-y">
               @for (job of jobs(); track job.id) {
                 <div
-                  class="p-5 hover:bg-slate-50 transition-colors cursor-pointer"
-                  [class.bg-blue-50/40]="selectedJobId() === job.id"
+                  class="job-row p-5 cursor-pointer transition-colors"
+                  [class.job-row-selected]="selectedJobId() === job.id"
                   (click)="selectJob(job.id)"
                 >
                   <div class="flex items-start justify-between gap-4">
                     <div class="min-w-0">
-                      <div class="flex items-center gap-2 mb-1">
-                        <h3 class="text-sm font-semibold text-slate-800 truncate">{{ job.name }}</h3>
-                        <span class="text-[11px] px-2 py-0.5 rounded-full border"
-                          [class.bg-emerald-50]="job.isActive"
-                          [class.text-emerald-700]="job.isActive"
-                          [class.border-emerald-200]="job.isActive"
-                          [class.bg-slate-100]="!job.isActive"
-                          [class.text-slate-600]="!job.isActive"
-                          [class.border-slate-200]="!job.isActive"
+                      <div class="flex items-center gap-2 mb-1 flex-wrap">
+                        <h3 class="text-sm font-semibold truncate" style="color: var(--cmm-ink);">{{ job.name }}</h3>
+                        <span
+                          class="badge"
+                          [class.badge-success]="job.isActive"
+                          [class.badge-neutral]="!job.isActive"
                         >{{ job.isActive ? 'Ativo' : 'Parado' }}</span>
-
-                        <span class="text-[11px] px-2 py-0.5 rounded-full border"
-                          [class.bg-blue-50]="job.isRunning"
-                          [class.text-blue-700]="job.isRunning"
-                          [class.border-blue-200]="job.isRunning"
-                          [class.bg-slate-100]="!job.isRunning"
-                          [class.text-slate-600]="!job.isRunning"
-                          [class.border-slate-200]="!job.isRunning"
+                        <span
+                          class="badge"
+                          [class.badge-accent]="job.isRunning"
+                          [class.badge-neutral]="!job.isRunning"
                         >{{ job.isRunning ? 'Executando' : 'Idle' }}</span>
                       </div>
 
-                      <p class="text-xs text-slate-500">{{ job.description }}</p>
-                      <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                      <p class="text-xs" style="color: var(--cmm-muted);">{{ job.description }}</p>
+                      <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" style="color: var(--cmm-muted);">
                         <span>Agenda: {{ job.scheduleLabel }}</span>
                         <span>Próx: {{ formatDate(job.nextRunAt) }}</span>
                         <span>Último: {{ formatDate(job.lastRunAt) }}</span>
                         <span>Status: {{ formatStatus(job.lastStatus) }}</span>
                       </div>
                       @if (job.lastSummary) {
-                        <p class="mt-2 text-xs text-slate-600">Resumo: {{ job.lastSummary }}</p>
+                        <p class="mt-2 text-xs" style="color: var(--cmm-ink);">Resumo: {{ job.lastSummary }}</p>
                       }
                     </div>
 
                     <div class="flex flex-col gap-2 flex-shrink-0" (click)="$event.stopPropagation()">
                       @if (job.id === 'delivery-material-dates') {
                         <div class="flex items-center gap-2">
-                          <label class="text-[11px] text-slate-500 whitespace-nowrap">Data PV</label>
+                          <label class="text-[11px] whitespace-nowrap" style="color: var(--cmm-muted);">Data PV</label>
                           <input
                             type="date"
-                            class="h-8 rounded-lg border border-slate-300 px-2 text-xs text-slate-700 bg-white"
+                            class="form-input"
+                            style="min-height: 2rem; width: auto; font-size: 0.75rem; padding: 0.25rem 0.5rem;"
                             [value]="salesOrderDate()"
                             [disabled]="job.isRunning"
                             (input)="onSalesOrderDateChange($event)"
@@ -117,24 +111,20 @@ interface CodeJobLogEntry {
 
                       <div class="flex gap-2 justify-end">
                         <button
+                          type="button"
                           (click)="toggleJob(job)"
-                          class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors"
-                          [class.bg-amber-50]="job.isActive"
-                          [class.text-amber-700]="job.isActive"
-                          [class.border-amber-200]="job.isActive"
-                          [class.hover:bg-amber-100]="job.isActive"
-                          [class.bg-emerald-50]="!job.isActive"
-                          [class.text-emerald-700]="!job.isActive"
-                          [class.border-emerald-200]="!job.isActive"
-                          [class.hover:bg-emerald-100]="!job.isActive"
+                          class="btn btn-sm"
+                          [class.btn-secondary]="job.isActive"
+                          [class.btn-accent]="!job.isActive"
                           [disabled]="job.isRunning"
                         >
                           {{ job.isActive ? 'Parar' : 'Iniciar' }}
                         </button>
 
                         <button
+                          type="button"
                           (click)="runNow(job, job.id === 'delivery-material-dates' ? salesOrderDate() : undefined)"
-                          class="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors"
+                          class="btn btn-sm btn-secondary"
                           [disabled]="job.isRunning || (job.id === 'delivery-material-dates' && !salesOrderDate())"
                         >
                           Executar agora
@@ -148,20 +138,24 @@ interface CodeJobLogEntry {
           }
         </div>
 
-        <div class="bg-white rounded-xl border border-slate-200 flex flex-col" style="height: 600px;">
-          <div class="px-4 py-3 border-b border-slate-200 bg-slate-50 rounded-t-xl flex items-center justify-between gap-2 flex-shrink-0">
+        <div class="panel flex flex-col min-h-[20rem] max-h-[min(70vh,40rem)]">
+          <div
+            class="px-4 py-3 flex items-center justify-between gap-2 flex-shrink-0 rounded-t-[0.75rem]"
+            style="border-bottom: 1px solid var(--cmm-border); background: color-mix(in srgb, var(--cmm-surface) 70%, var(--cmm-panel));"
+          >
             <div class="min-w-0">
-              <h3 class="text-sm font-semibold text-slate-800">Logs do Job</h3>
+              <h3 class="text-sm font-semibold" style="color: var(--cmm-ink);">Logs do Job</h3>
               @if (selectedJob()) {
-                <p class="text-xs text-slate-500 mt-0.5 truncate">{{ selectedJob()!.name }}</p>
+                <p class="text-xs mt-0.5 truncate" style="color: var(--cmm-muted);">{{ selectedJob()!.name }}</p>
               }
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">
               @if (selectedJobLogs().length > 0) {
-                <span class="text-[11px] text-slate-400">{{ selectedJobLogs().length }} entr{{ selectedJobLogs().length === 1 ? 'ada' : 'adas' }}</span>
+                <span class="text-[11px]" style="color: var(--cmm-muted);">{{ selectedJobLogs().length }} entr{{ selectedJobLogs().length === 1 ? 'ada' : 'adas' }}</span>
                 <button
+                  type="button"
                   (click)="clearLogs()"
-                  class="flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+                  class="btn btn-sm btn-danger"
                   title="Limpar todos os logs deste job"
                 >
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -171,8 +165,9 @@ interface CodeJobLogEntry {
                 </button>
               }
               <button
+                type="button"
                 (click)="scrollLogsToBottom()"
-                class="flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md border border-slate-200 text-slate-600 bg-white hover:bg-slate-100 transition-colors"
+                class="btn btn-sm btn-secondary"
                 title="Ir para o final"
               >
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -184,52 +179,46 @@ interface CodeJobLogEntry {
           </div>
 
           @if (!selectedJob()) {
-            <div class="flex-1 flex items-center justify-center text-slate-400 text-sm p-6 text-center">
+            <div class="empty-state flex-1 flex items-center justify-center">
               Selecione um job para visualizar os logs.
             </div>
           } @else if (loadingLogs()) {
             <div class="flex-1 flex items-center justify-center">
-              <div class="animate-spin w-5 h-5 border-2 border-slate-200 border-t-slate-600 rounded-full"></div>
+              <div
+                class="animate-spin w-5 h-5 rounded-full border-2"
+                style="border-color: var(--cmm-border); border-top-color: var(--cmm-accent);"
+              ></div>
             </div>
           } @else if (selectedJobLogs().length === 0) {
-            <div class="flex-1 flex items-center justify-center text-slate-400 text-sm p-6 text-center">
+            <div class="empty-state flex-1 flex items-center justify-center">
               <div>
-                <svg class="w-8 h-8 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-8 h-8 mx-auto mb-2" style="color: var(--cmm-border);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>
                 Nenhum log disponível.
               </div>
             </div>
           } @else {
-            <div #logsContainer class="flex-1 overflow-y-auto px-3 py-3 space-y-1.5 font-mono text-[11px]">
+            <div #logsContainer class="flex-1 overflow-y-auto px-3 py-3 space-y-1.5 font-mono text-[11px] min-h-0">
               @for (log of selectedJobLogs(); track $index) {
-                <div class="job-log-card rounded px-2.5 py-1.5"
+                <div class="job-log-card rounded px-2.5 py-1.5 border-l-2"
                   [class.job-log-info]="log.level === 'info'"
                   [class.job-log-success]="log.level === 'success'"
                   [class.job-log-warning]="log.level === 'warning'"
                   [class.job-log-error]="log.level === 'error'"
-                  [class.border-l-2]="true"
-                  [class.border-l-slate-300]="log.level === 'info'"
-                  [class.bg-slate-50]="log.level === 'info'"
-                  [class.border-l-emerald-400]="log.level === 'success'"
-                  [class.bg-emerald-50]="log.level === 'success'"
-                  [class.border-l-amber-400]="log.level === 'warning'"
-                  [class.bg-amber-50]="log.level === 'warning'"
-                  [class.border-l-red-400]="log.level === 'error'"
-                  [class.bg-red-50]="log.level === 'error'"
+                  [style.border-left-color]="logBorderColor(log.level)"
+                  [style.background]="logBackground(log.level)"
                 >
                   <div class="flex items-baseline gap-2 flex-wrap">
-                    <span class="job-log-time text-[10px] text-slate-400 whitespace-nowrap flex-shrink-0">{{ formatDate(log.timestamp) }}</span>
-                    <span class="job-log-level font-bold uppercase tracking-wider text-[10px] flex-shrink-0 w-14"
-                      [class.text-slate-500]="log.level === 'info'"
-                      [class.text-emerald-700]="log.level === 'success'"
-                      [class.text-amber-700]="log.level === 'warning'"
-                      [class.text-red-700]="log.level === 'error'"
+                    <span class="job-log-time text-[10px] whitespace-nowrap flex-shrink-0" style="color: var(--cmm-muted);">{{ formatDate(log.timestamp) }}</span>
+                    <span
+                      class="job-log-level font-bold uppercase tracking-wider text-[10px] flex-shrink-0 w-14"
+                      [style.color]="logLevelColor(log.level)"
                     >{{ log.level }}</span>
-                    <span class="job-log-message text-slate-700 break-words min-w-0">{{ log.message }}</span>
+                    <span class="job-log-message break-words min-w-0" style="color: var(--cmm-ink);">{{ log.message }}</span>
                   </div>
                   @if (log.data) {
-                    <pre class="job-log-data mt-1 ml-[122px] text-[10px] text-slate-500 whitespace-pre-wrap break-words">{{ prettyData(log.data) }}</pre>
+                    <pre class="job-log-data mt-1 ml-[122px] text-[10px] whitespace-pre-wrap break-words" style="color: var(--cmm-muted);">{{ prettyData(log.data) }}</pre>
                   }
                 </div>
               }
@@ -238,26 +227,40 @@ interface CodeJobLogEntry {
         </div>
       </div>
 
-    <!-- Toast success -->
-    @if (successMessage()) {
-      <div class="fixed bottom-4 right-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3 shadow-lg z-50">
-        <svg class="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-        <span class="text-green-700 text-sm">{{ successMessage() }}</span>
-      </div>
-    }
+      @if (successMessage()) {
+        <div
+          class="fixed bottom-4 right-4 p-4 rounded-lg flex items-center gap-3 z-50"
+          style="background: color-mix(in srgb, var(--cmm-success) 12%, var(--cmm-panel)); border: 1px solid color-mix(in srgb, var(--cmm-success) 30%, transparent); box-shadow: 0 12px 28px rgba(15, 26, 39, 0.16);"
+        >
+          <svg class="w-5 h-5 flex-shrink-0" style="color: var(--cmm-success);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span class="text-sm" style="color: var(--cmm-success);">{{ successMessage() }}</span>
+        </div>
+      }
 
-    <!-- Toast error -->
-    @if (errorMessage()) {
-      <div class="fixed bottom-4 right-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3 shadow-lg z-50">
-        <svg class="w-5 h-5 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-        <span class="text-red-700 text-sm">{{ errorMessage() }}</span>
-      </div>
+      @if (errorMessage()) {
+        <div
+          class="fixed bottom-4 right-4 p-4 rounded-lg flex items-center gap-3 z-50"
+          style="background: color-mix(in srgb, var(--cmm-danger) 12%, var(--cmm-panel)); border: 1px solid color-mix(in srgb, var(--cmm-danger) 30%, transparent); box-shadow: 0 12px 28px rgba(15, 26, 39, 0.16);"
+        >
+          <svg class="w-5 h-5 flex-shrink-0" style="color: var(--cmm-danger);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span class="text-sm" style="color: var(--cmm-danger);">{{ errorMessage() }}</span>
+        </div>
+      }
+    </div>
+  `,
+  styles: [`
+    .job-row:hover {
+      background: color-mix(in srgb, var(--cmm-surface) 80%, var(--cmm-panel));
     }
-  `
+    .job-row-selected,
+    .job-row-selected:hover {
+      background: color-mix(in srgb, var(--cmm-accent) 8%, var(--cmm-panel));
+    }
+  `]
 })
 export class JobsComponent implements OnInit, OnDestroy {
   @ViewChild('logsContainer') private logsContainerRef!: ElementRef<HTMLDivElement>;
@@ -353,7 +356,6 @@ export class JobsComponent implements OnInit, OnDestroy {
           this.loadingLogs.set(false);
         }
         if (wasAtBottom) {
-          // aguarda render antes de scrollar
           setTimeout(() => this.scrollLogsToBottom(), 0);
         }
       },
@@ -443,6 +445,27 @@ export class JobsComponent implements OnInit, OnDestroy {
     if (status === 'success') return 'Sucesso';
     if (status === 'error') return 'Erro';
     return 'Idle';
+  }
+
+  logBorderColor(level: CodeJobLogEntry['level']): string {
+    if (level === 'success') return 'var(--cmm-success)';
+    if (level === 'warning') return 'var(--cmm-warning)';
+    if (level === 'error') return 'var(--cmm-danger)';
+    return 'var(--cmm-border)';
+  }
+
+  logBackground(level: CodeJobLogEntry['level']): string {
+    if (level === 'success') return 'color-mix(in srgb, var(--cmm-success) 10%, var(--cmm-panel))';
+    if (level === 'warning') return 'color-mix(in srgb, var(--cmm-warning) 10%, var(--cmm-panel))';
+    if (level === 'error') return 'color-mix(in srgb, var(--cmm-danger) 10%, var(--cmm-panel))';
+    return 'color-mix(in srgb, var(--cmm-surface) 80%, var(--cmm-panel))';
+  }
+
+  logLevelColor(level: CodeJobLogEntry['level']): string {
+    if (level === 'success') return 'var(--cmm-success)';
+    if (level === 'warning') return 'var(--cmm-warning)';
+    if (level === 'error') return 'var(--cmm-danger)';
+    return 'var(--cmm-muted)';
   }
 
   prettyData(data: unknown): string {

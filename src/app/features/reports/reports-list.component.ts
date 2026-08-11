@@ -17,63 +17,77 @@ interface ReportType {
   imports: [CommonModule],
   template: `
     <div class="space-y-6">
-      <!-- Header -->
-      <div class="flex flex-col gap-2">
-        <h1 class="text-xl font-semibold text-slate-800">Relatórios</h1>
-        <p class="text-slate-500">Selecione o tipo de relatório que deseja gerar</p>
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Relatórios</h1>
+          <p class="page-subtitle">Selecione o tipo de relatório que deseja gerar</p>
+        </div>
       </div>
 
-      <!-- Reports Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         @for (report of reports; track report.id) {
           <div
             (click)="report.available ? openReport(report.id) : null"
             [class]="getCardClasses(report)"
+            [attr.aria-disabled]="!report.available ? true : null"
           >
-            <!-- Icon -->
-            <div [class]="getIconClasses(report)">
-              <svg class="w-7 h-7 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" [attr.d]="report.icon"/></svg>
-            </div>
-
-            <!-- Content -->
-            <div class="flex-1">
-              <h3 class="text-lg font-semibold text-slate-800 mb-2">
-                {{ report.title }}
-              </h3>
-              <p class="text-sm text-slate-600 leading-relaxed">
-                {{ report.description }}
-              </p>
-            </div>
-
-            <!-- Status Badge -->
-            @if (!report.available) {
-              <div class="mt-4">
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                  Em breve
-                </span>
-              </div>
-            } @else {
-              <div class="mt-4 flex items-center text-sm font-medium text-slate-600">
-                Abrir relatório
-                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            <div class="flex items-start justify-between gap-3 mb-3">
+              <div
+                class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                [style.background]="report.available ? 'var(--cmm-accent-soft)' : 'color-mix(in srgb, var(--cmm-border) 55%, var(--cmm-panel))'"
+                [style.color]="report.available ? 'var(--cmm-accent)' : 'var(--cmm-muted)'"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" [attr.d]="report.icon"/>
                 </svg>
               </div>
-            }
+              @if (!report.available) {
+                <span class="badge badge-neutral">Indisponível</span>
+              } @else {
+                <span class="badge badge-accent">Disponível</span>
+              }
+            </div>
+
+            <h3 class="text-base font-semibold mb-1.5" style="color: var(--cmm-ink);">
+              {{ report.title }}
+            </h3>
+            <p class="text-sm leading-relaxed" style="color: var(--cmm-muted);">
+              {{ report.description }}
+            </p>
+
+            <div class="mt-4 pt-3" style="border-top: 1px solid var(--cmm-border);">
+              @if (!report.available) {
+                <p class="text-sm" style="color: var(--cmm-muted);">
+                  Em breve — este relatório ainda não está disponível.
+                </p>
+              } @else {
+                <span class="inline-flex items-center gap-1 text-sm font-medium" style="color: var(--cmm-accent);">
+                  Abrir relatório
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                  </svg>
+                </span>
+              }
+            </div>
           </div>
         }
       </div>
 
-      <!-- Stats Section -->
-      <div class="bg-white rounded-xl p-5 border border-slate-200">
-        <div class="flex items-start gap-4">
-          <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-            <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <div class="panel panel-pad">
+        <div class="flex items-start gap-3">
+          <div
+            class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+            style="background: var(--cmm-accent-soft); color: var(--cmm-accent);"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
           </div>
           <div>
-            <h3 class="text-sm font-semibold text-slate-700 mb-1">Dica</h3>
-            <p class="text-sm text-slate-500 leading-relaxed">
-              Agende o envio automático de relatórios por email em <span class="font-medium text-slate-700">Configurações</span>.
+            <h3 class="text-sm font-semibold mb-1" style="color: var(--cmm-ink);">Dica</h3>
+            <p class="text-sm leading-relaxed" style="color: var(--cmm-muted);">
+              Agende o envio automático de relatórios por email em
+              <span class="font-medium" style="color: var(--cmm-ink);">Configurações</span>.
             </p>
           </div>
         </div>
@@ -145,22 +159,12 @@ export class ReportsListComponent {
   }
 
   getCardClasses(report: ReportType): string {
-    const baseClasses = 'bg-white rounded-xl border-2 p-6 transition-all duration-200 flex flex-col';
+    const base = 'panel panel-pad flex flex-col transition-colors duration-150';
 
     if (!report.available) {
-      return `${baseClasses} border-slate-200 opacity-60 cursor-not-allowed`;
+      return `${base} opacity-70 cursor-not-allowed`;
     }
 
-    return `${baseClasses} border-slate-200 hover:border-slate-300 hover:shadow-md cursor-pointer group`;
-  }
-
-  getIconClasses(report: ReportType): string {
-    const baseClasses = 'w-16 h-16 rounded-xl flex items-center justify-center mb-4 transition-transform duration-200';
-
-    if (!report.available) {
-      return `${baseClasses} bg-slate-100`;
-    }
-
-    return `${baseClasses} bg-slate-50 group-hover:scale-105`;
+    return `${base} cursor-pointer hover:border-[color-mix(in_srgb,var(--cmm-accent)_40%,var(--cmm-border))]`;
   }
 }

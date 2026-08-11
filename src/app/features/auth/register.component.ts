@@ -10,26 +10,20 @@ import { environment } from '../../../environments/environment';
   standalone: true,
   imports: [FormsModule],
   template: `
-    <div class="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+    <div class="auth-shell">
       <div class="w-full max-w-md">
-        <!-- Formulário de Registro -->
         <div class="text-center mb-8">
-          <div class="inline-flex items-center justify-center w-16 h-16 bg-green-500 rounded-2xl mb-4">
-            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-            </svg>
+          <div class="inline-flex items-center justify-center w-14 h-14 rounded-xl mb-4" style="background: var(--cmm-accent); color: #042f2e;">
+            <span class="text-lg font-semibold">CM</span>
           </div>
-          <h1 class="text-2xl font-semibold text-white tracking-tight">Complete seu Cadastro</h1>
-          <p class="text-slate-400 mt-1 text-sm">Digite o código de convite recebido por email</p>
+          <h1 class="text-2xl font-semibold text-white tracking-tight">Complete seu cadastro</h1>
+          <p class="text-white/55 mt-1 text-sm">Use o código de convite recebido por email</p>
         </div>
 
-        <div class="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-8">
+        <div class="auth-card">
           @if (inviteEmail()) {
-            <div class="mb-6 p-4 bg-green-500/20 border border-green-500/50 rounded-lg flex items-center gap-3">
-              <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-              <span class="text-green-200 text-sm">Código válido para: {{ inviteEmail() }}</span>
+            <div class="mb-6 p-3 rounded-lg text-sm flex items-center gap-3" style="background: rgba(45,212,191,0.12); border: 1px solid rgba(45,212,191,0.35); color: #99f6e4;">
+              <span>Código válido para: {{ inviteEmail() }}</span>
             </div>
           }
 
@@ -152,7 +146,7 @@ import { environment } from '../../../environments/environment';
               <button
                 type="submit"
                 [disabled]="isLoading()"
-                class="w-full py-3 px-4 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
+                class="btn btn-accent w-full mt-6"
               >
                 @if (isLoading()) {
                   <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
@@ -200,7 +194,10 @@ export class RegisterComponent implements OnInit {
   private apiUrl = environment.apiUrl;
 
   ngOnInit() {
-    // Não precisa mais verificar token nos query params
+    const email = this.route.snapshot.queryParamMap.get('email');
+    if (email) {
+      this.inviteEmail.set(email);
+    }
   }
 
   validateCode() {

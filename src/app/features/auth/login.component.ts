@@ -10,33 +10,25 @@ import { environment } from '../../../environments/environment';
   standalone: true,
   imports: [FormsModule, RouterLink],
   template: `
-    <div class="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+    <div class="auth-shell">
       @if (isCheckingMaster()) {
-        <!-- Loading inicial -->
         <div class="text-center">
-          <div class="inline-flex items-center justify-center w-16 h-16 bg-slate-700 rounded-2xl mb-4">
-            <svg class="w-8 h-8 text-white animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+          <div class="inline-flex items-center justify-center w-14 h-14 rounded-xl mb-4" style="background: var(--cmm-accent); color: #042f2e;">
+            <span class="text-lg font-semibold">CM</span>
           </div>
           <h1 class="text-xl font-semibold text-white">Carregando...</h1>
         </div>
       } @else {
         <div class="w-full max-w-md">
-          <!-- Logo e Título -->
           <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-16 h-16 bg-slate-700 rounded-2xl mb-4">
-              <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-              </svg>
+            <div class="inline-flex items-center justify-center w-14 h-14 rounded-xl mb-4" style="background: var(--cmm-accent); color: #042f2e;">
+              <span class="text-lg font-semibold tracking-tight">CM</span>
             </div>
             <h1 class="text-2xl font-semibold text-white tracking-tight">CMM System</h1>
-            <p class="text-slate-400 mt-1 text-sm">Faça login para continuar</p>
+            <p class="text-white/55 mt-1 text-sm">Entre para continuar no console</p>
           </div>
 
-          <!-- Card de Login -->
-          <div class="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-8">
+          <div class="auth-card">
             @if (!showRegister()) {
             @if (errorMessage()) {
               <div class="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
@@ -115,7 +107,7 @@ import { environment } from '../../../environments/environment';
               <button
                 type="submit"
                 [disabled]="isLoading()"
-                class="w-full py-3 px-4 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                class="btn btn-accent w-full"
               >
                 @if (isLoading()) {
                   <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
