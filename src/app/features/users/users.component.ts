@@ -485,6 +485,39 @@ interface Invite {
                 </select>
               </div>
 
+              @if (isMaster()) {
+                <div class="rounded-lg p-3 space-y-3" style="background: var(--cmm-surface); border: 1px solid var(--cmm-border);">
+                  <div>
+                    <p class="text-sm font-medium" style="color: var(--cmm-ink);">Alterar senha</p>
+                    <p class="text-xs mt-0.5" style="color: var(--cmm-muted);">Deixe em branco para manter a senha atual</p>
+                  </div>
+                  <div>
+                    <label class="form-label">Nova senha</label>
+                    <input
+                      type="password"
+                      [(ngModel)]="editData.password"
+                      name="password"
+                      class="form-input"
+                      minlength="6"
+                      autocomplete="new-password"
+                      placeholder="Mínimo 6 caracteres"
+                    />
+                  </div>
+                  <div>
+                    <label class="form-label">Confirmar nova senha</label>
+                    <input
+                      type="password"
+                      [(ngModel)]="editData.confirmPassword"
+                      name="confirmPassword"
+                      class="form-input"
+                      minlength="6"
+                      autocomplete="new-password"
+                      placeholder="Repita a nova senha"
+                    />
+                  </div>
+                </div>
+              }
+
               <div>
                 <div class="flex items-center justify-between mb-2">
                   <label class="form-label mb-0">Abas de acesso</label>
@@ -673,7 +706,9 @@ export class UsersComponent implements OnInit {
   editData = {
     name: '',
     email: '',
-    status: 'active' as UserStatus
+    status: 'active' as UserStatus,
+    password: '',
+    confirmPassword: ''
   };
 
   private apiUrl = environment.apiUrl;
@@ -696,6 +731,10 @@ export class UsersComponent implements OnInit {
     const user = this.authService.user();
     const role = user?.role;
     return role === 'master' || role === 'admin' || (user?.tabs || []).includes('usuarios');
+  }
+
+  isMaster(): boolean {
+    return this.authService.user()?.role === 'master';
   }
 
   isTabSelected(key: string): boolean {
@@ -955,7 +994,9 @@ export class UsersComponent implements OnInit {
     this.editData = {
       name: user.name,
       email: user.email,
-      status: user.status || 'active'
+      status: user.status || 'active',
+      password: '',
+      confirmPassword: ''
     };
     this.selectedTabs.set([...(user.tabs || [])]);
     this.editError.set('');
@@ -979,20 +1020,42 @@ export class UsersComponent implements OnInit {
       return;
     }
 
+    const password = this.editData.password.trim();
+    const confirmPassword = this.editData.confirmPassword.trim();
+
+    if (this.isMaster() && (password || confirmPassword)) {
+      if (password.length < 6) {
+        this.editError.set('A senha deve ter no mínimo 6 caracteres');
+        return;
+      }
+      if (password !== confirmPassword) {
+        this.editError.set('As senhas não conferem');
+        return;
+      }
+    }
+
     this.isLoading.set(true);
     this.editError.set('');
 
-    this.http.patch<User>(`${this.apiUrl}/users/${editing.id}`, {
+    const payload: Record<string, unknown> = {
       name: this.editData.name,
       status: this.editData.status,
       isActive: this.editData.status === 'active',
       tabs
-    }).subscribe({
+    };
+
+    if (this.isMaster() && password) {
+      payload['password'] = password;
+    }
+
+    this.http.patch<User>(`${this.apiUrl}/users/${editing.id}`, payload).subscribe({
       next: () => {
         this.loadUsers();
         this.closeEditModal();
         this.isLoading.set(false);
-        this.modalService.success('Usuário atualizado com sucesso!');
+        this.modalService.success(
+          password ? 'Usuário e senha atualizados com sucesso!' : 'Usuário atualizado com sucesso!'
+        );
       },
       error: (err) => {
         console.error('Erro ao atualizar:', err);
