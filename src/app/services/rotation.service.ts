@@ -27,10 +27,14 @@ export interface UpdateRotationPayload {
 }
 
 export interface PonttaProfile {
-  id: string;
+  id: string; // cooperatorId (valor associado ao rodízio)
+  cooperatorId?: string;
+  userId?: string;
   name: string;
   email?: string;
   position?: string;
+  activated?: boolean;
+  blocked?: boolean;
   [key: string]: any;
 }
 

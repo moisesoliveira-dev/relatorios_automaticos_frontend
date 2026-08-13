@@ -223,7 +223,8 @@ interface ConfirmState {
                                 <span class="badge badge-accent">Selecionado</span>
                               }
                             </span>
-                            <span class="block text-xs mt-0.5" style="color: var(--cmm-muted);">{{ p.email || p.position || 'Sem email' }}</span>
+                            <span class="block text-xs mt-0.5" style="color: var(--cmm-muted);">{{ p.email || 'Sem email' }}</span>
+                            <span class="block text-[11px] font-mono mt-0.5 truncate" style="color: var(--cmm-muted);">cooperatorId: {{ p.cooperatorId || p.id }}</span>
                           </span>
                         </button>
                       }
@@ -243,7 +244,7 @@ interface ConfirmState {
                       {{ (selectedPonttaName || form().name || '?').slice(0, 1).toUpperCase() }}
                     </span>
                     <div class="min-w-0">
-                      <p class="text-xs font-medium uppercase tracking-wide" style="color: var(--cmm-accent);">Perfil selecionado</p>
+                      <p class="text-xs font-medium uppercase tracking-wide" style="color: var(--cmm-accent);">Cooperador selecionado</p>
                       <p class="text-sm font-semibold" style="color: var(--cmm-ink);">{{ selectedPonttaName || form().name || 'Perfil Pontta' }}</p>
                       <p class="text-xs font-mono mt-0.5 truncate" style="color: var(--cmm-muted);">{{ form().id }}</p>
                     </div>
@@ -522,9 +523,10 @@ export class RodizioComponent implements OnInit {
   }
 
   selectPontta(profile: PonttaProfile): void {
+    const cooperatorId = profile.cooperatorId || profile.id;
     this.selectedPonttaName = profile.name;
     this.patchForm({
-      id: profile.id,
+      id: cooperatorId,
       name: this.form().name || profile.name,
     });
   }
