@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard, publicGuard } from './core/guards/auth.guard';
+import { tabGuard } from './core/guards/tab.guard';
 
 export const routes: Routes = [
     {
@@ -27,10 +28,14 @@ export const routes: Routes = [
         children: [
             {
                 path: 'dashboard',
+                canActivate: [tabGuard],
+                data: { tabs: ['dashboard'] },
                 loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent)
             },
             {
                 path: 'reports',
+                canActivate: [tabGuard],
+                data: { tabs: ['reports'] },
                 children: [
                     {
                         path: '',
@@ -42,7 +47,6 @@ export const routes: Routes = [
                     }
                 ]
             },
-            // Mantém compatibilidade com rota antiga
             {
                 path: 'relatorios',
                 redirectTo: 'reports',
@@ -50,10 +54,14 @@ export const routes: Routes = [
             },
             {
                 path: 'usuarios',
+                canActivate: [tabGuard],
+                data: { tabs: ['usuarios'] },
                 loadComponent: () => import('./features/users/users.component').then(m => m.UsersComponent)
             },
             {
                 path: 'jobs',
+                canActivate: [tabGuard],
+                data: { tabs: ['jobs'] },
                 loadComponent: () => import('./features/jobs/jobs.component').then(m => m.JobsComponent)
             },
             {
@@ -62,30 +70,44 @@ export const routes: Routes = [
             },
             {
                 path: 'configuracoes',
+                canActivate: [tabGuard],
+                data: { tabs: ['configuracoes'] },
                 loadComponent: () => import('./features/settings/settings.component').then(m => m.SettingsComponent)
             },
             {
                 path: 'gosac-pontta',
+                canActivate: [tabGuard],
+                data: { tabs: ['gosac-pontta'] },
                 loadComponent: () => import('./features/gosac-pontta/gosac-pontta.component').then(m => m.GosacPonttaComponent),
                 children: [
                     {
                         path: 'grupos',
+                        canActivate: [tabGuard],
+                        data: { tabs: ['gosac-pontta/grupos'] },
                         loadComponent: () => import('./features/gosac-pontta/grupos/grupos.component').then(m => m.GruposComponent)
                     },
                     {
                         path: 'rodizio',
+                        canActivate: [tabGuard],
+                        data: { tabs: ['gosac-pontta/rodizio'] },
                         loadComponent: () => import('./features/gosac-pontta/rodizio/rodizio.component').then(m => m.RodizioComponent)
                     },
                     {
                         path: 'rodizio-pontta',
+                        canActivate: [tabGuard],
+                        data: { tabs: ['gosac-pontta/rodizio-pontta'] },
                         loadComponent: () => import('./features/gosac-pontta/rodizio-pontta/rodizio-pontta.component').then(m => m.RodizioPonttaComponent)
                     },
                     {
                         path: 'pagamento-montador',
+                        canActivate: [tabGuard],
+                        data: { tabs: ['gosac-pontta/pagamento-montador'] },
                         loadComponent: () => import('./features/gosac-pontta/pagamento-montador/pagamento-montador.component').then(m => m.PagamentoMontadorComponent)
                     },
                     {
                         path: 'webhooks',
+                        canActivate: [tabGuard],
+                        data: { tabs: ['gosac-pontta'] },
                         loadComponent: () => import('./features/gosac-pontta/webhooks/webhooks.component').then(m => m.WebhooksComponent)
                     },
                     {

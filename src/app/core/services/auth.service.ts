@@ -1,9 +1,10 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, Injector } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap, catchError, of, map } from 'rxjs';
 import { User, AuthResponse, LoginRequest } from '../models/user.model';
 import { environment } from '../../../environments/environment';
+import { AccessService } from './access.service';
 
 export interface CheckMasterResponse {
     hasMaster: boolean;
@@ -47,7 +48,7 @@ export class AuthService {
         return user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     });
 
-    constructor(private http: HttpClient, private router: Router) {
+    constructor(private http: HttpClient, private router: Router, private injector: Injector) {
         this.loadStoredUser();
         this.setupInactivityMonitoring();
     }
@@ -146,6 +147,7 @@ export class AuthService {
                 localStorage.setItem(this.TOKEN_KEY, response.access_token);
                 localStorage.setItem(this.USER_KEY, JSON.stringify(response.user));
                 this.userSignal.set(response.user);
+                this.injector.get(AccessService).clear();
                 this.updateLastActivity();
                 this.isLoadingSignal.set(false);
             }),
@@ -161,6 +163,7 @@ export class AuthService {
         this.clearInactivityTimer();
         this.clearStorage();
         this.userSignal.set(null);
+        this.injector.get(AccessService).clear();
     }
 
     logout(): void {

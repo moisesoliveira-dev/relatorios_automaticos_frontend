@@ -1,10 +1,9 @@
 import { Component, signal, computed, OnInit, OnDestroy, inject, HostListener } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../core/services/auth.service';
+import { AccessService } from '../../core/services/access.service';
 import { ModalComponent } from '../components/modal.component';
 import { filter } from 'rxjs/operators';
-import { environment } from '../../../environments/environment';
 
 interface MenuItem {
   label: string;
@@ -282,8 +281,7 @@ const TITLE_MAP: Record<string, string> = {
   `]
 })
 export class LayoutComponent implements OnInit, OnDestroy {
-  private readonly http = inject(HttpClient);
-  private readonly apiUrl = environment.apiUrl;
+  private readonly accessService = inject(AccessService);
   private readonly THEME_KEY = 'theme_mode';
   private mediaQuery?: MediaQueryList;
   private onMediaChange?: () => void;
@@ -463,20 +461,9 @@ export class LayoutComponent implements OnInit, OnDestroy {
   }
 
   private loadNavigationTabs(): void {
-    this.http.get<{ role: string; tabs: string[] }>(`${this.apiUrl}/settings/tabs/navigation`).subscribe({
-      next: (res) => {
-        this.allowedTabs.set(res.tabs || []);
-        this.redirectIfTabForbidden(this.router.url.split('?')[0]);
-      },
-      error: () => {
-        const role = this.authService.user()?.role;
-        const defaults: Record<string, string[]> = {
-          master: ['dashboard', 'reports', 'jobs', 'gosac-pontta', 'usuarios', 'configuracoes'],
-          admin: ['dashboard', 'reports', 'jobs', 'gosac-pontta', 'usuarios'],
-          manager: ['dashboard', 'reports', 'gosac-pontta'],
-          user: ['dashboard', 'reports'],
-        };
-        this.allowedTabs.set(defaults[role || 'user'] || defaults['user']);
+    this.accessService.ensureLoaded().subscribe({
+      next: (tabs) => {
+        this.allowedTabs.set(tabs || []);
         this.redirectIfTabForbidden(this.router.url.split('?')[0]);
       },
     });
@@ -504,8 +491,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   private redirectIfTabForbidden(url: string): void {
     if (this.isCurrentRouteAllowed(url)) return;
-    const firstAllowed = this.menuItems()[0]?.route || '/dashboard';
-    this.router.navigateByUrl(firstAllowed);
+    this.router.navigateByUrl(this.accessService.firstAllowedRoute());
   }
 
   hasTab(tabKey: string): boolean {
