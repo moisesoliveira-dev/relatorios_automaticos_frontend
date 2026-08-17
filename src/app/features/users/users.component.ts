@@ -33,15 +33,23 @@ interface Invite {
       <div class="page-header">
         <div>
           <h1 class="page-title">Gerenciamento de Usuários</h1>
-          <p class="page-subtitle">Gerencie usuários e envie convites para novos membros</p>
+          <p class="page-subtitle">Cadastre usuários, gerencie acessos e envie convites</p>
         </div>
         @if (canManageUsers()) {
-          <button type="button" (click)="openInviteModal()" class="btn btn-primary">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-            </svg>
-            Convidar Usuário
-          </button>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" (click)="openCreateModal()" class="btn btn-primary">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+              </svg>
+              Cadastrar Usuário
+            </button>
+            <button type="button" (click)="openInviteModal()" class="btn btn-secondary">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+              </svg>
+              Convidar Usuário
+            </button>
+          </div>
         }
       </div>
 
@@ -302,6 +310,142 @@ interface Invite {
               }
             </tbody>
           </table>
+        </div>
+      }
+
+      @if (showCreateModal()) {
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(10, 16, 24, 0.55);">
+          <div class="panel panel-pad max-w-lg w-full" style="max-height: 90vh; overflow-y: auto;">
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="text-lg font-semibold" style="color: var(--cmm-ink);">Cadastrar Usuário</h3>
+              <button type="button" (click)="closeCreateModal()" class="btn btn-ghost btn-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+
+            <form (ngSubmit)="createUser()" class="space-y-4">
+              @if (createError()) {
+                <div
+                  class="p-3 rounded-lg text-sm"
+                  style="background: color-mix(in srgb, var(--cmm-danger) 12%, var(--cmm-panel)); border: 1px solid color-mix(in srgb, var(--cmm-danger) 30%, transparent); color: var(--cmm-danger);"
+                >
+                  {{ createError() }}
+                </div>
+              }
+
+              <div>
+                <label class="form-label">Nome</label>
+                <input
+                  type="text"
+                  [(ngModel)]="createData.name"
+                  name="createName"
+                  required
+                  minlength="2"
+                  class="form-input"
+                  placeholder="Nome completo"
+                />
+              </div>
+
+              <div>
+                <label class="form-label">Email</label>
+                <input
+                  type="email"
+                  [(ngModel)]="createData.email"
+                  name="createEmail"
+                  required
+                  class="form-input"
+                  placeholder="usuario@email.com"
+                />
+              </div>
+
+              <div>
+                <label class="form-label">Senha</label>
+                <input
+                  type="password"
+                  [(ngModel)]="createData.password"
+                  name="createPassword"
+                  required
+                  minlength="6"
+                  class="form-input"
+                  autocomplete="new-password"
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </div>
+
+              <div>
+                <label class="form-label">Confirmar senha</label>
+                <input
+                  type="password"
+                  [(ngModel)]="createData.confirmPassword"
+                  name="createConfirmPassword"
+                  required
+                  minlength="6"
+                  class="form-input"
+                  autocomplete="new-password"
+                  placeholder="Repita a senha"
+                />
+              </div>
+
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <label class="form-label mb-0">Abas de acesso</label>
+                  <div class="flex gap-2">
+                    <button type="button" class="btn btn-ghost btn-sm" (click)="selectAllTabs()">
+                      Selecionar todas
+                    </button>
+                    <button type="button" class="btn btn-ghost btn-sm" (click)="deselectAllTabs()">
+                      Limpar
+                    </button>
+                  </div>
+                </div>
+                <div
+                  class="rounded-lg p-3 space-y-1"
+                  style="background: var(--cmm-surface); border: 1px solid var(--cmm-border); max-height: 240px; overflow-y: auto;"
+                >
+                  @for (node of tabTree; track node.key) {
+                    <div>
+                      <label class="flex items-center gap-2 py-1 cursor-pointer text-sm" style="color: var(--cmm-ink);">
+                        <input
+                          type="checkbox"
+                          class="form-checkbox"
+                          [checked]="isParentChecked(node)"
+                          [indeterminate]="isParentIndeterminate(node)"
+                          (change)="toggleParent(node)"
+                        />
+                        <span class="font-medium">{{ node.label }}</span>
+                      </label>
+                      @if (node.children?.length) {
+                        <div class="ml-6 space-y-1">
+                          @for (child of node.children; track child.key) {
+                            <label class="flex items-center gap-2 py-1 cursor-pointer text-sm" style="color: var(--cmm-muted);">
+                              <input
+                                type="checkbox"
+                                class="form-checkbox"
+                                [checked]="isTabSelected(child.key)"
+                                (change)="toggleTab(child.key, node)"
+                              />
+                              <span>{{ child.label }}</span>
+                            </label>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+
+              <div class="flex gap-3 pt-2">
+                <button type="button" (click)="closeCreateModal()" class="btn btn-secondary flex-1">
+                  Cancelar
+                </button>
+                <button type="submit" [disabled]="isLoading()" class="btn btn-primary flex-1">
+                  {{ isLoading() ? 'Cadastrando...' : 'Cadastrar' }}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       }
 
@@ -683,6 +827,7 @@ export class UsersComponent implements OnInit {
   activeTab = signal<'users' | 'invites' | 'registrations'>('users');
 
   showInviteModal = signal(false);
+  showCreateModal = signal(false);
   showEditModal = signal(false);
   showApproveModal = signal(false);
   isLoading = signal(false);
@@ -692,16 +837,24 @@ export class UsersComponent implements OnInit {
   inviteEmailSent = signal(true);
   inviteEmailError = signal('');
   inviteCodeResult = signal('');
+  createError = signal('');
   editError = signal('');
   approveError = signal('');
 
   editingUser = signal<User | null>(null);
   approvingUser = signal<User | null>(null);
 
-  /** Shared selected tabs for the active invite / edit / approve modal */
+  /** Shared selected tabs for the active invite / create / edit / approve modal */
   selectedTabs = signal<string[]>([]);
 
   inviteEmail = '';
+
+  createData = {
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  };
 
   editData = {
     name: '',
@@ -903,6 +1056,71 @@ export class UsersComponent implements OnInit {
         }
       });
     }
+  }
+
+  openCreateModal() {
+    this.createData = {
+      name: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+    };
+    this.selectedTabs.set([]);
+    this.createError.set('');
+    this.showCreateModal.set(true);
+  }
+
+  closeCreateModal() {
+    this.showCreateModal.set(false);
+    this.createError.set('');
+    this.selectedTabs.set([]);
+  }
+
+  createUser() {
+    const name = this.createData.name.trim();
+    const email = this.createData.email.trim();
+    const password = this.createData.password;
+    const confirmPassword = this.createData.confirmPassword;
+
+    if (!name || name.length < 2) {
+      this.createError.set('Informe o nome (mínimo 2 caracteres)');
+      return;
+    }
+    if (!email) {
+      this.createError.set('Informe o email');
+      return;
+    }
+    if (!password || password.length < 6) {
+      this.createError.set('A senha deve ter no mínimo 6 caracteres');
+      return;
+    }
+    if (password !== confirmPassword) {
+      this.createError.set('As senhas não coincidem');
+      return;
+    }
+
+    const tabs = this.selectedTabs();
+    if (!tabs.length) {
+      this.createError.set('Selecione ao menos uma aba');
+      return;
+    }
+
+    this.isLoading.set(true);
+    this.createError.set('');
+
+    this.http.post<User>(`${this.apiUrl}/users`, { name, email, password, tabs }).subscribe({
+      next: () => {
+        this.isLoading.set(false);
+        this.closeCreateModal();
+        this.loadUsers();
+        this.activeTab.set('users');
+        this.modalService.success('Usuário cadastrado com sucesso!');
+      },
+      error: (err) => {
+        this.createError.set(err.error?.message || 'Erro ao cadastrar usuário');
+        this.isLoading.set(false);
+      },
+    });
   }
 
   openInviteModal() {
