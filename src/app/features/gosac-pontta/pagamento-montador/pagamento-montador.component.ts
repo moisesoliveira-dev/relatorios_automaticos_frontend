@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpResponse } from '@angular/common/http';
@@ -100,7 +100,20 @@ interface SalesOrderItem extends SalesOrderSearchResult {
             }
             <span class="font-normal" style="color: var(--cmm-muted);">({{ salesOrders().length }})</span>
           </span>
-          <button type="button" (click)="loadSalesOrders()" class="btn btn-ghost btn-sm">Atualizar</button>
+          <div class="flex items-center gap-2">
+            @if (salesOrders().length > 0) {
+              <select
+                class="form-input py-1 text-xs w-auto"
+                [ngModel]="pageSize()"
+                (ngModelChange)="setPageSize(+$event)"
+              >
+                <option [ngValue]="10">10 / página</option>
+                <option [ngValue]="25">25 / página</option>
+                <option [ngValue]="50">50 / página</option>
+              </select>
+            }
+            <button type="button" (click)="loadSalesOrders()" class="btn btn-ghost btn-sm">Atualizar</button>
+          </div>
         </div>
 
         @if (loading()) {
@@ -138,7 +151,7 @@ interface SalesOrderItem extends SalesOrderSearchResult {
               </tr>
             </thead>
             <tbody>
-              @for (salesOrder of salesOrders(); track salesOrder.id) {
+              @for (salesOrder of pagedSalesOrders(); track salesOrder.id) {
                 <tr class="cursor-pointer" (click)="openModal(salesOrder)">
                   <td>
                     <span class="font-mono text-xs font-semibold">{{ salesOrder.code }}</span>
@@ -151,7 +164,7 @@ interface SalesOrderItem extends SalesOrderSearchResult {
                   <td>
                     <span class="badge badge-neutral">{{ salesOrder.status || '—' }}</span>
                   </td>
-                  <td class="text-xs" style="color: var(--cmm-muted);">—</td>
+                  <td class="text-xs" style="color: var(--cmm-muted);">{{ formatDate(salesOrder.deliveryDate || '') || '—' }}</td>
                   <td class="text-xs" style="color: var(--cmm-muted);">{{ formatDate(salesOrder.saleDate || '') }}</td>
                   <td class="text-right">
                     <button
@@ -167,6 +180,35 @@ interface SalesOrderItem extends SalesOrderSearchResult {
               }
             </tbody>
           </table>
+
+          @if (totalPages() > 1) {
+            <div class="flex items-center justify-between gap-3 px-4 py-3 border-t" style="border-color: var(--cmm-border);">
+              <span class="text-xs" style="color: var(--cmm-muted);">
+                {{ pageRangeLabel() }}
+              </span>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm"
+                  (click)="prevPage()"
+                  [disabled]="currentPage() === 0"
+                >
+                  Anterior
+                </button>
+                <span class="text-xs px-2" style="color: var(--cmm-muted);">
+                  {{ currentPage() + 1 }} / {{ totalPages() }}
+                </span>
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm"
+                  (click)="nextPage()"
+                  [disabled]="currentPage() >= totalPages() - 1"
+                >
+                  Próxima
+                </button>
+              </div>
+            </div>
+          }
         }
       </div>
     </div>
@@ -386,6 +428,32 @@ export class PagamentoMontadorComponent implements OnInit {
   salesOrders = signal<SalesOrderItem[]>([]);
   isSearchMode = signal(false);
   activeSearchTerm = signal('');
+  currentPage = signal(0);
+  pageSize = signal(10);
+
+  totalPages = computed(() => {
+    const total = this.salesOrders().length;
+    const size = this.pageSize();
+    return total === 0 ? 1 : Math.ceil(total / size);
+  });
+
+  pagedSalesOrders = computed(() => {
+    const all = this.salesOrders();
+    const size = this.pageSize();
+    const page = Math.min(this.currentPage(), Math.max(0, this.totalPages() - 1));
+    const start = page * size;
+    return all.slice(start, start + size);
+  });
+
+  pageRangeLabel = computed(() => {
+    const total = this.salesOrders().length;
+    if (total === 0) return '0 de 0';
+    const size = this.pageSize();
+    const page = Math.min(this.currentPage(), Math.max(0, this.totalPages() - 1));
+    const start = page * size + 1;
+    const end = Math.min((page + 1) * size, total);
+    return `${start}-${end} de ${total}`;
+  });
 
   // Modal state
   modalOpen = signal(false);
@@ -487,6 +555,7 @@ export class PagamentoMontadorComponent implements OnInit {
           id: i.ponttaId,
         }));
         this.salesOrders.set(normalized);
+        this.currentPage.set(0);
         this.loading.set(false);
       },
       error: (err) => {
@@ -495,6 +564,19 @@ export class PagamentoMontadorComponent implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  setPageSize(size: number): void {
+    this.pageSize.set(size);
+    this.currentPage.set(0);
+  }
+
+  prevPage(): void {
+    this.currentPage.update((p) => Math.max(0, p - 1));
+  }
+
+  nextPage(): void {
+    this.currentPage.update((p) => Math.min(this.totalPages() - 1, p + 1));
   }
 
   searchSalesOrders(): void {

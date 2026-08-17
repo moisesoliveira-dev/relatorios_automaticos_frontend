@@ -77,6 +77,17 @@ const AREA_ORDER: PcpAreaKey[] = ['molhada', 'intima', 'social'];
                 Pedidos de Venda
                 <span class="font-normal" style="color: var(--cmm-muted);">({{ salesOrders().length }})</span>
               </span>
+              @if (salesOrders().length > 0) {
+                <select
+                  class="form-input py-1 text-xs w-auto"
+                  [ngModel]="pageSize()"
+                  (ngModelChange)="setPageSize(+$event)"
+                >
+                  <option [ngValue]="5">5 / página</option>
+                  <option [ngValue]="10">10 / página</option>
+                  <option [ngValue]="20">20 / página</option>
+                </select>
+              }
             </div>
 
             @if (loading()) {
@@ -94,7 +105,7 @@ const AREA_ORDER: PcpAreaKey[] = ['molhada', 'intima', 'social'];
               </div>
             } @else {
               <div class="divide-y" style="border-color: var(--cmm-border);">
-                @for (order of salesOrders(); track order.ponttaId) {
+                @for (order of pagedSalesOrders(); track order.ponttaId) {
                   <div class="px-4 py-4 space-y-3">
                     <div class="flex flex-wrap items-start justify-between gap-2">
                       <div class="min-w-0">
@@ -143,6 +154,35 @@ const AREA_ORDER: PcpAreaKey[] = ['molhada', 'intima', 'social'];
                   </div>
                 }
               </div>
+
+              @if (totalPages() > 1) {
+                <div class="flex items-center justify-between gap-3 px-4 py-3 border-t" style="border-color: var(--cmm-border);">
+                  <span class="text-xs" style="color: var(--cmm-muted);">
+                    {{ pageRangeLabel() }}
+                  </span>
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-sm"
+                      (click)="prevPage()"
+                      [disabled]="currentPage() === 0"
+                    >
+                      Anterior
+                    </button>
+                    <span class="text-xs px-2" style="color: var(--cmm-muted);">
+                      {{ currentPage() + 1 }} / {{ totalPages() }}
+                    </span>
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-sm"
+                      (click)="nextPage()"
+                      [disabled]="currentPage() >= totalPages() - 1"
+                    >
+                      Próxima
+                    </button>
+                  </div>
+                </div>
+              }
             }
           </div>
 
@@ -245,9 +285,35 @@ export class PcpOperacionalComponent implements OnInit {
   schedule = signal<PcpScheduleResponse | null>(null);
   calendarCursor = signal(new Date());
   selectedDate = signal<string | null>(null);
+  currentPage = signal(0);
+  pageSize = signal(5);
 
   salesOrders = computed(() => this.schedule()?.salesOrders ?? []);
   withoutDelivery = computed(() => this.schedule()?.withoutDeliveryDate ?? []);
+
+  totalPages = computed(() => {
+    const total = this.salesOrders().length;
+    const size = this.pageSize();
+    return total === 0 ? 1 : Math.ceil(total / size);
+  });
+
+  pagedSalesOrders = computed(() => {
+    const all = this.salesOrders();
+    const size = this.pageSize();
+    const page = Math.min(this.currentPage(), Math.max(0, this.totalPages() - 1));
+    const start = page * size;
+    return all.slice(start, start + size);
+  });
+
+  pageRangeLabel = computed(() => {
+    const total = this.salesOrders().length;
+    if (total === 0) return '0 de 0';
+    const size = this.pageSize();
+    const page = Math.min(this.currentPage(), Math.max(0, this.totalPages() - 1));
+    const start = page * size + 1;
+    const end = Math.min((page + 1) * size, total);
+    return `${start}-${end} de ${total}`;
+  });
 
   calendarByDate = computed(() => {
     const map = new Map<string, PcpCalendarDay>();
@@ -332,6 +398,7 @@ export class PcpOperacionalComponent implements OnInit {
     this.gosacService.getPcpSchedule(this.fromDate, this.toDate, this.searchQuery).subscribe({
       next: (res) => {
         this.schedule.set(res);
+        this.currentPage.set(0);
         this.loading.set(false);
         const firstWithDelivery = res.calendar[0]?.date;
         if (firstWithDelivery) {
@@ -347,6 +414,19 @@ export class PcpOperacionalComponent implements OnInit {
         this.error.set(err?.error?.message || err?.message || 'Falha ao carregar agenda PCP.');
       },
     });
+  }
+
+  setPageSize(size: number): void {
+    this.pageSize.set(size);
+    this.currentPage.set(0);
+  }
+
+  prevPage(): void {
+    this.currentPage.update((p) => Math.max(0, p - 1));
+  }
+
+  nextPage(): void {
+    this.currentPage.update((p) => Math.min(this.totalPages() - 1, p + 1));
   }
 
   shiftCalendarMonth(delta: number): void {
