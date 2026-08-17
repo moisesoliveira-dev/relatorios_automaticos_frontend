@@ -1,25 +1,59 @@
-import { Component, OnInit, computed, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   GosacService,
   PcpAreaKey,
   PcpCalendarDay,
+  PcpSalesOrderSchedule,
   PcpScheduleResponse,
 } from '../../../services/gosac.service';
 
-const AREA_META: Record<PcpAreaKey, { label: string; offset: string }> = {
-  molhada: { label: 'Áreas Molhadas', offset: '+20 úteis' },
-  intima: { label: 'Áreas Íntimas', offset: '+25 úteis' },
-  social: { label: 'Áreas Sociais', offset: '+30 úteis' },
+const AREA_META: Record<PcpAreaKey, { label: string; short: string; offset: string; color: string }> = {
+  molhada: { label: 'Áreas Molhadas', short: 'Molhada', offset: '+20 úteis', color: 'var(--cmm-accent)' },
+  intima: { label: 'Áreas Íntimas', short: 'Íntima', offset: '+25 úteis', color: 'var(--cmm-warning)' },
+  social: { label: 'Áreas Sociais', short: 'Social', offset: '+30 úteis', color: 'var(--cmm-success)' },
 };
 
 const AREA_ORDER: PcpAreaKey[] = ['molhada', 'intima', 'social'];
+
+interface AnimStep {
+  orderCode: string;
+  customerName: string;
+  area: PcpAreaKey;
+  date: string;
+  environments: string[];
+}
 
 @Component({
   selector: 'app-pcp-operacional',
   standalone: true,
   imports: [CommonModule, FormsModule],
+  styles: [
+    `
+      @keyframes pcp-pulse {
+        0% { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in srgb, var(--pcp-pulse-color) 45%, transparent); }
+        40% { transform: scale(1.12); box-shadow: 0 0 0 8px color-mix(in srgb, var(--pcp-pulse-color) 0%, transparent); }
+        100% { transform: scale(1); box-shadow: 0 0 0 0 transparent; }
+      }
+      @keyframes pcp-fade-up {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .pcp-cell-pulse {
+        animation: pcp-pulse 0.85s ease-out;
+      }
+      .pcp-step-card {
+        animation: pcp-fade-up 0.35s ease-out;
+      }
+      .pcp-area-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        display: inline-block;
+      }
+    `,
+  ],
   template: `
     <div class="space-y-6">
       <div class="page-header">
@@ -94,7 +128,11 @@ const AREA_ORDER: PcpAreaKey[] = ['molhada', 'intima', 'social'];
             } @else {
               <div class="divide-y" style="border-color: var(--cmm-border);">
                 @for (order of pagedSalesOrders(); track order.ponttaId) {
-                  <div class="px-4 py-4 space-y-3">
+                  <div
+                    class="px-4 py-4 space-y-3 cursor-pointer transition-colors"
+                    [style.background]="focusedOrderId() === order.ponttaId ? 'color-mix(in srgb, var(--cmm-accent) 8%, var(--cmm-panel))' : 'transparent'"
+                    (click)="playOrderAnimation(order)"
+                  >
                     <div class="flex flex-wrap items-start justify-between gap-2">
                       <div class="min-w-0">
                         <p class="font-mono text-xs font-semibold" style="color: var(--cmm-ink);">{{ order.code }}</p>
@@ -106,18 +144,43 @@ const AREA_ORDER: PcpAreaKey[] = ['molhada', 'intima', 'social'];
                       </div>
                     </div>
 
+                    <div class="flex flex-wrap gap-2">
+                      @for (area of areaOrder; track area) {
+                        @if (order.areas[area]; as schedule) {
+                          <div
+                            class="rounded-md px-2.5 py-1.5 text-xs"
+                            style="border: 1px solid var(--cmm-border); background: var(--cmm-surface);"
+                          >
+                            <span class="font-semibold" [style.color]="areaMeta[area].color">{{ areaMeta[area].short }}</span>
+                            <span class="mx-1" style="color: var(--cmm-muted);">·</span>
+                            <span class="font-semibold" style="color: var(--cmm-ink);">{{ formatDate(schedule.date) }}</span>
+                            <span class="ml-1" style="color: var(--cmm-muted);">({{ weekdayLabel(schedule.date) }})</span>
+                            @if (schedule.conflictAdjusted) {
+                              <span class="badge badge-warning text-[10px] ml-1">Conflito</span>
+                            }
+                          </div>
+                        }
+                      }
+                    </div>
+
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       @for (area of areaOrder; track area) {
                         @if (order.areas[area]; as schedule) {
-                          <div class="rounded-lg px-3 py-2" style="background: var(--cmm-surface); border: 1px solid var(--cmm-border);">
+                          <div
+                            class="rounded-lg px-3 py-2"
+                            style="background: var(--cmm-surface); border: 1px solid var(--cmm-border);"
+                            [style.border-left]="'3px solid ' + areaMeta[area].color"
+                          >
                             <div class="flex items-center justify-between gap-1 mb-1">
                               <span class="text-xs font-semibold" style="color: var(--cmm-ink);">{{ areaMeta[area].label }}</span>
                               @if (schedule.conflictAdjusted) {
                                 <span class="badge badge-warning text-[10px]">Conflito</span>
                               }
                             </div>
-                            <p class="text-sm font-semibold" style="color: var(--cmm-accent);">{{ formatDate(schedule.date) }}</p>
-                            <p class="text-[10px] mt-0.5" style="color: var(--cmm-muted);">{{ areaMeta[area].offset }}</p>
+                            <p class="text-sm font-semibold" [style.color]="areaMeta[area].color">{{ formatDate(schedule.date) }}</p>
+                            <p class="text-[10px] mt-0.5" style="color: var(--cmm-muted);">
+                              {{ weekdayLabel(schedule.date) }} · {{ areaMeta[area].offset }}
+                            </p>
                             <ul class="mt-2 space-y-0.5">
                               @for (env of schedule.environments; track env) {
                                 <li class="text-xs" style="color: var(--cmm-muted);">{{ env }}</li>
@@ -139,6 +202,16 @@ const AREA_ORDER: PcpAreaKey[] = ['molhada', 'intima', 'social'];
                         {{ order.unclassified.join(', ') }}
                       </p>
                     }
+
+                    <div class="flex justify-end">
+                      <button
+                        type="button"
+                        class="btn btn-ghost btn-sm"
+                        (click)="playOrderAnimation(order); $event.stopPropagation()"
+                      >
+                        Animar no calendário
+                      </button>
+                    </div>
                   </div>
                 }
               </div>
@@ -180,11 +253,27 @@ const AREA_ORDER: PcpAreaKey[] = ['molhada', 'intima', 'social'];
             <div class="flex items-center justify-between gap-2">
               <h2 class="text-sm font-semibold" style="color: var(--cmm-ink);">Calendário de entregas</h2>
               <div class="flex items-center gap-1">
-                <button type="button" class="btn btn-ghost btn-sm" (click)="shiftCalendarMonth(-1)" title="Mês anterior">‹</button>
+                <button type="button" class="btn btn-ghost btn-sm" (click)="shiftCalendarMonth(-1)" title="Mês anterior" [disabled]="animating()">‹</button>
                 <span class="text-xs font-medium min-w-[7rem] text-center" style="color: var(--cmm-ink);">{{ calendarMonthLabel() }}</span>
-                <button type="button" class="btn btn-ghost btn-sm" (click)="shiftCalendarMonth(1)" title="Próximo mês">›</button>
+                <button type="button" class="btn btn-ghost btn-sm" (click)="shiftCalendarMonth(1)" title="Próximo mês" [disabled]="animating()">›</button>
               </div>
             </div>
+
+            @if (animStep(); as step) {
+              <div
+                class="pcp-step-card rounded-lg px-3 py-2"
+                style="background: var(--cmm-surface); border: 1px solid var(--cmm-border);"
+                [style.border-left]="'3px solid ' + areaMeta[step.area].color"
+              >
+                <p class="text-[10px] uppercase tracking-wide" style="color: var(--cmm-muted);">Colocando no mês</p>
+                <p class="text-sm font-semibold mt-0.5" [style.color]="areaMeta[step.area].color">
+                  {{ areaMeta[step.area].label }} → {{ formatDate(step.date) }}
+                </p>
+                <p class="text-xs mt-0.5" style="color: var(--cmm-muted);">
+                  {{ step.orderCode }} · {{ step.customerName }}
+                </p>
+              </div>
+            }
 
             <div class="grid grid-cols-7 gap-1 text-center">
               @for (dow of weekDays; track dow) {
@@ -193,22 +282,37 @@ const AREA_ORDER: PcpAreaKey[] = ['molhada', 'intima', 'social'];
               @for (cell of calendarCells(); track cell.key) {
                 <button
                   type="button"
-                  class="min-h-[2.75rem] rounded-md text-xs p-1 transition-colors"
+                  class="min-h-[3rem] rounded-md text-xs p-1 transition-colors relative"
+                  [class.pcp-cell-pulse]="pulseDate() === cell.date"
                   [disabled]="!cell.inMonth"
                   [class.opacity-30]="!cell.inMonth"
-                  [style.background]="cell.hasDeliveries ? 'color-mix(in srgb, var(--cmm-accent) 16%, var(--cmm-panel))' : 'transparent'"
-                  [style.border]="cell.selected ? '1px solid var(--cmm-accent)' : '1px solid transparent'"
+                  [style.--pcp-pulse-color]="pulseColor()"
+                  [style.background]="cellBackground(cell)"
+                  [style.border]="cellBorder(cell)"
                   [style.color]="cell.isDeliveryDay ? 'var(--cmm-ink)' : 'var(--cmm-muted)'"
                   (click)="selectDay(cell.date)"
                 >
                   <span class="block font-medium">{{ cell.day }}</span>
-                  @if (cell.count > 0) {
-                    <span class="block text-[9px] font-semibold" style="color: var(--cmm-accent);">{{ cell.count }}</span>
+                  @if (cell.areas.length > 0) {
+                    <span class="flex items-center justify-center gap-0.5 mt-0.5">
+                      @for (area of cell.areas; track area) {
+                        <span class="pcp-area-dot" [style.background]="areaMeta[area].color"></span>
+                      }
+                    </span>
                   }
                 </button>
               }
             </div>
-            <p class="text-[10px]" style="color: var(--cmm-muted);">Entregas apenas terça, quinta e sexta.</p>
+
+            <div class="flex flex-wrap gap-3 text-[10px]" style="color: var(--cmm-muted);">
+              @for (area of areaOrder; track area) {
+                <span class="inline-flex items-center gap-1">
+                  <span class="pcp-area-dot" [style.background]="areaMeta[area].color"></span>
+                  {{ areaMeta[area].short }}
+                </span>
+              }
+              <span>Entregas: Ter / Qui / Sex</span>
+            </div>
           </div>
 
           <div class="panel panel-pad">
@@ -225,10 +329,16 @@ const AREA_ORDER: PcpAreaKey[] = ['molhada', 'intima', 'social'];
             } @else {
               <ul class="space-y-3">
                 @for (entry of selectedDayEntries(); track entry.salesOrderCode + entry.area) {
-                  <li class="rounded-lg px-3 py-2" style="background: var(--cmm-surface); border: 1px solid var(--cmm-border);">
+                  <li
+                    class="rounded-lg px-3 py-2"
+                    style="background: var(--cmm-surface); border: 1px solid var(--cmm-border);"
+                    [style.border-left]="'3px solid ' + areaMeta[entry.area].color"
+                  >
                     <div class="flex items-center justify-between gap-2">
                       <span class="font-mono text-xs font-semibold">{{ entry.salesOrderCode }}</span>
-                      <span class="badge badge-neutral text-[10px]">{{ areaMeta[entry.area].label }}</span>
+                      <span class="text-[10px] font-semibold" [style.color]="areaMeta[entry.area].color">
+                        {{ areaMeta[entry.area].label }}
+                      </span>
                     </div>
                     <p class="text-xs mt-0.5" style="color: var(--cmm-muted);">{{ entry.customerName }}</p>
                     <p class="text-xs mt-1" style="color: var(--cmm-ink);">{{ entry.environments.join(', ') }}</p>
@@ -242,7 +352,7 @@ const AREA_ORDER: PcpAreaKey[] = ['molhada', 'intima', 'social'];
     </div>
   `,
 })
-export class PcpOperacionalComponent implements OnInit {
+export class PcpOperacionalComponent implements OnInit, OnDestroy {
   readonly areaMeta = AREA_META;
   readonly areaOrder = AREA_ORDER;
   readonly weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -256,6 +366,15 @@ export class PcpOperacionalComponent implements OnInit {
   selectedDate = signal<string | null>(null);
   currentPage = signal(0);
   pageSize = signal(5);
+
+  focusedOrderId = signal<string | null>(null);
+  animating = signal(false);
+  animStep = signal<AnimStep | null>(null);
+  pulseDate = signal<string | null>(null);
+  pulseColor = signal('var(--cmm-accent)');
+  revealedDates = signal<Set<string>>(new Set());
+
+  private animTimers: ReturnType<typeof setTimeout>[] = [];
 
   salesOrders = computed(() => this.schedule()?.salesOrders ?? []);
 
@@ -305,6 +424,7 @@ export class PcpOperacionalComponent implements OnInit {
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const selected = this.selectedDate();
     const byDate = this.calendarByDate();
+    const revealed = this.revealedDates();
     const cells: Array<{
       key: string;
       day: number;
@@ -314,6 +434,8 @@ export class PcpOperacionalComponent implements OnInit {
       hasDeliveries: boolean;
       count: number;
       selected: boolean;
+      areas: PcpAreaKey[];
+      revealed: boolean;
     }> = [];
 
     const total = Math.ceil((startPad + daysInMonth) / 7) * 7;
@@ -325,6 +447,7 @@ export class PcpOperacionalComponent implements OnInit {
       const dow = dateObj.getDay();
       const isDeliveryDay = dow === 2 || dow === 4 || dow === 5;
       const entries = byDate.get(date)?.entries ?? [];
+      const areas = [...new Set(entries.map((e) => e.area))];
       cells.push({
         key: date + '-' + i,
         day: dateObj.getDate(),
@@ -334,6 +457,8 @@ export class PcpOperacionalComponent implements OnInit {
         hasDeliveries: entries.length > 0,
         count: entries.length,
         selected: selected === date,
+        areas,
+        revealed: revealed.has(date),
       });
     }
     return cells;
@@ -353,9 +478,18 @@ export class PcpOperacionalComponent implements OnInit {
     this.loadSchedule();
   }
 
+  ngOnDestroy(): void {
+    this.clearAnimTimers();
+  }
+
   loadSchedule(): void {
     this.loading.set(true);
     this.error.set(null);
+    this.clearAnimTimers();
+    this.animating.set(false);
+    this.animStep.set(null);
+    this.pulseDate.set(null);
+    this.revealedDates.set(new Set());
 
     this.gosacService.getPcpSchedule(this.searchQuery).subscribe({
       next: (res) => {
@@ -366,15 +500,73 @@ export class PcpOperacionalComponent implements OnInit {
         if (firstWithDelivery) {
           const [y, m] = firstWithDelivery.split('-').map(Number);
           this.calendarCursor.set(new Date(y, m - 1, 1));
-          if (!this.selectedDate()) {
-            this.selectedDate.set(firstWithDelivery);
-          }
+          this.selectedDate.set(firstWithDelivery);
+        }
+        const firstOrder = res.salesOrders[0];
+        if (firstOrder) {
+          // Pequeno atraso para a UI montar antes da animação do mês.
+          this.queueTimeout(() => this.playOrderAnimation(firstOrder), 400);
         }
       },
       error: (err) => {
         this.loading.set(false);
         this.error.set(err?.error?.message || err?.message || 'Falha ao carregar agenda PCP.');
       },
+    });
+  }
+
+  playOrderAnimation(order: PcpSalesOrderSchedule): void {
+    this.clearAnimTimers();
+    this.focusedOrderId.set(order.ponttaId);
+    this.animating.set(true);
+    this.revealedDates.set(new Set());
+    this.animStep.set(null);
+    this.pulseDate.set(null);
+
+    const steps: AnimStep[] = [];
+    for (const area of AREA_ORDER) {
+      const schedule = order.areas[area];
+      if (!schedule) continue;
+      steps.push({
+        orderCode: order.code,
+        customerName: order.customerName,
+        area,
+        date: schedule.date,
+        environments: schedule.environments,
+      });
+    }
+
+    if (!steps.length) {
+      this.animating.set(false);
+      return;
+    }
+
+    let delay = 0;
+    steps.forEach((step, index) => {
+      this.queueTimeout(() => {
+        this.goToMonthOf(step.date);
+        this.selectedDate.set(step.date);
+        this.animStep.set(step);
+        this.pulseColor.set(AREA_META[step.area].color);
+        this.pulseDate.set(null);
+        // força restart da animação CSS
+        this.queueTimeout(() => this.pulseDate.set(step.date), 20);
+
+        this.revealedDates.update((prev) => {
+          const next = new Set(prev);
+          next.add(step.date);
+          return next;
+        });
+
+        if (index === steps.length - 1) {
+          this.queueTimeout(() => {
+            this.animating.set(false);
+            this.animStep.set(null);
+            this.pulseDate.set(null);
+          }, 1100);
+        }
+      }, delay);
+      delay += 1400;
     });
   }
 
@@ -392,12 +584,34 @@ export class PcpOperacionalComponent implements OnInit {
   }
 
   shiftCalendarMonth(delta: number): void {
+    if (this.animating()) return;
     const current = this.calendarCursor();
     this.calendarCursor.set(new Date(current.getFullYear(), current.getMonth() + delta, 1));
   }
 
   selectDay(date: string): void {
+    if (this.animating()) return;
     this.selectedDate.set(date);
+  }
+
+  cellBackground(cell: { hasDeliveries: boolean; revealed: boolean; date: string }): string {
+    if (this.pulseDate() === cell.date) {
+      return `color-mix(in srgb, ${this.pulseColor()} 28%, var(--cmm-panel))`;
+    }
+    if (cell.revealed || cell.hasDeliveries) {
+      return 'color-mix(in srgb, var(--cmm-accent) 12%, var(--cmm-panel))';
+    }
+    return 'transparent';
+  }
+
+  cellBorder(cell: { selected: boolean; date: string }): string {
+    if (this.pulseDate() === cell.date) {
+      return `2px solid ${this.pulseColor()}`;
+    }
+    if (cell.selected) {
+      return '1px solid var(--cmm-accent)';
+    }
+    return '1px solid transparent';
   }
 
   formatDate(value: string | null | undefined): string {
@@ -405,6 +619,31 @@ export class PcpOperacionalComponent implements OnInit {
     const [y, m, d] = value.slice(0, 10).split('-');
     if (!y || !m || !d) return value;
     return `${d}/${m}/${y}`;
+  }
+
+  weekdayLabel(value: string | null | undefined): string {
+    if (!value) return '';
+    const [y, m, d] = value.slice(0, 10).split('-').map(Number);
+    if (!y || !m || !d) return '';
+    const date = new Date(y, m - 1, d);
+    return date.toLocaleDateString('pt-BR', { weekday: 'short' });
+  }
+
+  private goToMonthOf(isoDate: string): void {
+    const [y, m] = isoDate.split('-').map(Number);
+    if (!y || !m) return;
+    this.calendarCursor.set(new Date(y, m - 1, 1));
+  }
+
+  private queueTimeout(fn: () => void, ms: number): void {
+    this.animTimers.push(setTimeout(fn, ms));
+  }
+
+  private clearAnimTimers(): void {
+    for (const id of this.animTimers) {
+      clearTimeout(id);
+    }
+    this.animTimers = [];
   }
 
   private toIsoDate(date: Date): string {
