@@ -26,43 +26,31 @@ const AREA_ORDER: PcpAreaKey[] = ['molhada', 'intima', 'social'];
         <div>
           <h1 class="page-title">PCP Operacional</h1>
           <p class="page-subtitle">
-            Datas de entrega por área a partir do deliveryDate do pedido (+20 / +25 / +30 dias úteis · Ter / Qui / Sex).
+            Pedidos com data de entrega a partir de hoje. Datas por área: +20 / +25 / +30 dias úteis · Ter / Qui / Sex.
           </p>
         </div>
       </div>
 
       <div class="panel panel-pad space-y-3">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div>
-            <label class="form-label">De</label>
-            <input type="date" [(ngModel)]="fromDate" class="form-input" />
-          </div>
-          <div>
-            <label class="form-label">Até</label>
-            <input type="date" [(ngModel)]="toDate" class="form-input" />
-          </div>
-          <div class="sm:col-span-2">
-            <label class="form-label">Pesquisar (opcional)</label>
-            <div class="flex gap-2">
-              <input
-                type="text"
-                [(ngModel)]="searchQuery"
-                placeholder="Cliente, código ou número do PV..."
-                class="form-input flex-1 min-w-0"
-                style="width: auto;"
-                (keyup.enter)="loadSchedule()"
-              />
-              <button type="button" (click)="loadSchedule()" [disabled]="loading()" class="btn btn-primary">
-                @if (loading()) {
-                  <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                  </svg>
-                }
-                Atualizar
-              </button>
-            </div>
-          </div>
+        <label class="form-label">Pesquisar (opcional)</label>
+        <div class="flex gap-2">
+          <input
+            type="text"
+            [(ngModel)]="searchQuery"
+            placeholder="Cliente, código ou número do PV..."
+            class="form-input flex-1 min-w-0"
+            style="width: auto;"
+            (keyup.enter)="loadSchedule()"
+          />
+          <button type="button" (click)="loadSchedule()" [disabled]="loading()" class="btn btn-primary">
+            @if (loading()) {
+              <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+            }
+            Atualizar
+          </button>
         </div>
         @if (error()) {
           <p class="text-sm" style="color: var(--cmm-danger);">{{ error() }}</p>
@@ -100,8 +88,8 @@ const AREA_ORDER: PcpAreaKey[] = ['molhada', 'intima', 'social'];
               </div>
             } @else if (salesOrders().length === 0) {
               <div class="empty-state">
-                <p>Nenhum pedido com deliveryDate no período.</p>
-                <p class="text-xs mt-1">Ajuste as datas ou use a pesquisa.</p>
+                <p>Nenhum pedido com data de entrega a partir de hoje.</p>
+                <p class="text-xs mt-1">Use a pesquisa ou atualize a lista.</p>
               </div>
             } @else {
               <div class="divide-y" style="border-color: var(--cmm-border);">
@@ -185,23 +173,6 @@ const AREA_ORDER: PcpAreaKey[] = ['molhada', 'intima', 'social'];
               }
             }
           </div>
-
-          @if (withoutDelivery().length > 0) {
-            <div class="panel panel-pad">
-              <p class="text-sm font-semibold mb-2" style="color: var(--cmm-ink);">
-                Sem deliveryDate
-                <span class="font-normal" style="color: var(--cmm-muted);">({{ withoutDelivery().length }})</span>
-              </p>
-              <ul class="space-y-1">
-                @for (order of withoutDelivery(); track order.ponttaId) {
-                  <li class="text-xs flex gap-2" style="color: var(--cmm-muted);">
-                    <span class="font-mono font-semibold">{{ order.code }}</span>
-                    <span>{{ order.customerName }}</span>
-                  </li>
-                }
-              </ul>
-            </div>
-          }
         </div>
 
         <div class="xl:col-span-2 space-y-4">
@@ -276,8 +247,6 @@ export class PcpOperacionalComponent implements OnInit {
   readonly areaOrder = AREA_ORDER;
   readonly weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-  fromDate = '';
-  toDate = '';
   searchQuery = '';
 
   loading = signal(false);
@@ -289,7 +258,6 @@ export class PcpOperacionalComponent implements OnInit {
   pageSize = signal(5);
 
   salesOrders = computed(() => this.schedule()?.salesOrders ?? []);
-  withoutDelivery = computed(() => this.schedule()?.withoutDeliveryDate ?? []);
 
   totalPages = computed(() => {
     const total = this.salesOrders().length;
@@ -381,21 +349,15 @@ export class PcpOperacionalComponent implements OnInit {
 
   ngOnInit(): void {
     const now = new Date();
-    this.fromDate = this.toIsoDate(new Date(now.getFullYear(), now.getMonth(), 1));
-    this.toDate = this.toIsoDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
     this.calendarCursor.set(new Date(now.getFullYear(), now.getMonth(), 1));
     this.loadSchedule();
   }
 
   loadSchedule(): void {
-    if (!this.fromDate || !this.toDate) {
-      this.error.set('Informe o período (De / Até).');
-      return;
-    }
     this.loading.set(true);
     this.error.set(null);
 
-    this.gosacService.getPcpSchedule(this.fromDate, this.toDate, this.searchQuery).subscribe({
+    this.gosacService.getPcpSchedule(this.searchQuery).subscribe({
       next: (res) => {
         this.schedule.set(res);
         this.currentPage.set(0);

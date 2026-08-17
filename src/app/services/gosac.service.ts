@@ -85,10 +85,8 @@ export interface PcpCalendarDay {
 }
 
 export interface PcpScheduleResponse {
-    from: string;
-    to: string;
+    asOf: string;
     salesOrders: PcpSalesOrderSchedule[];
-    withoutDeliveryDate: PcpSalesOrderSchedule[];
     calendar: PcpCalendarDay[];
 }
 
@@ -201,8 +199,8 @@ export class GosacService {
         return this.http.get<any[]>(`${this.apiUrl}/sales-orders/${salesOrderId}/items`);
     }
 
-    getPcpSchedule(from: string, to: string, query?: string): Observable<PcpScheduleResponse> {
-        const params: Record<string, string> = { from, to };
+    getPcpSchedule(query?: string): Observable<PcpScheduleResponse> {
+        const params: Record<string, string> = {};
         if (query && query.trim().length > 0) {
             params['q'] = query.trim();
         }
