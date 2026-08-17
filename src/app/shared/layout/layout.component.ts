@@ -25,6 +25,7 @@ const TITLE_MAP: Record<string, string> = {
   '/gosac-pontta/rodizio': 'Rodízio GOSAC',
   '/gosac-pontta/rodizio-pontta': 'Rodízio Pontta',
   '/gosac-pontta/pagamento-montador': 'Pagamento Montador',
+  '/gosac-pontta/pcp-operacional': 'PCP Operacional',
   '/gosac-pontta/webhooks': 'Webhooks',
 };
 
@@ -320,6 +321,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
         { label: 'Rodízio GOSAC', route: '/gosac-pontta/rodizio' },
         { label: 'Rodízio Pontta', route: '/gosac-pontta/rodizio-pontta' },
         { label: 'Pagamento Montador', route: '/gosac-pontta/pagamento-montador' },
+        { label: 'PCP Operacional', route: '/gosac-pontta/pcp-operacional' },
       ],
     },
     {

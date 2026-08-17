@@ -22,6 +22,7 @@ const ROUTE_BY_TAB: Record<string, string> = {
   'gosac-pontta/rodizio': '/gosac-pontta/rodizio',
   'gosac-pontta/rodizio-pontta': '/gosac-pontta/rodizio-pontta',
   'gosac-pontta/pagamento-montador': '/gosac-pontta/pagamento-montador',
+  'gosac-pontta/pcp-operacional': '/gosac-pontta/pcp-operacional',
   usuarios: '/usuarios',
   configuracoes: '/configuracoes',
 };
@@ -63,6 +64,7 @@ export class AccessService {
               'gosac-pontta/rodizio',
               'gosac-pontta/rodizio-pontta',
               'gosac-pontta/pagamento-montador',
+              'gosac-pontta/pcp-operacional',
               'usuarios',
               'configuracoes',
             ],

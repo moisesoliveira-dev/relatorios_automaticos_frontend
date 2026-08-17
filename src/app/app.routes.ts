@@ -105,6 +105,12 @@ export const routes: Routes = [
                         loadComponent: () => import('./features/gosac-pontta/pagamento-montador/pagamento-montador.component').then(m => m.PagamentoMontadorComponent)
                     },
                     {
+                        path: 'pcp-operacional',
+                        canActivate: [tabGuard],
+                        data: { tabs: ['gosac-pontta/pcp-operacional'] },
+                        loadComponent: () => import('./features/gosac-pontta/pcp-operacional/pcp-operacional.component').then(m => m.PcpOperacionalComponent)
+                    },
+                    {
                         path: 'webhooks',
                         canActivate: [tabGuard],
                         data: { tabs: ['gosac-pontta'] },

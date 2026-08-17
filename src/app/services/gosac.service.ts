@@ -51,7 +51,45 @@ export interface SalesOrderSearchResult {
     customerName: string;
     value?: number;
     saleDate?: string;
+    deliveryDate?: string | null;
     status?: string;
+}
+
+export type PcpAreaKey = 'molhada' | 'intima' | 'social';
+
+export interface PcpAreaSchedule {
+    date: string;
+    environments: string[];
+    conflictAdjusted: boolean;
+}
+
+export interface PcpSalesOrderSchedule {
+    ponttaId: string;
+    code: string;
+    customerName: string;
+    deliveryDate: string | null;
+    areas: Partial<Record<PcpAreaKey, PcpAreaSchedule>>;
+    unclassified: string[];
+}
+
+export interface PcpCalendarEntry {
+    salesOrderCode: string;
+    customerName: string;
+    area: PcpAreaKey;
+    environments: string[];
+}
+
+export interface PcpCalendarDay {
+    date: string;
+    entries: PcpCalendarEntry[];
+}
+
+export interface PcpScheduleResponse {
+    from: string;
+    to: string;
+    salesOrders: PcpSalesOrderSchedule[];
+    withoutDeliveryDate: PcpSalesOrderSchedule[];
+    calendar: PcpCalendarDay[];
 }
 
 export interface PonttaProposal {
@@ -161,6 +199,14 @@ export class GosacService {
 
     getSalesOrderItems(salesOrderId: string): Observable<any[]> {
         return this.http.get<any[]>(`${this.apiUrl}/sales-orders/${salesOrderId}/items`);
+    }
+
+    getPcpSchedule(from: string, to: string, query?: string): Observable<PcpScheduleResponse> {
+        const params: Record<string, string> = { from, to };
+        if (query && query.trim().length > 0) {
+            params['q'] = query.trim();
+        }
+        return this.http.get<PcpScheduleResponse>(`${this.apiUrl}/pcp/schedule`, { params });
     }
 
     generateMontadorPdf(data: {
