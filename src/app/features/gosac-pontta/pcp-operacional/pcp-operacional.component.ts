@@ -86,6 +86,9 @@ interface AnimStep {
             Atualizar
           </button>
         </div>
+        @if (enriching()) {
+          <p class="text-xs" style="color: var(--cmm-muted);">Carregando ambientes dos pedidos em segundo plano...</p>
+        }
         @if (error()) {
           <p class="text-sm" style="color: var(--cmm-danger);">{{ error() }}</p>
         }
@@ -360,6 +363,7 @@ export class PcpOperacionalComponent implements OnInit, OnDestroy {
   searchQuery = '';
 
   loading = signal(false);
+  enriching = signal(false);
   error = signal<string | null>(null);
   schedule = signal<PcpScheduleResponse | null>(null);
   calendarCursor = signal(new Date());
@@ -484,6 +488,7 @@ export class PcpOperacionalComponent implements OnInit, OnDestroy {
 
   loadSchedule(): void {
     this.loading.set(true);
+    this.enriching.set(false);
     this.error.set(null);
     this.clearAnimTimers();
     this.animating.set(false);
@@ -491,7 +496,8 @@ export class PcpOperacionalComponent implements OnInit, OnDestroy {
     this.pulseDate.set(null);
     this.revealedDates.set(new Set());
 
-    this.gosacService.getPcpSchedule(this.searchQuery).subscribe({
+    // 1) Carga rápida: datas sem round-trip de ambientes
+    this.gosacService.getPcpSchedule(this.searchQuery, true).subscribe({
       next: (res) => {
         this.schedule.set(res);
         this.currentPage.set(0);
@@ -504,12 +510,31 @@ export class PcpOperacionalComponent implements OnInit, OnDestroy {
         }
         const firstOrder = res.salesOrders[0];
         if (firstOrder) {
-          // Pequeno atraso para a UI montar antes da animação do mês.
           this.queueTimeout(() => this.playOrderAnimation(firstOrder), 400);
         }
+
+        // 2) Enriquecimento em segundo plano: ambientes + áreas reais
+        this.enriching.set(true);
+        this.gosacService.getPcpSchedule(this.searchQuery, false).subscribe({
+          next: (full) => {
+            const focusedId = this.focusedOrderId();
+            this.schedule.set(full);
+            this.enriching.set(false);
+            if (focusedId) {
+              const still = full.salesOrders.find((o) => o.ponttaId === focusedId);
+              if (still) this.focusedOrderId.set(still.ponttaId);
+            }
+          },
+          error: (err) => {
+            this.enriching.set(false);
+            // Mantém a agenda leve já exibida; só avisa.
+            console.warn('[PCP] Falha ao enriquecer ambientes', err);
+          },
+        });
       },
       error: (err) => {
         this.loading.set(false);
+        this.enriching.set(false);
         this.error.set(err?.error?.message || err?.message || 'Falha ao carregar agenda PCP.');
       },
     });

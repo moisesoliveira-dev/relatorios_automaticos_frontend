@@ -88,6 +88,7 @@ export interface PcpScheduleResponse {
     asOf: string;
     salesOrders: PcpSalesOrderSchedule[];
     calendar: PcpCalendarDay[];
+    environmentsPending?: boolean;
 }
 
 export interface PonttaProposal {
@@ -199,10 +200,13 @@ export class GosacService {
         return this.http.get<any[]>(`${this.apiUrl}/sales-orders/${salesOrderId}/items`);
     }
 
-    getPcpSchedule(query?: string): Observable<PcpScheduleResponse> {
+    getPcpSchedule(query?: string, light = false): Observable<PcpScheduleResponse> {
         const params: Record<string, string> = {};
         if (query && query.trim().length > 0) {
             params['q'] = query.trim();
+        }
+        if (light) {
+            params['light'] = '1';
         }
         return this.http.get<PcpScheduleResponse>(`${this.apiUrl}/pcp/schedule`, { params });
     }
