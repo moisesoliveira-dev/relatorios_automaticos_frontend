@@ -28,7 +28,7 @@ import { PcpAreaKey } from '../models/pcp.models';
             </div>
 
             <p class="text-xs" style="color: var(--cmm-muted);">
-              Escolha a área PCP. A classificação será salva e aplicada automaticamente em todos os pedidos.
+              Escolha a área PCP. A classificação será salva e aplicada automaticamente em todos os pedidos, sem recarregar a agenda.
             </p>
 
             <div class="grid grid-cols-1 gap-2">

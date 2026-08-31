@@ -14,6 +14,7 @@ import {
   buildAreaMeta,
 } from '../models/pcp.models';
 import { toIsoDate } from '../utils/pcp-date.utils';
+import { applyEnvironmentOverrideToSchedule } from '../utils/pcp-schedule-local.utils';
 
 /**
  * Facade: única porta de entrada para a feature PCP Operacional.
@@ -203,10 +204,15 @@ export class PcpOperacionalFacade {
     this.classifyError.set(null);
     this.api.saveEnvironmentOverride({ name: target.environmentName, area }).subscribe({
       next: () => {
+        const current = this.schedule();
+        if (current) {
+          this.schedule.set(
+            applyEnvironmentOverrideToSchedule(current, target.environmentName, area, this.areaConfig()),
+          );
+        }
         this.classifySaving.set(false);
         this.classifyModalOpen.set(false);
         this.classifyTarget.set(null);
-        this.loadSchedule();
       },
       error: (err) => {
         this.classifySaving.set(false);
