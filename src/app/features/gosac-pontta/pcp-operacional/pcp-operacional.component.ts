@@ -1,10 +1,11 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { PcpApiService } from './data/pcp-api.service';
 import { PcpOperacionalFacade } from './facade/pcp-operacional.facade';
 import { PcpSearchPanelComponent } from './components/pcp-search-panel.component';
 import { PcpOrdersTableComponent } from './components/pcp-orders-table.component';
 import { PcpCalendarPanelComponent } from './components/pcp-calendar-panel.component';
 import { PcpDayDetailComponent } from './components/pcp-day-detail.component';
+import { PcpAreaConfigPanelComponent } from './components/pcp-area-config-panel.component';
 
 /** Shell da feature — compõe subcomponentes e fornece a Facade no escopo da página. */
 @Component({
@@ -15,6 +16,7 @@ import { PcpDayDetailComponent } from './components/pcp-day-detail.component';
     PcpOrdersTableComponent,
     PcpCalendarPanelComponent,
     PcpDayDetailComponent,
+    PcpAreaConfigPanelComponent,
   ],
   providers: [PcpApiService, PcpOperacionalFacade],
   template: `
@@ -22,11 +24,16 @@ import { PcpDayDetailComponent } from './components/pcp-day-detail.component';
       <div class="page-header">
         <div>
           <h1 class="page-title">PCP Operacional</h1>
-          <p class="page-subtitle">
-            Pedidos com data de entrega a partir de hoje. Datas por área: +20 / +25 / +30 dias úteis · Ter / Qui / Sex.
-          </p>
+          <p class="page-subtitle">{{ facade.scheduleSubtitle() }}</p>
         </div>
+        <button type="button" class="btn btn-secondary btn-sm" (click)="facade.toggleConfigPanel()">
+          Configurar áreas
+        </button>
       </div>
+
+      @if (facade.configPanelOpen()) {
+        <app-pcp-area-config-panel />
+      }
 
       <app-pcp-search-panel />
 
@@ -43,7 +50,7 @@ import { PcpDayDetailComponent } from './components/pcp-day-detail.component';
   `,
 })
 export class PcpOperacionalComponent implements OnInit, OnDestroy {
-  constructor(private readonly facade: PcpOperacionalFacade) {}
+  readonly facade = inject(PcpOperacionalFacade);
 
   ngOnInit(): void {
     this.facade.init();

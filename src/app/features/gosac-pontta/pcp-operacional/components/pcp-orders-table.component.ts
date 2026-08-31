@@ -55,16 +55,16 @@ import { formatPcpDate, weekdayLabel } from '../utils/pcp-date.utils';
                   <p class="font-medium truncate" style="color: var(--cmm-ink);">{{ order.customerName }}</p>
                 </div>
                 <div class="text-right text-xs" style="color: var(--cmm-muted);">
-                  <span>Base (deliveryDate)</span>
-                  <p class="font-medium" style="color: var(--cmm-ink);">{{ formatDate(order.deliveryDate) }}</p>
+                  <span>{{ facade.areaConfig().baseDateLabel }}</span>
+                  <p class="font-medium" style="color: var(--cmm-ink);">{{ formatDate(order.approvalDate) }}</p>
                 </div>
               </div>
 
               <div class="flex flex-wrap gap-2">
-                @for (area of facade.areaOrder; track area) {
+                @for (area of facade.areaOrder(); track area) {
                   @if (order.areas[area]; as schedule) {
                     <div class="rounded-md px-2.5 py-1.5 text-xs" style="border: 1px solid var(--cmm-border); background: var(--cmm-surface);">
-                      <span class="font-semibold" [style.color]="facade.areaMeta[area].color">{{ facade.areaMeta[area].short }}</span>
+                      <span class="font-semibold" [style.color]="facade.areaMeta()[area].color">{{ facade.areaMeta()[area].short }}</span>
                       <span class="mx-1" style="color: var(--cmm-muted);">·</span>
                       <span class="font-semibold" style="color: var(--cmm-ink);">{{ formatDate(schedule.date) }}</span>
                       <span class="ml-1" style="color: var(--cmm-muted);">({{ weekday(schedule.date) }})</span>
@@ -77,22 +77,22 @@ import { formatPcpDate, weekdayLabel } from '../utils/pcp-date.utils';
               </div>
 
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                @for (area of facade.areaOrder; track area) {
+                @for (area of facade.areaOrder(); track area) {
                   @if (order.areas[area]; as schedule) {
                     <div
                       class="rounded-lg px-3 py-2"
                       style="background: var(--cmm-surface); border: 1px solid var(--cmm-border);"
-                      [style.border-left]="'3px solid ' + facade.areaMeta[area].color"
+                      [style.border-left]="'3px solid ' + facade.areaMeta()[area].color"
                     >
                       <div class="flex items-center justify-between gap-1 mb-1">
-                        <span class="text-xs font-semibold" style="color: var(--cmm-ink);">{{ facade.areaMeta[area].label }}</span>
+                        <span class="text-xs font-semibold" style="color: var(--cmm-ink);">{{ facade.areaMeta()[area].label }}</span>
                         @if (schedule.conflictAdjusted) {
                           <span class="badge badge-warning text-[10px]">Conflito</span>
                         }
                       </div>
-                      <p class="text-sm font-semibold" [style.color]="facade.areaMeta[area].color">{{ formatDate(schedule.date) }}</p>
+                      <p class="text-sm font-semibold" [style.color]="facade.areaMeta()[area].color">{{ formatDate(schedule.date) }}</p>
                       <p class="text-[10px] mt-0.5" style="color: var(--cmm-muted);">
-                        {{ weekday(schedule.date) }} · {{ facade.areaMeta[area].offset }}
+                        {{ weekday(schedule.date) }} · {{ facade.areaMeta()[area].offset }}
                       </p>
                       <ul class="mt-2 space-y-0.5">
                         @for (env of schedule.environments; track env) {
@@ -102,7 +102,7 @@ import { formatPcpDate, weekdayLabel } from '../utils/pcp-date.utils';
                     </div>
                   } @else {
                     <div class="rounded-lg px-3 py-2 opacity-50" style="background: var(--cmm-surface); border: 1px dashed var(--cmm-border);">
-                      <span class="text-xs font-semibold" style="color: var(--cmm-muted);">{{ facade.areaMeta[area].label }}</span>
+                      <span class="text-xs font-semibold" style="color: var(--cmm-muted);">{{ facade.areaMeta()[area].label }}</span>
                       <p class="text-xs mt-1" style="color: var(--cmm-muted);">Sem ambientes</p>
                     </div>
                   }

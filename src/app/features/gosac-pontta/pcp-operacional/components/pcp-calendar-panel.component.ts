@@ -37,11 +37,11 @@ import { formatPcpDate } from '../utils/pcp-date.utils';
         <div
           class="pcp-step-card rounded-lg px-3 py-2"
           style="background: var(--cmm-surface); border: 1px solid var(--cmm-border);"
-          [style.border-left]="'3px solid ' + facade.areaMeta[step.area].color"
+          [style.border-left]="'3px solid ' + facade.areaMeta()[step.area].color"
         >
           <p class="text-[10px] uppercase tracking-wide" style="color: var(--cmm-muted);">Colocando no mês</p>
-          <p class="text-sm font-semibold mt-0.5" [style.color]="facade.areaMeta[step.area].color">
-            {{ facade.areaMeta[step.area].label }} → {{ formatDate(step.date) }}
+          <p class="text-sm font-semibold mt-0.5" [style.color]="facade.areaMeta()[step.area].color">
+            {{ facade.areaMeta()[step.area].label }} → {{ formatDate(step.date) }}
           </p>
           <p class="text-xs mt-0.5" style="color: var(--cmm-muted);">{{ step.orderCode }} · {{ step.customerName }}</p>
         </div>
@@ -68,7 +68,7 @@ import { formatPcpDate } from '../utils/pcp-date.utils';
             @if (cell.areas.length > 0) {
               <span class="flex items-center justify-center gap-0.5 mt-0.5">
                 @for (area of cell.areas; track area) {
-                  <span class="pcp-area-dot" [style.background]="facade.areaMeta[area].color"></span>
+                  <span class="pcp-area-dot" [style.background]="facade.areaMeta()[area].color"></span>
                 }
               </span>
             }
@@ -77,10 +77,10 @@ import { formatPcpDate } from '../utils/pcp-date.utils';
       </div>
 
       <div class="flex flex-wrap gap-3 text-[10px]" style="color: var(--cmm-muted);">
-        @for (area of facade.areaOrder; track area) {
+        @for (area of facade.areaOrder(); track area) {
           <span class="inline-flex items-center gap-1">
-            <span class="pcp-area-dot" [style.background]="facade.areaMeta[area].color"></span>
-            {{ facade.areaMeta[area].short }}
+            <span class="pcp-area-dot" [style.background]="facade.areaMeta()[area].color"></span>
+            {{ facade.areaMeta()[area].short }}
           </span>
         }
         <span>Entregas: Ter / Qui / Sex</span>

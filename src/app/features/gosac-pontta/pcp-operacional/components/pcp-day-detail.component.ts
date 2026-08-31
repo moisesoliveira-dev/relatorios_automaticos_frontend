@@ -23,12 +23,12 @@ import { formatPcpDate } from '../utils/pcp-date.utils';
             <li
               class="rounded-lg px-3 py-2"
               style="background: var(--cmm-surface); border: 1px solid var(--cmm-border);"
-              [style.border-left]="'3px solid ' + facade.areaMeta[entry.area].color"
+              [style.border-left]="'3px solid ' + facade.areaMeta()[entry.area].color"
             >
               <div class="flex items-center justify-between gap-2">
                 <span class="font-mono text-xs font-semibold">{{ entry.salesOrderCode }}</span>
-                <span class="text-[10px] font-semibold" [style.color]="facade.areaMeta[entry.area].color">
-                  {{ facade.areaMeta[entry.area].label }}
+                <span class="text-[10px] font-semibold" [style.color]="facade.areaMeta()[entry.area].color">
+                  {{ facade.areaMeta()[entry.area].label }}
                 </span>
               </div>
               <p class="text-xs mt-0.5" style="color: var(--cmm-muted);">{{ entry.customerName }}</p>

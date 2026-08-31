@@ -1,13 +1,16 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { PcpApiService } from '../data/pcp-api.service';
-import { PCP_AREA_META, PCP_AREA_ORDER } from '../models/pcp.constants';
 import {
+  DEFAULT_PCP_AREA_CONFIG,
   PcpAnimStep,
+  PcpAreaConfig,
   PcpAreaKey,
   PcpCalendarCell,
   PcpCalendarDay,
   PcpSalesOrderSchedule,
   PcpScheduleResponse,
+  areaOrderFromConfig,
+  buildAreaMeta,
 } from '../models/pcp.models';
 import { toIsoDate } from '../utils/pcp-date.utils';
 
@@ -19,8 +22,12 @@ import { toIsoDate } from '../utils/pcp-date.utils';
 export class PcpOperacionalFacade {
   private readonly api = inject(PcpApiService);
 
-  readonly areaMeta = PCP_AREA_META;
-  readonly areaOrder = PCP_AREA_ORDER;
+  readonly areaConfig = signal<PcpAreaConfig>(DEFAULT_PCP_AREA_CONFIG);
+  readonly areaMeta = computed(() => buildAreaMeta(this.areaConfig()));
+  readonly areaOrder = computed(() => areaOrderFromConfig(this.areaConfig()));
+  readonly configSaving = signal(false);
+  readonly configError = signal<string | null>(null);
+  readonly configPanelOpen = signal(false);
 
   searchQuery = '';
 
@@ -43,6 +50,11 @@ export class PcpOperacionalFacade {
   private animTimers: ReturnType<typeof setTimeout>[] = [];
 
   readonly salesOrders = computed(() => this.schedule()?.salesOrders ?? []);
+
+  readonly scheduleSubtitle = computed(() => {
+    const offsets = this.areaConfig().areas.map((a) => `+${a.businessDays}`).join(' / ');
+    return `Base: ${this.areaConfig().baseDateLabel}. Datas por área: ${offsets} dias úteis · Ter / Qui / Sex.`;
+  });
 
   readonly totalPages = computed(() => {
     const total = this.salesOrders().length;
@@ -124,11 +136,41 @@ export class PcpOperacionalFacade {
   init(): void {
     const now = new Date();
     this.calendarCursor.set(new Date(now.getFullYear(), now.getMonth(), 1));
+    this.loadConfig();
     this.loadSchedule();
   }
 
   destroy(): void {
     this.clearAnimTimers();
+  }
+
+  loadConfig(): void {
+    this.api.getConfig().subscribe({
+      next: (config) => this.areaConfig.set(config),
+      error: (err) => console.warn('[PCP] Falha ao carregar config', err),
+    });
+  }
+
+  toggleConfigPanel(): void {
+    this.configPanelOpen.update((open) => !open);
+    this.configError.set(null);
+  }
+
+  saveAreaConfig(config: PcpAreaConfig): void {
+    this.configSaving.set(true);
+    this.configError.set(null);
+    this.api.updateConfig(config).subscribe({
+      next: (saved) => {
+        this.areaConfig.set(saved);
+        this.configSaving.set(false);
+        this.configPanelOpen.set(false);
+        this.loadSchedule();
+      },
+      error: (err) => {
+        this.configSaving.set(false);
+        this.configError.set(err?.error?.message || err?.message || 'Falha ao salvar configuração.');
+      },
+    });
   }
 
   loadSchedule(): void {
@@ -144,6 +186,7 @@ export class PcpOperacionalFacade {
     this.api.getSchedule(this.searchQuery, true).subscribe({
       next: (res) => {
         this.schedule.set(res);
+        if (res.areaConfig) this.areaConfig.set(res.areaConfig);
         this.currentPage.set(0);
         this.loading.set(false);
         const firstWithDelivery = res.calendar[0]?.date;
@@ -162,6 +205,7 @@ export class PcpOperacionalFacade {
           next: (full) => {
             const focusedId = this.focusedOrderId();
             this.schedule.set(full);
+            if (full.areaConfig) this.areaConfig.set(full.areaConfig);
             this.enriching.set(false);
             if (focusedId) {
               const still = full.salesOrders.find((o) => o.ponttaId === focusedId);
@@ -190,8 +234,9 @@ export class PcpOperacionalFacade {
     this.animStep.set(null);
     this.pulseDate.set(null);
 
+    const meta = this.areaMeta();
     const steps: PcpAnimStep[] = [];
-    for (const area of PCP_AREA_ORDER) {
+    for (const area of this.areaOrder()) {
       const schedule = order.areas[area];
       if (!schedule) continue;
       steps.push({
@@ -214,7 +259,7 @@ export class PcpOperacionalFacade {
         this.goToMonthOf(step.date);
         this.selectedDate.set(step.date);
         this.animStep.set(step);
-        this.pulseColor.set(PCP_AREA_META[step.area].color);
+        this.pulseColor.set(meta[step.area].color);
         this.pulseDate.set(null);
         this.queueTimeout(() => this.pulseDate.set(step.date), 20);
 
