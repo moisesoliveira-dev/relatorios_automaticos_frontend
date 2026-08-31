@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
+type JobTab = 'controle' | 'horarios' | 'pedidos' | 'atividade';
+
 interface CodeJobRunTime {
   hour: number;
   minute: number;
@@ -50,298 +52,498 @@ interface ProcessedOrdersResponse {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="space-y-6">
+    <div class="space-y-5">
       <div class="page-header">
         <div>
-          <h1 class="page-title">Jobs do Sistema</h1>
-          <p class="page-subtitle">Controle de execução, horários e pedidos já processados.</p>
+          <h1 class="page-title">Automações</h1>
+          <p class="page-subtitle">Ligue, agende e acompanhe as rotinas do sistema.</p>
         </div>
-        <button type="button" (click)="refreshNow()" class="btn btn-primary">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-          </svg>
+        <button type="button" (click)="refreshNow()" class="btn btn-secondary" [disabled]="loading()">
           Atualizar
         </button>
       </div>
 
-      <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div class="xl:col-span-2 panel">
-          @if (loading()) {
-            <div class="flex items-center justify-center py-16">
-              <div
-                class="animate-spin w-6 h-6 rounded-full border-2"
-                style="border-color: var(--cmm-border); border-top-color: var(--cmm-accent);"
-              ></div>
-            </div>
-          } @else if (jobs().length === 0) {
-            <div class="empty-state">
-              <p class="font-medium" style="color: var(--cmm-ink);">Nenhum job de código disponível</p>
-            </div>
-          } @else {
-            <div style="border-color: var(--cmm-border);" class="divide-y">
-              @for (job of jobs(); track job.id) {
-                <div
-                  class="job-row p-5 cursor-pointer transition-colors"
-                  [class.job-row-selected]="selectedJobId() === job.id"
-                  (click)="selectJob(job.id)"
-                >
-                  <div class="flex items-start justify-between gap-4">
-                    <div class="min-w-0 flex-1">
-                      <div class="flex items-center gap-2 mb-1 flex-wrap">
-                        <h3 class="text-sm font-semibold truncate" style="color: var(--cmm-ink);">{{ job.name }}</h3>
-                        <span
-                          class="badge"
-                          [class.badge-success]="job.isActive"
-                          [class.badge-neutral]="!job.isActive"
-                        >{{ job.isActive ? 'Ativo' : 'Parado' }}</span>
-                        <span
-                          class="badge"
-                          [class.badge-accent]="job.isRunning"
-                          [class.badge-neutral]="!job.isRunning"
-                        >{{ job.isRunning ? 'Executando' : 'Idle' }}</span>
-                      </div>
-
-                      <p class="text-xs" style="color: var(--cmm-muted);">{{ job.description }}</p>
-                      <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" style="color: var(--cmm-muted);">
-                        <span>Agenda: {{ job.scheduleLabel }}</span>
-                        <span>Próx: {{ formatDate(job.nextRunAt) }}</span>
-                        <span>Último: {{ formatDate(job.lastRunAt) }}</span>
-                        <span>Status: {{ formatStatus(job.lastStatus) }}</span>
-                      </div>
-                      @if (job.lastSummary) {
-                        <p class="mt-2 text-xs" style="color: var(--cmm-ink);">Resumo: {{ job.lastSummary }}</p>
-                      }
-
-                      @if (job.scheduleEditable && selectedJobId() === job.id) {
-                        <div class="mt-3 p-3 rounded-lg" style="background: color-mix(in srgb, var(--cmm-surface) 70%, var(--cmm-panel)); border: 1px solid var(--cmm-border);" (click)="$event.stopPropagation()">
-                          <div class="flex items-center justify-between gap-2 mb-2">
-                            <p class="text-xs font-semibold" style="color: var(--cmm-ink);">Horários (Manaus)</p>
-                            <button type="button" class="btn btn-sm btn-secondary" (click)="addScheduleTime(job)" [disabled]="job.isRunning">+ Horário</button>
-                          </div>
-                          <div class="flex flex-wrap gap-2 mb-2">
-                            @for (time of scheduleDraft(); track $index) {
-                              <div class="flex items-center gap-1">
-                                <input
-                                  type="time"
-                                  class="form-input"
-                                  style="min-height: 2rem; width: auto; font-size: 0.75rem; padding: 0.25rem 0.5rem;"
-                                  [value]="toTimeInput(time)"
-                                  [disabled]="job.isRunning || savingSchedule()"
-                                  (change)="onScheduleTimeChange($index, $event)"
-                                />
-                                <button
-                                  type="button"
-                                  class="btn btn-sm btn-danger"
-                                  title="Remover horário"
-                                  [disabled]="job.isRunning || scheduleDraft().length <= 1 || savingSchedule()"
-                                  (click)="removeScheduleTime($index)"
-                                >×</button>
-                              </div>
-                            }
-                          </div>
-                          <button
-                            type="button"
-                            class="btn btn-sm btn-accent"
-                            [disabled]="job.isRunning || savingSchedule() || !scheduleDirty()"
-                            (click)="saveSchedule(job)"
-                          >
-                            {{ savingSchedule() ? 'Salvando...' : 'Salvar horários' }}
-                          </button>
-                        </div>
-                      }
-                    </div>
-
-                    <div class="flex flex-col gap-2 flex-shrink-0" (click)="$event.stopPropagation()">
-                      @if (job.id === 'delivery-material-dates') {
-                        <div class="flex items-center gap-2">
-                          <label class="text-[11px] whitespace-nowrap" style="color: var(--cmm-muted);">Data PV</label>
-                          <input
-                            type="date"
-                            class="form-input"
-                            style="min-height: 2rem; width: auto; font-size: 0.75rem; padding: 0.25rem 0.5rem;"
-                            [value]="salesOrderDate()"
-                            [disabled]="job.isRunning"
-                            (input)="onSalesOrderDateChange($event)"
-                          />
-                        </div>
-                      }
-
-                      <div class="flex gap-2 justify-end">
-                        <button
-                          type="button"
-                          (click)="toggleJob(job)"
-                          class="btn btn-sm"
-                          [class.btn-secondary]="job.isActive"
-                          [class.btn-accent]="!job.isActive"
-                          [disabled]="job.isRunning"
-                        >
-                          {{ job.isActive ? 'Parar' : 'Iniciar' }}
-                        </button>
-
-                        <button
-                          type="button"
-                          (click)="runNow(job, job.id === 'delivery-material-dates' ? salesOrderDate() : undefined)"
-                          class="btn btn-sm btn-secondary"
-                          [disabled]="job.isRunning || (job.id === 'delivery-material-dates' && !salesOrderDate())"
-                        >
-                          Executar agora
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              }
-            </div>
+      @if (loading() && jobs().length === 0) {
+        <div class="panel panel-pad flex items-center justify-center py-16">
+          <div class="animate-spin w-6 h-6 rounded-full border-2" style="border-color: var(--cmm-border); border-top-color: var(--cmm-accent);"></div>
+        </div>
+      } @else if (jobs().length === 0) {
+        <div class="panel panel-pad empty-state">Nenhuma automação disponível.</div>
+      } @else {
+        <!-- Seletor de automação -->
+        <div class="flex flex-wrap gap-2" role="tablist" aria-label="Automações">
+          @for (job of jobs(); track job.id) {
+            <button
+              type="button"
+              role="tab"
+              class="job-chip"
+              [class.job-chip-active]="selectedJobId() === job.id"
+              [attr.aria-selected]="selectedJobId() === job.id"
+              (click)="selectJob(job.id)"
+            >
+              <span class="job-chip-dot" [style.background]="statusDot(job)"></span>
+              <span class="min-w-0">
+                <span class="block text-sm font-semibold truncate" style="color: inherit;">{{ shortName(job) }}</span>
+                <span class="block text-[11px] mt-0.5" style="color: var(--cmm-muted);">{{ statusLabel(job) }}</span>
+              </span>
+            </button>
           }
         </div>
 
-        <div class="panel flex flex-col min-h-[20rem] max-h-[min(70vh,40rem)]">
-          <div
-            class="px-4 py-3 flex items-center justify-between gap-2 flex-shrink-0 rounded-t-[0.75rem]"
-            style="border-bottom: 1px solid var(--cmm-border); background: color-mix(in srgb, var(--cmm-surface) 70%, var(--cmm-panel));"
-          >
-            <div class="min-w-0">
-              <h3 class="text-sm font-semibold" style="color: var(--cmm-ink);">Logs do Job</h3>
-              @if (selectedJob()) {
-                <p class="text-xs mt-0.5 truncate" style="color: var(--cmm-muted);">{{ selectedJob()!.name }}</p>
-              }
-            </div>
-            <div class="flex items-center gap-2 flex-shrink-0">
-              @if (selectedJobLogs().length > 0) {
-                <button type="button" (click)="clearLogs()" class="btn btn-sm btn-danger">Limpar</button>
-              }
-              <button type="button" (click)="scrollLogsToBottom()" class="btn btn-sm btn-secondary">Final</button>
-            </div>
-          </div>
-
-          @if (!selectedJob()) {
-            <div class="empty-state flex-1 flex items-center justify-center">Selecione um job para visualizar os logs.</div>
-          } @else if (loadingLogs()) {
-            <div class="flex-1 flex items-center justify-center">
-              <div class="animate-spin w-5 h-5 rounded-full border-2" style="border-color: var(--cmm-border); border-top-color: var(--cmm-accent);"></div>
-            </div>
-          } @else if (selectedJobLogs().length === 0) {
-            <div class="empty-state flex-1 flex items-center justify-center">Nenhum log disponível.</div>
-          } @else {
-            <div #logsContainer class="flex-1 overflow-y-auto px-3 py-3 space-y-1.5 font-mono text-[11px] min-h-0">
-              @for (log of selectedJobLogs(); track $index) {
-                <div class="job-log-card rounded px-2.5 py-1.5 border-l-2"
-                  [style.border-left-color]="logBorderColor(log.level)"
-                  [style.background]="logBackground(log.level)"
-                >
-                  <div class="flex items-baseline gap-2 flex-wrap">
-                    <span class="text-[10px] whitespace-nowrap" style="color: var(--cmm-muted);">{{ formatDate(log.timestamp) }}</span>
-                    <span class="font-bold uppercase tracking-wider text-[10px] w-14" [style.color]="logLevelColor(log.level)">{{ log.level }}</span>
-                    <span class="break-words min-w-0" style="color: var(--cmm-ink);">{{ log.message }}</span>
+        @if (selectedJob(); as job) {
+          <div class="panel overflow-hidden">
+            <!-- Cabeçalho do job -->
+            <div class="panel-pad" style="border-bottom: 1px solid var(--cmm-border);">
+              <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                <div class="min-w-0">
+                  <h2 class="text-base font-semibold" style="color: var(--cmm-ink);">{{ job.name }}</h2>
+                  <p class="text-sm mt-1 max-w-2xl" style="color: var(--cmm-muted);">{{ friendlyDescription(job) }}</p>
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    <span class="badge" [class.badge-success]="job.isActive" [class.badge-neutral]="!job.isActive">
+                      {{ job.isActive ? 'Ligado' : 'Desligado' }}
+                    </span>
+                    @if (job.isRunning) {
+                      <span class="badge badge-accent">Executando agora</span>
+                    } @else {
+                      <span class="badge" [class.badge-success]="job.lastStatus === 'success'" [class.badge-danger]="job.lastStatus === 'error'" [class.badge-neutral]="job.lastStatus === 'idle' || job.lastStatus === 'running'">
+                        Última: {{ formatStatus(job.lastStatus) }}
+                      </span>
+                    }
                   </div>
-                  @if (log.data) {
-                    <pre class="mt-1 ml-[122px] text-[10px] whitespace-pre-wrap break-words" style="color: var(--cmm-muted);">{{ prettyData(log.data) }}</pre>
-                  }
                 </div>
-              }
-            </div>
-          }
-        </div>
-      </div>
 
-      @if (selectedJobId() === 'auto-tasks') {
-        <div class="panel">
-          <div class="px-5 py-4 flex flex-wrap items-center justify-between gap-3" style="border-bottom: 1px solid var(--cmm-border);">
-            <div>
-              <h3 class="text-sm font-semibold" style="color: var(--cmm-ink);">Pedidos já processados</h3>
-              <p class="text-xs mt-0.5" style="color: var(--cmm-muted);">
-                Códigos PV gravados em <code>tb_pontta_sales_order</code> (banco do rodízio). Remover permite reprocessar.
-              </p>
-            </div>
-            <div class="flex items-center gap-2">
-              <input
-                type="search"
-                class="form-input"
-                style="min-height: 2rem; font-size: 0.75rem; padding: 0.25rem 0.5rem; width: 12rem;"
-                placeholder="Buscar PV-..."
-                [ngModel]="processedQuery()"
-                (ngModelChange)="onProcessedQueryChange($event)"
-              />
-              <button type="button" class="btn btn-sm btn-secondary" (click)="loadProcessedOrders(true)">Buscar</button>
-            </div>
-          </div>
+                <div class="flex flex-wrap gap-2 lg:justify-end">
+                  <button
+                    type="button"
+                    class="btn"
+                    [class.btn-primary]="!job.isActive"
+                    [class.btn-secondary]="job.isActive"
+                    [disabled]="job.isRunning"
+                    (click)="toggleJob(job)"
+                  >
+                    {{ job.isActive ? 'Desligar' : 'Ligar' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-accent"
+                    [disabled]="job.isRunning || (job.id === 'delivery-material-dates' && !salesOrderDate())"
+                    (click)="runNow(job, job.id === 'delivery-material-dates' ? salesOrderDate() : undefined)"
+                  >
+                    {{ job.isRunning ? 'Executando…' : 'Rodar agora' }}
+                  </button>
+                </div>
+              </div>
 
-          @if (loadingProcessed()) {
-            <div class="flex items-center justify-center py-10">
-              <div class="animate-spin w-5 h-5 rounded-full border-2" style="border-color: var(--cmm-border); border-top-color: var(--cmm-accent);"></div>
-            </div>
-          } @else if (processedOrders().length === 0) {
-            <div class="empty-state py-10">Nenhum pedido processado encontrado.</div>
-          } @else {
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead>
-                  <tr style="border-bottom: 1px solid var(--cmm-border); color: var(--cmm-muted);">
-                    <th class="text-left font-medium px-5 py-2">Código</th>
-                    <th class="text-left font-medium px-5 py-2">Sales Order ID</th>
-                    <th class="text-left font-medium px-5 py-2">Processado em</th>
-                    <th class="text-right font-medium px-5 py-2">Ação</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (order of processedOrders(); track order.id) {
-                    <tr style="border-bottom: 1px solid var(--cmm-border);">
-                      <td class="px-5 py-2.5 font-medium" style="color: var(--cmm-ink);">{{ order.code }}</td>
-                      <td class="px-5 py-2.5 text-xs font-mono" style="color: var(--cmm-muted);">{{ order.salesOrderId }}</td>
-                      <td class="px-5 py-2.5 text-xs" style="color: var(--cmm-muted);">{{ formatDate(order.createdAt) }}</td>
-                      <td class="px-5 py-2.5 text-right">
-                        <button
-                          type="button"
-                          class="btn btn-sm btn-danger"
-                          title="Remover para permitir reprocessar"
-                          (click)="removeProcessedOrder(order)"
-                        >Remover</button>
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-            <div class="px-5 py-3 flex items-center justify-between text-xs" style="color: var(--cmm-muted);">
-              <span>{{ processedTotal() }} registro(s)</span>
-              <div class="flex gap-2">
-                <button type="button" class="btn btn-sm btn-secondary" [disabled]="processedPage() <= 1" (click)="changeProcessedPage(-1)">Anterior</button>
-                <span class="self-center">Pág. {{ processedPage() }}</span>
-                <button type="button" class="btn btn-sm btn-secondary" [disabled]="processedPage() * 50 >= processedTotal()" (click)="changeProcessedPage(1)">Próxima</button>
+              <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                <div class="meta-box">
+                  <p class="meta-label">Próxima execução</p>
+                  <p class="meta-value">{{ job.isActive ? formatDate(job.nextRunAt) : 'Desligado — sem próxima' }}</p>
+                </div>
+                <div class="meta-box">
+                  <p class="meta-label">Última execução</p>
+                  <p class="meta-value">{{ formatDate(job.lastRunAt) }}</p>
+                </div>
+                <div class="meta-box">
+                  <p class="meta-label">Horários (Manaus)</p>
+                  <p class="meta-value">{{ formatTimesShort(job) }}</p>
+                </div>
               </div>
             </div>
-          }
-        </div>
+
+            <!-- Abas -->
+            <div class="job-tabs" role="tablist" aria-label="Seções da automação">
+              <button type="button" class="job-tab" [class.job-tab-active]="activeTab() === 'controle'" (click)="activeTab.set('controle')">Controle</button>
+              @if (job.scheduleEditable) {
+                <button type="button" class="job-tab" [class.job-tab-active]="activeTab() === 'horarios'" (click)="activeTab.set('horarios')">
+                  Horários
+                  @if (scheduleDirty()) {
+                    <span class="tab-dot" title="Alterações não salvas"></span>
+                  }
+                </button>
+              }
+              @if (job.id === 'auto-tasks') {
+                <button type="button" class="job-tab" [class.job-tab-active]="activeTab() === 'pedidos'" (click)="openPedidosTab()">
+                  Pedidos processados
+                  <span class="tab-count">{{ processedTotal() }}</span>
+                </button>
+              }
+              <button type="button" class="job-tab" [class.job-tab-active]="activeTab() === 'atividade'" (click)="activeTab.set('atividade')">
+                Atividade
+                @if (selectedJobLogs().length) {
+                  <span class="tab-count">{{ selectedJobLogs().length }}</span>
+                }
+              </button>
+            </div>
+
+            <div class="panel-pad">
+              <!-- CONTROLE -->
+              @if (activeTab() === 'controle') {
+                <div class="space-y-5 max-w-2xl">
+                  <section>
+                    <h3 class="section-title">Como usar</h3>
+                    <ol class="help-list">
+                      <li><strong>Ligar</strong> para a rotina rodar sozinha nos horários configurados.</li>
+                      <li><strong>Rodar agora</strong> para executar uma vez imediatamente (não altera o agendamento).</li>
+                      <li>Veja o resultado em <strong>Atividade</strong>@if (job.id === 'auto-tasks') { e os PVs em <strong>Pedidos processados</strong>}.</li>
+                    </ol>
+                  </section>
+
+                  @if (job.id === 'delivery-material-dates') {
+                    <section>
+                      <label class="form-label" for="sales-order-date">Data dos pedidos de venda</label>
+                      <p class="help-text mb-2">Usada só no “Rodar agora”. O agendamento automático usa o dia anterior.</p>
+                      <input
+                        id="sales-order-date"
+                        type="date"
+                        class="form-input"
+                        style="max-width: 12rem;"
+                        [value]="salesOrderDate()"
+                        [disabled]="job.isRunning"
+                        (input)="onSalesOrderDateChange($event)"
+                      />
+                    </section>
+                  }
+
+                  @if (job.lastSummary) {
+                    <section>
+                      <h3 class="section-title">Último resultado</h3>
+                      <p class="text-sm rounded-lg px-3 py-2.5" style="background: var(--cmm-surface); color: var(--cmm-ink);">{{ job.lastSummary }}</p>
+                    </section>
+                  }
+                </div>
+              }
+
+              <!-- HORÁRIOS -->
+              @if (activeTab() === 'horarios' && job.scheduleEditable) {
+                <div class="space-y-4 max-w-xl">
+                  <div>
+                    <h3 class="section-title">Horários diários</h3>
+                    <p class="help-text">Fuso de Manaus (UTC−4). A rotina roda todo dia nestes horários, se estiver ligada.</p>
+                  </div>
+
+                  <div class="space-y-2">
+                    @for (time of scheduleDraft(); track $index) {
+                      <div class="flex items-center gap-2">
+                        <label class="sr-only" [attr.for]="'time-' + $index">Horário {{ $index + 1 }}</label>
+                        <input
+                          [id]="'time-' + $index"
+                          type="time"
+                          class="form-input"
+                          style="max-width: 9rem;"
+                          [value]="toTimeInput(time)"
+                          [disabled]="job.isRunning || savingSchedule()"
+                          (change)="onScheduleTimeChange($index, $event)"
+                        />
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-ghost"
+                          [disabled]="job.isRunning || scheduleDraft().length <= 1 || savingSchedule()"
+                          (click)="removeScheduleTime($index)"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    }
+                  </div>
+
+                  <div class="flex flex-wrap items-center gap-2 pt-1">
+                    <button type="button" class="btn btn-secondary" [disabled]="job.isRunning || savingSchedule()" (click)="addScheduleTime()">
+                      Adicionar horário
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-primary"
+                      [disabled]="job.isRunning || savingSchedule() || !scheduleDirty()"
+                      (click)="saveSchedule(job)"
+                    >
+                      {{ savingSchedule() ? 'Salvando…' : 'Salvar horários' }}
+                    </button>
+                    @if (scheduleDirty()) {
+                      <span class="text-xs" style="color: var(--cmm-warning);">Alterações ainda não salvas</span>
+                    }
+                  </div>
+                </div>
+              }
+
+              <!-- PEDIDOS -->
+              @if (activeTab() === 'pedidos' && job.id === 'auto-tasks') {
+                <div class="space-y-4">
+                  <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                    <div>
+                      <h3 class="section-title">Pedidos já processados</h3>
+                      <p class="help-text">Pedidos de venda (PV) que já tiveram as tarefas criadas. Remover libera o PV para ser processado de novo.</p>
+                    </div>
+                    <div class="flex gap-2">
+                      <input
+                        type="search"
+                        class="form-input"
+                        style="min-width: 11rem;"
+                        placeholder="Buscar PV-…"
+                        [ngModel]="processedQuery()"
+                        (ngModelChange)="onProcessedQueryChange($event)"
+                      />
+                    </div>
+                  </div>
+
+                  @if (loadingProcessed()) {
+                    <div class="flex justify-center py-10">
+                      <div class="animate-spin w-5 h-5 rounded-full border-2" style="border-color: var(--cmm-border); border-top-color: var(--cmm-accent);"></div>
+                    </div>
+                  } @else if (processedOrders().length === 0) {
+                    <div class="empty-state py-10">
+                      @if (processedQuery()) {
+                        Nenhum PV encontrado para “{{ processedQuery() }}”.
+                      } @else {
+                        Ainda não há pedidos processados.
+                      }
+                    </div>
+                  } @else {
+                    <div class="overflow-x-auto -mx-1">
+                      <table class="w-full text-sm">
+                        <thead>
+                          <tr style="border-bottom: 1px solid var(--cmm-border); color: var(--cmm-muted);">
+                            <th class="text-left font-medium px-2 py-2">Pedido</th>
+                            <th class="text-left font-medium px-2 py-2 hidden md:table-cell">Quando</th>
+                            <th class="text-right font-medium px-2 py-2">Ação</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (order of processedOrders(); track order.id) {
+                            <tr style="border-bottom: 1px solid var(--cmm-border);">
+                              <td class="px-2 py-2.5">
+                                <p class="font-semibold" style="color: var(--cmm-ink);">{{ order.code }}</p>
+                                <p class="text-[11px] font-mono md:hidden mt-0.5" style="color: var(--cmm-muted);">{{ formatDate(order.createdAt) }}</p>
+                              </td>
+                              <td class="px-2 py-2.5 text-xs hidden md:table-cell" style="color: var(--cmm-muted);">{{ formatDate(order.createdAt) }}</td>
+                              <td class="px-2 py-2.5 text-right">
+                                <button type="button" class="btn btn-sm btn-secondary" (click)="removeProcessedOrder(order)">
+                                  Liberar p/ reprocessar
+                                </button>
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                    <div class="flex items-center justify-between text-xs pt-1" style="color: var(--cmm-muted);">
+                      <span>{{ processedTotal() }} pedido(s)</span>
+                      <div class="flex items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-ghost" [disabled]="processedPage() <= 1" (click)="changeProcessedPage(-1)">Anterior</button>
+                        <span>Página {{ processedPage() }}</span>
+                        <button type="button" class="btn btn-sm btn-ghost" [disabled]="processedPage() * 50 >= processedTotal()" (click)="changeProcessedPage(1)">Próxima</button>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+
+              <!-- ATIVIDADE -->
+              @if (activeTab() === 'atividade') {
+                <div class="space-y-3">
+                  <div class="flex items-center justify-between gap-2">
+                    <div>
+                      <h3 class="section-title">Atividade recente</h3>
+                      <p class="help-text">Registro do que a automação fez nas últimas execuções.</p>
+                    </div>
+                    <div class="flex gap-2">
+                      @if (selectedJobLogs().length > 0) {
+                        <button type="button" class="btn btn-sm btn-ghost" (click)="clearLogs()">Limpar</button>
+                      }
+                      <button type="button" class="btn btn-sm btn-secondary" (click)="scrollLogsToBottom()">Ir ao fim</button>
+                    </div>
+                  </div>
+
+                  @if (loadingLogs()) {
+                    <div class="flex justify-center py-10">
+                      <div class="animate-spin w-5 h-5 rounded-full border-2" style="border-color: var(--cmm-border); border-top-color: var(--cmm-accent);"></div>
+                    </div>
+                  } @else if (selectedJobLogs().length === 0) {
+                    <div class="empty-state py-10">Nenhuma atividade ainda. Ligue a automação ou use “Rodar agora”.</div>
+                  } @else {
+                    <div #logsContainer class="logs-box space-y-1.5 font-mono text-[11px]">
+                      @for (log of selectedJobLogs(); track $index) {
+                        <div class="log-row" [style.border-left-color]="logBorderColor(log.level)" [style.background]="logBackground(log.level)">
+                          <span class="log-time">{{ formatDate(log.timestamp) }}</span>
+                          <span class="log-level" [style.color]="logLevelColor(log.level)">{{ logLevelLabel(log.level) }}</span>
+                          <span class="log-msg">{{ log.message }}</span>
+                          @if (log.data) {
+                            <pre class="log-data">{{ prettyData(log.data) }}</pre>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        }
       }
 
       @if (successMessage()) {
-        <div
-          class="fixed bottom-4 right-4 p-4 rounded-lg flex items-center gap-3 z-50"
-          style="background: color-mix(in srgb, var(--cmm-success) 12%, var(--cmm-panel)); border: 1px solid color-mix(in srgb, var(--cmm-success) 30%, transparent); box-shadow: 0 12px 28px rgba(15, 26, 39, 0.16);"
-        >
-          <span class="text-sm" style="color: var(--cmm-success);">{{ successMessage() }}</span>
-        </div>
+        <div class="toast toast-ok">{{ successMessage() }}</div>
       }
-
       @if (errorMessage()) {
-        <div
-          class="fixed bottom-4 right-4 p-4 rounded-lg flex items-center gap-3 z-50"
-          style="background: color-mix(in srgb, var(--cmm-danger) 12%, var(--cmm-panel)); border: 1px solid color-mix(in srgb, var(--cmm-danger) 30%, transparent); box-shadow: 0 12px 28px rgba(15, 26, 39, 0.16);"
-        >
-          <span class="text-sm" style="color: var(--cmm-danger);">{{ errorMessage() }}</span>
-        </div>
+        <div class="toast toast-err">{{ errorMessage() }}</div>
       }
     </div>
   `,
   styles: [`
-    .job-row:hover {
-      background: color-mix(in srgb, var(--cmm-surface) 80%, var(--cmm-panel));
+    .job-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.625rem;
+      min-height: 2.75rem;
+      padding: 0.5rem 0.875rem;
+      border-radius: 0.75rem;
+      border: 1px solid var(--cmm-border);
+      background: var(--cmm-panel);
+      color: var(--cmm-ink);
+      text-align: left;
+      max-width: 100%;
+      transition: border-color 160ms ease-out, background 160ms ease-out;
     }
-    .job-row-selected,
-    .job-row-selected:hover {
-      background: color-mix(in srgb, var(--cmm-accent) 8%, var(--cmm-panel));
+    .job-chip:hover {
+      border-color: color-mix(in srgb, var(--cmm-accent) 40%, var(--cmm-border));
     }
-  `]
+    .job-chip-active {
+      border-color: var(--cmm-accent);
+      background: color-mix(in srgb, var(--cmm-accent) 10%, var(--cmm-panel));
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--cmm-accent) 35%, transparent);
+    }
+    .job-chip-dot {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 999px;
+      flex-shrink: 0;
+    }
+    .meta-box {
+      border: 1px solid var(--cmm-border);
+      border-radius: 0.5rem;
+      padding: 0.625rem 0.75rem;
+      background: color-mix(in srgb, var(--cmm-surface) 65%, var(--cmm-panel));
+    }
+    .meta-label {
+      font-size: 0.7rem;
+      color: var(--cmm-muted);
+      margin: 0 0 0.2rem;
+    }
+    .meta-value {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--cmm-ink);
+      margin: 0;
+    }
+    .job-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+      padding: 0.5rem 1rem 0;
+      border-bottom: 1px solid var(--cmm-border);
+      background: color-mix(in srgb, var(--cmm-surface) 55%, var(--cmm-panel));
+    }
+    .job-tab {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.625rem 0.75rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--cmm-muted);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 160ms ease-out, border-color 160ms ease-out;
+    }
+    .job-tab:hover { color: var(--cmm-ink); }
+    .job-tab-active {
+      color: var(--cmm-accent);
+      border-bottom-color: var(--cmm-accent);
+    }
+    .tab-count {
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 0.1rem 0.35rem;
+      border-radius: 999px;
+      background: var(--cmm-surface);
+      color: var(--cmm-muted);
+    }
+    .tab-dot {
+      width: 0.4rem;
+      height: 0.4rem;
+      border-radius: 999px;
+      background: var(--cmm-warning);
+    }
+    .section-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--cmm-ink);
+      margin: 0 0 0.25rem;
+    }
+    .help-text {
+      font-size: 0.75rem;
+      color: var(--cmm-muted);
+      margin: 0;
+      max-width: 42rem;
+    }
+    .help-list {
+      margin: 0.5rem 0 0;
+      padding-left: 1.1rem;
+      font-size: 0.8125rem;
+      color: var(--cmm-muted);
+      display: grid;
+      gap: 0.35rem;
+    }
+    .help-list strong { color: var(--cmm-ink); font-weight: 600; }
+    .logs-box {
+      max-height: min(55vh, 28rem);
+      overflow-y: auto;
+      border: 1px solid var(--cmm-border);
+      border-radius: 0.5rem;
+      padding: 0.5rem;
+      background: color-mix(in srgb, var(--cmm-surface) 70%, var(--cmm-panel));
+    }
+    .log-row {
+      border-left: 2px solid var(--cmm-border);
+      border-radius: 0.25rem;
+      padding: 0.4rem 0.55rem;
+    }
+    .log-time { color: var(--cmm-muted); margin-right: 0.5rem; white-space: nowrap; }
+    .log-level { font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 0.5rem; display: inline-block; min-width: 4.5rem; }
+    .log-msg { color: var(--cmm-ink); word-break: break-word; }
+    .log-data { margin: 0.25rem 0 0 0; color: var(--cmm-muted); white-space: pre-wrap; word-break: break-word; }
+    .toast {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      z-index: 50;
+      padding: 0.875rem 1rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      box-shadow: 0 12px 28px rgba(15, 26, 39, 0.16);
+      max-width: 22rem;
+    }
+    .toast-ok {
+      color: var(--cmm-success);
+      background: color-mix(in srgb, var(--cmm-success) 12%, var(--cmm-panel));
+      border: 1px solid color-mix(in srgb, var(--cmm-success) 30%, transparent);
+    }
+    .toast-err {
+      color: var(--cmm-danger);
+      background: color-mix(in srgb, var(--cmm-danger) 12%, var(--cmm-panel));
+      border: 1px solid color-mix(in srgb, var(--cmm-danger) 30%, transparent);
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
+  `],
 })
 export class JobsComponent implements OnInit, OnDestroy {
   @ViewChild('logsContainer') private logsContainerRef!: ElementRef<HTMLDivElement>;
@@ -354,6 +556,7 @@ export class JobsComponent implements OnInit, OnDestroy {
   jobs = signal<CodeJob[]>([]);
   salesOrderDate = signal(this.getTodayManausDate());
   selectedJobId = signal<string | null>(null);
+  activeTab = signal<JobTab>('controle');
   selectedJobLogs = signal<CodeJobLogEntry[]>([]);
   scheduleDraft = signal<CodeJobRunTime[]>([]);
   scheduleDirty = signal(false);
@@ -374,7 +577,7 @@ export class JobsComponent implements OnInit, OnDestroy {
     this.refreshInterval = setInterval(() => {
       this.loadJobs(false);
       const selected = this.selectedJobId();
-      if (selected) {
+      if (selected && this.activeTab() === 'atividade') {
         this.loadLogs(selected, false);
       }
     }, 5000);
@@ -402,16 +605,12 @@ export class JobsComponent implements OnInit, OnDestroy {
   }
 
   loadJobs(withLoader: boolean) {
-    if (withLoader) {
-      this.loading.set(true);
-    }
+    if (withLoader) this.loading.set(true);
 
     this.http.get<CodeJob[]>(`${this.apiUrl}/jobs/code`).subscribe({
       next: (data) => {
         this.jobs.set(data || []);
-        if (withLoader) {
-          this.loading.set(false);
-        }
+        if (withLoader) this.loading.set(false);
 
         const selected = this.selectedJobId();
         const selectedStillExists = !!selected && data.some((j) => j.id === selected);
@@ -425,25 +624,31 @@ export class JobsComponent implements OnInit, OnDestroy {
         }
       },
       error: (err) => {
-        if (withLoader) {
-          this.loading.set(false);
-        }
-        this.errorMessage.set(err?.error?.message || 'Erro ao carregar jobs de código');
-        setTimeout(() => this.errorMessage.set(''), 5000);
+        if (withLoader) this.loading.set(false);
+        this.flashError(err?.error?.message || 'Erro ao carregar automações');
       },
     });
   }
 
   selectJob(jobId: string) {
+    const previous = this.selectedJobId();
     this.selectedJobId.set(jobId);
-    this.loadLogs(jobId, true);
     this.scheduleDirty.set(false);
+    this.activeTab.set('controle');
+
     const job = this.jobs().find((j) => j.id === jobId);
     this.scheduleDraft.set((job?.runTimesManaus || []).map((t) => ({ ...t })));
+    this.loadLogs(jobId, true);
+
     if (jobId === 'auto-tasks') {
       this.processedPage.set(1);
-      this.loadProcessedOrders(true);
+      this.loadProcessedOrders(previous !== 'auto-tasks');
     }
+  }
+
+  openPedidosTab() {
+    this.activeTab.set('pedidos');
+    this.loadProcessedOrders(true);
   }
 
   selectedJob(): CodeJob | null {
@@ -452,26 +657,54 @@ export class JobsComponent implements OnInit, OnDestroy {
     return this.jobs().find((job) => job.id === id) || null;
   }
 
-  loadLogs(jobId: string, withLoader: boolean) {
-    if (withLoader) {
-      this.loadingLogs.set(true);
+  shortName(job: CodeJob): string {
+    if (job.id === 'auto-tasks') return 'Tarefas automáticas';
+    if (job.id === 'delivery-material-dates') return 'Datas de entrega';
+    return job.name;
+  }
+
+  friendlyDescription(job: CodeJob): string {
+    if (job.id === 'auto-tasks') {
+      return 'Cria no Pontta as tarefas de cada ambiente do pedido (checagem, revisão, projeto, envio e aprovação) e atualiza o rodízio.';
     }
+    if (job.id === 'delivery-material-dates') {
+      return 'Calcula as datas de entrega de material a partir da aprovação do projeto executivo, gera o PDF e salva no Drive.';
+    }
+    return job.description;
+  }
+
+  statusLabel(job: CodeJob): string {
+    if (job.isRunning) return 'Executando…';
+    if (job.isActive) return 'Ligado';
+    return 'Desligado';
+  }
+
+  statusDot(job: CodeJob): string {
+    if (job.isRunning) return 'var(--cmm-accent)';
+    if (job.isActive) return 'var(--cmm-success)';
+    return 'var(--cmm-muted)';
+  }
+
+  formatTimesShort(job: CodeJob): string {
+    const times = job.runTimesManaus || [];
+    if (!times.length) return '—';
+    return times
+      .map((t) => `${String(t.hour).padStart(2, '0')}:${String(t.minute).padStart(2, '0')}`)
+      .join(' · ');
+  }
+
+  loadLogs(jobId: string, withLoader: boolean) {
+    if (withLoader) this.loadingLogs.set(true);
 
     this.http.get<CodeJobLogEntry[]>(`${this.apiUrl}/jobs/code/${jobId}/logs?limit=200`).subscribe({
       next: (logs) => {
         const wasAtBottom = this.isLogsScrolledToBottom();
         this.selectedJobLogs.set(logs || []);
-        if (withLoader) {
-          this.loadingLogs.set(false);
-        }
-        if (wasAtBottom) {
-          setTimeout(() => this.scrollLogsToBottom(), 0);
-        }
+        if (withLoader) this.loadingLogs.set(false);
+        if (wasAtBottom) setTimeout(() => this.scrollLogsToBottom(), 0);
       },
       error: () => {
-        if (withLoader) {
-          this.loadingLogs.set(false);
-        }
+        if (withLoader) this.loadingLogs.set(false);
         this.selectedJobLogs.set([]);
       },
     });
@@ -483,18 +716,16 @@ export class JobsComponent implements OnInit, OnDestroy {
 
   onScheduleTimeChange(index: number, event: Event) {
     const input = event.target as HTMLInputElement | null;
-    const value = input?.value || '';
-    const [hourStr, minuteStr] = value.split(':');
+    const [hourStr, minuteStr] = (input?.value || '').split(':');
     const hour = Number(hourStr);
     const minute = Number(minuteStr);
     if (!Number.isInteger(hour) || !Number.isInteger(minute)) return;
 
-    const next = this.scheduleDraft().map((t, i) => (i === index ? { hour, minute } : t));
-    this.scheduleDraft.set(next);
+    this.scheduleDraft.set(this.scheduleDraft().map((t, i) => (i === index ? { hour, minute } : t)));
     this.scheduleDirty.set(true);
   }
 
-  addScheduleTime(job: CodeJob) {
+  addScheduleTime() {
     this.scheduleDraft.set([...this.scheduleDraft(), { hour: 12, minute: 0 }]);
     this.scheduleDirty.set(true);
   }
@@ -513,23 +744,18 @@ export class JobsComponent implements OnInit, OnDestroy {
       next: () => {
         this.savingSchedule.set(false);
         this.scheduleDirty.set(false);
-        this.successMessage.set('Horários salvos.');
+        this.flashOk('Horários salvos.');
         this.loadJobs(false);
-        this.loadLogs(job.id, false);
-        setTimeout(() => this.successMessage.set(''), 3000);
       },
       error: (err) => {
         this.savingSchedule.set(false);
-        this.errorMessage.set(err?.error?.message || 'Erro ao salvar horários');
-        setTimeout(() => this.errorMessage.set(''), 5000);
+        this.flashError(err?.error?.message || 'Erro ao salvar horários');
       },
     });
   }
 
   loadProcessedOrders(withLoader: boolean) {
-    if (withLoader) {
-      this.loadingProcessed.set(true);
-    }
+    if (withLoader) this.loadingProcessed.set(true);
     const q = encodeURIComponent(this.processedQuery().trim());
     const page = this.processedPage();
     this.http.get<ProcessedOrdersResponse>(
@@ -539,25 +765,18 @@ export class JobsComponent implements OnInit, OnDestroy {
         this.processedOrders.set(res.items || []);
         this.processedTotal.set(res.total || 0);
         this.processedPage.set(res.page || page);
-        if (withLoader) {
-          this.loadingProcessed.set(false);
-        }
+        if (withLoader) this.loadingProcessed.set(false);
       },
       error: (err) => {
-        if (withLoader) {
-          this.loadingProcessed.set(false);
-        }
-        this.errorMessage.set(err?.error?.message || 'Erro ao carregar pedidos processados');
-        setTimeout(() => this.errorMessage.set(''), 5000);
+        if (withLoader) this.loadingProcessed.set(false);
+        this.flashError(err?.error?.message || 'Erro ao carregar pedidos processados');
       },
     });
   }
 
   onProcessedQueryChange(value: string) {
     this.processedQuery.set(value);
-    if (this.processedSearchTimeout) {
-      clearTimeout(this.processedSearchTimeout);
-    }
+    if (this.processedSearchTimeout) clearTimeout(this.processedSearchTimeout);
     this.processedSearchTimeout = setTimeout(() => {
       this.processedPage.set(1);
       this.loadProcessedOrders(true);
@@ -572,19 +791,15 @@ export class JobsComponent implements OnInit, OnDestroy {
   }
 
   removeProcessedOrder(order: ProcessedOrder) {
-    if (!confirm(`Remover ${order.code} da lista de processados? O job poderá criar tasks novamente para este PV.`)) {
+    if (!confirm(`Liberar ${order.code} para reprocessar?\n\nNa próxima execução, as tarefas desse pedido poderão ser criadas de novo.`)) {
       return;
     }
     this.http.delete(`${this.apiUrl}/jobs/code/auto-tasks/processed-orders/${encodeURIComponent(order.code)}`).subscribe({
       next: () => {
-        this.successMessage.set(`${order.code} removido.`);
+        this.flashOk(`${order.code} liberado para reprocessar.`);
         this.loadProcessedOrders(true);
-        setTimeout(() => this.successMessage.set(''), 3000);
       },
-      error: (err) => {
-        this.errorMessage.set(err?.error?.message || 'Erro ao remover pedido');
-        setTimeout(() => this.errorMessage.set(''), 5000);
-      },
+      error: (err) => this.flashError(err?.error?.message || 'Erro ao liberar pedido'),
     });
   }
 
@@ -592,58 +807,44 @@ export class JobsComponent implements OnInit, OnDestroy {
     const action = job.isActive ? 'stop' : 'start';
     this.http.post<CodeJob>(`${this.apiUrl}/jobs/code/${job.id}/${action}`, {}).subscribe({
       next: () => {
-        this.successMessage.set(job.isActive ? 'Job parado com sucesso.' : 'Job iniciado com sucesso.');
+        this.flashOk(job.isActive ? 'Automação desligada.' : 'Automação ligada.');
         this.loadJobs(false);
         this.loadLogs(job.id, false);
-        setTimeout(() => this.successMessage.set(''), 3000);
       },
-      error: (err) => {
-        this.errorMessage.set(err?.error?.message || 'Erro ao alterar estado do job');
-        setTimeout(() => this.errorMessage.set(''), 5000);
-      },
+      error: (err) => this.flashError(err?.error?.message || 'Erro ao alterar estado'),
     });
   }
 
   runNow(job: CodeJob, salesOrderDate?: string) {
     if (job.id === 'delivery-material-dates' && !salesOrderDate) {
-      this.errorMessage.set('Selecione a data dos pedidos de venda para executar este job.');
-      setTimeout(() => this.errorMessage.set(''), 5000);
+      this.flashError('Escolha a data dos pedidos de venda.');
       return;
     }
 
+    this.activeTab.set('atividade');
     const payload = salesOrderDate ? { salesOrderDate } : {};
-
     this.http.post<CodeJob>(`${this.apiUrl}/jobs/code/${job.id}/run`, payload).subscribe({
       next: () => {
-        this.successMessage.set('Execução manual iniciada.');
+        this.flashOk('Execução iniciada. Acompanhe em Atividade.');
         this.loadJobs(false);
         this.loadLogs(job.id, false);
         if (job.id === 'auto-tasks') {
           setTimeout(() => this.loadProcessedOrders(false), 1500);
         }
-        setTimeout(() => this.successMessage.set(''), 3000);
       },
-      error: (err) => {
-        this.errorMessage.set(err?.error?.message || 'Erro ao executar job manualmente');
-        setTimeout(() => this.errorMessage.set(''), 5000);
-      },
+      error: (err) => this.flashError(err?.error?.message || 'Erro ao executar'),
     });
   }
 
   clearLogs() {
     const jobId = this.selectedJobId();
     if (!jobId) return;
-
     this.http.delete(`${this.apiUrl}/jobs/code/${jobId}/logs`).subscribe({
       next: () => {
         this.selectedJobLogs.set([]);
-        this.successMessage.set('Logs limpos com sucesso.');
-        setTimeout(() => this.successMessage.set(''), 3000);
+        this.flashOk('Atividade limpa.');
       },
-      error: () => {
-        this.errorMessage.set('Erro ao limpar logs.');
-        setTimeout(() => this.errorMessage.set(''), 4000);
-      },
+      error: () => this.flashError('Erro ao limpar atividade.'),
     });
   }
 
@@ -664,10 +865,17 @@ export class JobsComponent implements OnInit, OnDestroy {
   }
 
   formatStatus(status: CodeJob['lastStatus']): string {
-    if (status === 'running') return 'Executando';
+    if (status === 'running') return 'Em andamento';
     if (status === 'success') return 'Sucesso';
     if (status === 'error') return 'Erro';
-    return 'Idle';
+    return 'Sem execução';
+  }
+
+  logLevelLabel(level: CodeJobLogEntry['level']): string {
+    if (level === 'success') return 'ok';
+    if (level === 'warning') return 'aviso';
+    if (level === 'error') return 'erro';
+    return 'info';
   }
 
   logBorderColor(level: CodeJobLogEntry['level']): string {
@@ -681,7 +889,7 @@ export class JobsComponent implements OnInit, OnDestroy {
     if (level === 'success') return 'color-mix(in srgb, var(--cmm-success) 10%, var(--cmm-panel))';
     if (level === 'warning') return 'color-mix(in srgb, var(--cmm-warning) 10%, var(--cmm-panel))';
     if (level === 'error') return 'color-mix(in srgb, var(--cmm-danger) 10%, var(--cmm-panel))';
-    return 'color-mix(in srgb, var(--cmm-surface) 80%, var(--cmm-panel))';
+    return 'transparent';
   }
 
   logLevelColor(level: CodeJobLogEntry['level']): string {
@@ -710,8 +918,17 @@ export class JobsComponent implements OnInit, OnDestroy {
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit',
     });
+  }
+
+  private flashOk(message: string) {
+    this.successMessage.set(message);
+    setTimeout(() => this.successMessage.set(''), 3000);
+  }
+
+  private flashError(message: string) {
+    this.errorMessage.set(message);
+    setTimeout(() => this.errorMessage.set(''), 5000);
   }
 
   private getTodayManausDate(): string {

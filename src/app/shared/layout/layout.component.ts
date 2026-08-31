@@ -16,7 +16,7 @@ const TITLE_MAP: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/reports': 'Relatórios',
   '/reports/ocorrencias': 'Ocorrências',
-  '/jobs': 'Jobs',
+  '/jobs': 'Automações',
   '/usuarios': 'Usuários',
   '/perfil': 'Meu perfil',
   '/configuracoes': 'Configurações',
@@ -308,7 +308,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
       route: '/reports',
     },
     {
-      label: 'Jobs',
+      label: 'Automações',
       icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
       route: '/jobs',
     },
