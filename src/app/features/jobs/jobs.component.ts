@@ -273,7 +273,7 @@ interface ProcessedOrdersResponse {
                   <div class="flex flex-col gap-3">
                     <div>
                       <h3 class="section-title">Pedidos já processados</h3>
-                      <p class="help-text">Lista do banco de dados — pedidos (PV) que já tiveram as tarefas criadas. Remover libera o PV para ser processado de novo.</p>
+                      <p class="help-text">Registro no banco dos relatórios (<code>auto_task_processed_orders</code>). Só pedidos de venda de hoje em diante. Remover libera o PV para reprocessar.</p>
                     </div>
 
                     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
@@ -626,7 +626,7 @@ export class JobsComponent implements OnInit, OnDestroy {
   processedLimit = signal(25);
   processedTotalPages = signal(1);
   processedQuery = signal('');
-  processedTodayOnly = signal(false);
+  processedTodayOnly = signal(true);
   loadingProcessed = signal(false);
 
   ngOnInit() {
