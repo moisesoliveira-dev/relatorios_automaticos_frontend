@@ -6,6 +6,7 @@ import { PcpOrdersTableComponent } from './components/pcp-orders-table.component
 import { PcpCalendarPanelComponent } from './components/pcp-calendar-panel.component';
 import { PcpDayDetailComponent } from './components/pcp-day-detail.component';
 import { PcpAreaConfigPanelComponent } from './components/pcp-area-config-panel.component';
+import { PcpClassifyEnvironmentModalComponent } from './components/pcp-classify-environment-modal.component';
 
 /** Shell da feature — compõe subcomponentes e fornece a Facade no escopo da página. */
 @Component({
@@ -17,6 +18,7 @@ import { PcpAreaConfigPanelComponent } from './components/pcp-area-config-panel.
     PcpCalendarPanelComponent,
     PcpDayDetailComponent,
     PcpAreaConfigPanelComponent,
+    PcpClassifyEnvironmentModalComponent,
   ],
   providers: [PcpApiService, PcpOperacionalFacade],
   template: `
@@ -47,6 +49,8 @@ import { PcpAreaConfigPanelComponent } from './components/pcp-area-config-panel.
         </div>
       </div>
     </div>
+
+    <app-pcp-classify-environment-modal />
   `,
 })
 export class PcpOperacionalComponent implements OnInit, OnDestroy {

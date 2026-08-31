@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../../environments/environment';
-import { PcpAreaConfig, PcpScheduleResponse } from '../models/pcp.models';
+import { PcpAreaConfig, PcpEnvironmentOverrideItem, PcpScheduleResponse, SavePcpEnvironmentOverrideInput } from '../models/pcp.models';
 
 /** Camada de dados: apenas HTTP — sem estado de UI. */
 @Injectable()
@@ -23,5 +23,13 @@ export class PcpApiService {
 
   updateConfig(config: PcpAreaConfig): Observable<PcpAreaConfig> {
     return this.http.put<PcpAreaConfig>(`${this.baseUrl}/config`, config);
+  }
+
+  listEnvironmentOverrides(): Observable<PcpEnvironmentOverrideItem[]> {
+    return this.http.get<PcpEnvironmentOverrideItem[]>(`${this.baseUrl}/environment-overrides`);
+  }
+
+  saveEnvironmentOverride(input: SavePcpEnvironmentOverrideInput): Observable<PcpEnvironmentOverrideItem[]> {
+    return this.http.put<PcpEnvironmentOverrideItem[]>(`${this.baseUrl}/environment-overrides`, input);
   }
 }

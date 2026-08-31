@@ -77,6 +77,23 @@ export interface PcpAreaMeta {
   color: string;
 }
 
+export interface PcpEnvironmentOverrideItem {
+  key: string;
+  label: string;
+  area: PcpAreaKey;
+}
+
+export interface SavePcpEnvironmentOverrideInput {
+  name: string;
+  area: PcpAreaKey;
+}
+
+export interface PcpClassifyModalTarget {
+  environmentName: string;
+  orderCode: string;
+  customerName: string;
+}
+
 export const DEFAULT_PCP_AREA_CONFIG: PcpAreaConfig = {
   baseDateLabel: 'Prazo calculado — Aprovação do Projeto Executivo',
   areas: [

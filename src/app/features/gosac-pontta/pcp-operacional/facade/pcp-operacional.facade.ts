@@ -7,6 +7,7 @@ import {
   PcpAreaKey,
   PcpCalendarCell,
   PcpCalendarDay,
+  PcpClassifyModalTarget,
   PcpSalesOrderSchedule,
   PcpScheduleResponse,
   areaOrderFromConfig,
@@ -28,6 +29,10 @@ export class PcpOperacionalFacade {
   readonly configSaving = signal(false);
   readonly configError = signal<string | null>(null);
   readonly configPanelOpen = signal(false);
+  readonly classifyModalOpen = signal(false);
+  readonly classifyTarget = signal<PcpClassifyModalTarget | null>(null);
+  readonly classifySaving = signal(false);
+  readonly classifyError = signal<string | null>(null);
 
   searchQuery = '';
 
@@ -169,6 +174,43 @@ export class PcpOperacionalFacade {
       error: (err) => {
         this.configSaving.set(false);
         this.configError.set(err?.error?.message || err?.message || 'Falha ao salvar configuração.');
+      },
+    });
+  }
+
+  openClassifyModal(environmentName: string, order: PcpSalesOrderSchedule): void {
+    this.classifyError.set(null);
+    this.classifyTarget.set({
+      environmentName,
+      orderCode: order.code,
+      customerName: order.customerName,
+    });
+    this.classifyModalOpen.set(true);
+  }
+
+  closeClassifyModal(): void {
+    if (this.classifySaving()) return;
+    this.classifyModalOpen.set(false);
+    this.classifyTarget.set(null);
+    this.classifyError.set(null);
+  }
+
+  saveEnvironmentClassification(area: PcpAreaKey): void {
+    const target = this.classifyTarget();
+    if (!target) return;
+
+    this.classifySaving.set(true);
+    this.classifyError.set(null);
+    this.api.saveEnvironmentOverride({ name: target.environmentName, area }).subscribe({
+      next: () => {
+        this.classifySaving.set(false);
+        this.classifyModalOpen.set(false);
+        this.classifyTarget.set(null);
+        this.loadSchedule();
+      },
+      error: (err) => {
+        this.classifySaving.set(false);
+        this.classifyError.set(err?.error?.message || err?.message || 'Falha ao salvar classificação.');
       },
     });
   }

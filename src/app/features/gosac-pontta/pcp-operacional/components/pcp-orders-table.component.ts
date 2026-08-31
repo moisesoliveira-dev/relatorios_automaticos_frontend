@@ -110,9 +110,20 @@ import { formatPcpDate, weekdayLabel } from '../utils/pcp-date.utils';
               </div>
 
               @if (order.unclassified.length > 0) {
-                <p class="text-xs" style="color: var(--cmm-muted);">
-                  Não classificados: {{ order.unclassified.join(', ') }}
-                </p>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="text-xs" style="color: var(--cmm-muted);">Não classificados:</span>
+                  @for (env of order.unclassified; track env) {
+                    <button
+                      type="button"
+                      class="rounded-md px-2 py-0.5 text-xs font-medium transition-colors"
+                      style="background: color-mix(in srgb, var(--cmm-warning) 12%, var(--cmm-panel)); border: 1px dashed color-mix(in srgb, var(--cmm-warning) 45%, var(--cmm-border)); color: var(--cmm-ink);"
+                      title="Clique para classificar"
+                      (click)="facade.openClassifyModal(env, order); $event.stopPropagation()"
+                    >
+                      {{ env }}
+                    </button>
+                  }
+                </div>
               }
 
               <div class="flex justify-end">
