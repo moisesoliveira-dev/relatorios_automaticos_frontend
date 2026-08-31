@@ -1,13 +1,21 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+
+interface CodeJobRunTime {
+  hour: number;
+  minute: number;
+}
 
 interface CodeJob {
   id: string;
   name: string;
   description: string;
   scheduleLabel: string;
+  runTimesManaus?: CodeJobRunTime[];
+  scheduleEditable?: boolean;
   isActive: boolean;
   isRunning: boolean;
   lastStatus: 'idle' | 'running' | 'success' | 'error';
@@ -23,16 +31,30 @@ interface CodeJobLogEntry {
   data?: unknown;
 }
 
+interface ProcessedOrder {
+  id: number;
+  salesOrderId: string;
+  code: string;
+  createdAt: string;
+}
+
+interface ProcessedOrdersResponse {
+  items: ProcessedOrder[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 @Component({
   selector: 'app-jobs',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="space-y-6">
       <div class="page-header">
         <div>
           <h1 class="page-title">Jobs do Sistema</h1>
-          <p class="page-subtitle">Jobs definidos em código, com controle de execução e logs em tempo real.</p>
+          <p class="page-subtitle">Controle de execução, horários e pedidos já processados.</p>
         </div>
         <button type="button" (click)="refreshNow()" class="btn btn-primary">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -53,9 +75,6 @@ interface CodeJobLogEntry {
             </div>
           } @else if (jobs().length === 0) {
             <div class="empty-state">
-              <svg class="w-10 h-10 mx-auto mb-3" style="color: var(--cmm-border);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
               <p class="font-medium" style="color: var(--cmm-ink);">Nenhum job de código disponível</p>
             </div>
           } @else {
@@ -67,7 +86,7 @@ interface CodeJobLogEntry {
                   (click)="selectJob(job.id)"
                 >
                   <div class="flex items-start justify-between gap-4">
-                    <div class="min-w-0">
+                    <div class="min-w-0 flex-1">
                       <div class="flex items-center gap-2 mb-1 flex-wrap">
                         <h3 class="text-sm font-semibold truncate" style="color: var(--cmm-ink);">{{ job.name }}</h3>
                         <span
@@ -91,6 +110,44 @@ interface CodeJobLogEntry {
                       </div>
                       @if (job.lastSummary) {
                         <p class="mt-2 text-xs" style="color: var(--cmm-ink);">Resumo: {{ job.lastSummary }}</p>
+                      }
+
+                      @if (job.scheduleEditable && selectedJobId() === job.id) {
+                        <div class="mt-3 p-3 rounded-lg" style="background: color-mix(in srgb, var(--cmm-surface) 70%, var(--cmm-panel)); border: 1px solid var(--cmm-border);" (click)="$event.stopPropagation()">
+                          <div class="flex items-center justify-between gap-2 mb-2">
+                            <p class="text-xs font-semibold" style="color: var(--cmm-ink);">Horários (Manaus)</p>
+                            <button type="button" class="btn btn-sm btn-secondary" (click)="addScheduleTime(job)" [disabled]="job.isRunning">+ Horário</button>
+                          </div>
+                          <div class="flex flex-wrap gap-2 mb-2">
+                            @for (time of scheduleDraft(); track $index) {
+                              <div class="flex items-center gap-1">
+                                <input
+                                  type="time"
+                                  class="form-input"
+                                  style="min-height: 2rem; width: auto; font-size: 0.75rem; padding: 0.25rem 0.5rem;"
+                                  [value]="toTimeInput(time)"
+                                  [disabled]="job.isRunning || savingSchedule()"
+                                  (change)="onScheduleTimeChange($index, $event)"
+                                />
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-danger"
+                                  title="Remover horário"
+                                  [disabled]="job.isRunning || scheduleDraft().length <= 1 || savingSchedule()"
+                                  (click)="removeScheduleTime($index)"
+                                >×</button>
+                              </div>
+                            }
+                          </div>
+                          <button
+                            type="button"
+                            class="btn btn-sm btn-accent"
+                            [disabled]="job.isRunning || savingSchedule() || !scheduleDirty()"
+                            (click)="saveSchedule(job)"
+                          >
+                            {{ savingSchedule() ? 'Salvando...' : 'Salvar horários' }}
+                          </button>
+                        </div>
                       }
                     </div>
 
@@ -151,74 +208,34 @@ interface CodeJobLogEntry {
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">
               @if (selectedJobLogs().length > 0) {
-                <span class="text-[11px]" style="color: var(--cmm-muted);">{{ selectedJobLogs().length }} entr{{ selectedJobLogs().length === 1 ? 'ada' : 'adas' }}</span>
-                <button
-                  type="button"
-                  (click)="clearLogs()"
-                  class="btn btn-sm btn-danger"
-                  title="Limpar todos os logs deste job"
-                >
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                  </svg>
-                  Limpar
-                </button>
+                <button type="button" (click)="clearLogs()" class="btn btn-sm btn-danger">Limpar</button>
               }
-              <button
-                type="button"
-                (click)="scrollLogsToBottom()"
-                class="btn btn-sm btn-secondary"
-                title="Ir para o final"
-              >
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                </svg>
-                Final
-              </button>
+              <button type="button" (click)="scrollLogsToBottom()" class="btn btn-sm btn-secondary">Final</button>
             </div>
           </div>
 
           @if (!selectedJob()) {
-            <div class="empty-state flex-1 flex items-center justify-center">
-              Selecione um job para visualizar os logs.
-            </div>
+            <div class="empty-state flex-1 flex items-center justify-center">Selecione um job para visualizar os logs.</div>
           } @else if (loadingLogs()) {
             <div class="flex-1 flex items-center justify-center">
-              <div
-                class="animate-spin w-5 h-5 rounded-full border-2"
-                style="border-color: var(--cmm-border); border-top-color: var(--cmm-accent);"
-              ></div>
+              <div class="animate-spin w-5 h-5 rounded-full border-2" style="border-color: var(--cmm-border); border-top-color: var(--cmm-accent);"></div>
             </div>
           } @else if (selectedJobLogs().length === 0) {
-            <div class="empty-state flex-1 flex items-center justify-center">
-              <div>
-                <svg class="w-8 h-8 mx-auto mb-2" style="color: var(--cmm-border);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                Nenhum log disponível.
-              </div>
-            </div>
+            <div class="empty-state flex-1 flex items-center justify-center">Nenhum log disponível.</div>
           } @else {
             <div #logsContainer class="flex-1 overflow-y-auto px-3 py-3 space-y-1.5 font-mono text-[11px] min-h-0">
               @for (log of selectedJobLogs(); track $index) {
                 <div class="job-log-card rounded px-2.5 py-1.5 border-l-2"
-                  [class.job-log-info]="log.level === 'info'"
-                  [class.job-log-success]="log.level === 'success'"
-                  [class.job-log-warning]="log.level === 'warning'"
-                  [class.job-log-error]="log.level === 'error'"
                   [style.border-left-color]="logBorderColor(log.level)"
                   [style.background]="logBackground(log.level)"
                 >
                   <div class="flex items-baseline gap-2 flex-wrap">
-                    <span class="job-log-time text-[10px] whitespace-nowrap flex-shrink-0" style="color: var(--cmm-muted);">{{ formatDate(log.timestamp) }}</span>
-                    <span
-                      class="job-log-level font-bold uppercase tracking-wider text-[10px] flex-shrink-0 w-14"
-                      [style.color]="logLevelColor(log.level)"
-                    >{{ log.level }}</span>
-                    <span class="job-log-message break-words min-w-0" style="color: var(--cmm-ink);">{{ log.message }}</span>
+                    <span class="text-[10px] whitespace-nowrap" style="color: var(--cmm-muted);">{{ formatDate(log.timestamp) }}</span>
+                    <span class="font-bold uppercase tracking-wider text-[10px] w-14" [style.color]="logLevelColor(log.level)">{{ log.level }}</span>
+                    <span class="break-words min-w-0" style="color: var(--cmm-ink);">{{ log.message }}</span>
                   </div>
                   @if (log.data) {
-                    <pre class="job-log-data mt-1 ml-[122px] text-[10px] whitespace-pre-wrap break-words" style="color: var(--cmm-muted);">{{ prettyData(log.data) }}</pre>
+                    <pre class="mt-1 ml-[122px] text-[10px] whitespace-pre-wrap break-words" style="color: var(--cmm-muted);">{{ prettyData(log.data) }}</pre>
                   }
                 </div>
               }
@@ -227,14 +244,81 @@ interface CodeJobLogEntry {
         </div>
       </div>
 
+      @if (selectedJobId() === 'auto-tasks') {
+        <div class="panel">
+          <div class="px-5 py-4 flex flex-wrap items-center justify-between gap-3" style="border-bottom: 1px solid var(--cmm-border);">
+            <div>
+              <h3 class="text-sm font-semibold" style="color: var(--cmm-ink);">Pedidos já processados</h3>
+              <p class="text-xs mt-0.5" style="color: var(--cmm-muted);">
+                Códigos PV gravados em <code>tb_pontta_sales_order</code> (banco do rodízio). Remover permite reprocessar.
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <input
+                type="search"
+                class="form-input"
+                style="min-height: 2rem; font-size: 0.75rem; padding: 0.25rem 0.5rem; width: 12rem;"
+                placeholder="Buscar PV-..."
+                [ngModel]="processedQuery()"
+                (ngModelChange)="onProcessedQueryChange($event)"
+              />
+              <button type="button" class="btn btn-sm btn-secondary" (click)="loadProcessedOrders(true)">Buscar</button>
+            </div>
+          </div>
+
+          @if (loadingProcessed()) {
+            <div class="flex items-center justify-center py-10">
+              <div class="animate-spin w-5 h-5 rounded-full border-2" style="border-color: var(--cmm-border); border-top-color: var(--cmm-accent);"></div>
+            </div>
+          } @else if (processedOrders().length === 0) {
+            <div class="empty-state py-10">Nenhum pedido processado encontrado.</div>
+          } @else {
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr style="border-bottom: 1px solid var(--cmm-border); color: var(--cmm-muted);">
+                    <th class="text-left font-medium px-5 py-2">Código</th>
+                    <th class="text-left font-medium px-5 py-2">Sales Order ID</th>
+                    <th class="text-left font-medium px-5 py-2">Processado em</th>
+                    <th class="text-right font-medium px-5 py-2">Ação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (order of processedOrders(); track order.id) {
+                    <tr style="border-bottom: 1px solid var(--cmm-border);">
+                      <td class="px-5 py-2.5 font-medium" style="color: var(--cmm-ink);">{{ order.code }}</td>
+                      <td class="px-5 py-2.5 text-xs font-mono" style="color: var(--cmm-muted);">{{ order.salesOrderId }}</td>
+                      <td class="px-5 py-2.5 text-xs" style="color: var(--cmm-muted);">{{ formatDate(order.createdAt) }}</td>
+                      <td class="px-5 py-2.5 text-right">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-danger"
+                          title="Remover para permitir reprocessar"
+                          (click)="removeProcessedOrder(order)"
+                        >Remover</button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            <div class="px-5 py-3 flex items-center justify-between text-xs" style="color: var(--cmm-muted);">
+              <span>{{ processedTotal() }} registro(s)</span>
+              <div class="flex gap-2">
+                <button type="button" class="btn btn-sm btn-secondary" [disabled]="processedPage() <= 1" (click)="changeProcessedPage(-1)">Anterior</button>
+                <span class="self-center">Pág. {{ processedPage() }}</span>
+                <button type="button" class="btn btn-sm btn-secondary" [disabled]="processedPage() * 50 >= processedTotal()" (click)="changeProcessedPage(1)">Próxima</button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
       @if (successMessage()) {
         <div
           class="fixed bottom-4 right-4 p-4 rounded-lg flex items-center gap-3 z-50"
           style="background: color-mix(in srgb, var(--cmm-success) 12%, var(--cmm-panel)); border: 1px solid color-mix(in srgb, var(--cmm-success) 30%, transparent); box-shadow: 0 12px 28px rgba(15, 26, 39, 0.16);"
         >
-          <svg class="w-5 h-5 flex-shrink-0" style="color: var(--cmm-success);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
           <span class="text-sm" style="color: var(--cmm-success);">{{ successMessage() }}</span>
         </div>
       }
@@ -244,9 +328,6 @@ interface CodeJobLogEntry {
           class="fixed bottom-4 right-4 p-4 rounded-lg flex items-center gap-3 z-50"
           style="background: color-mix(in srgb, var(--cmm-danger) 12%, var(--cmm-panel)); border: 1px solid color-mix(in srgb, var(--cmm-danger) 30%, transparent); box-shadow: 0 12px 28px rgba(15, 26, 39, 0.16);"
         >
-          <svg class="w-5 h-5 flex-shrink-0" style="color: var(--cmm-danger);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
           <span class="text-sm" style="color: var(--cmm-danger);">{{ errorMessage() }}</span>
         </div>
       }
@@ -268,15 +349,25 @@ export class JobsComponent implements OnInit, OnDestroy {
   private http = inject(HttpClient);
   private apiUrl = environment.apiUrl;
   private refreshInterval: ReturnType<typeof setInterval> | null = null;
+  private processedSearchTimeout: ReturnType<typeof setTimeout> | null = null;
 
   jobs = signal<CodeJob[]>([]);
   salesOrderDate = signal(this.getTodayManausDate());
   selectedJobId = signal<string | null>(null);
   selectedJobLogs = signal<CodeJobLogEntry[]>([]);
+  scheduleDraft = signal<CodeJobRunTime[]>([]);
+  scheduleDirty = signal(false);
+  savingSchedule = signal(false);
   loading = signal(false);
   loadingLogs = signal(false);
   successMessage = signal('');
   errorMessage = signal('');
+
+  processedOrders = signal<ProcessedOrder[]>([]);
+  processedTotal = signal(0);
+  processedPage = signal(1);
+  processedQuery = signal('');
+  loadingProcessed = signal(false);
 
   ngOnInit() {
     this.loadJobs(true);
@@ -294,6 +385,9 @@ export class JobsComponent implements OnInit, OnDestroy {
       clearInterval(this.refreshInterval);
       this.refreshInterval = null;
     }
+    if (this.processedSearchTimeout) {
+      clearTimeout(this.processedSearchTimeout);
+    }
   }
 
   refreshNow() {
@@ -301,6 +395,9 @@ export class JobsComponent implements OnInit, OnDestroy {
     const selected = this.selectedJobId();
     if (selected) {
       this.loadLogs(selected, true);
+    }
+    if (selected === 'auto-tasks') {
+      this.loadProcessedOrders(false);
     }
   }
 
@@ -320,6 +417,11 @@ export class JobsComponent implements OnInit, OnDestroy {
         const selectedStillExists = !!selected && data.some((j) => j.id === selected);
         if (!selectedStillExists && data.length > 0) {
           this.selectJob(data[0].id);
+        } else if (selected && !this.scheduleDirty()) {
+          const job = data.find((j) => j.id === selected);
+          if (job?.runTimesManaus) {
+            this.scheduleDraft.set(job.runTimesManaus.map((t) => ({ ...t })));
+          }
         }
       },
       error: (err) => {
@@ -335,6 +437,13 @@ export class JobsComponent implements OnInit, OnDestroy {
   selectJob(jobId: string) {
     this.selectedJobId.set(jobId);
     this.loadLogs(jobId, true);
+    this.scheduleDirty.set(false);
+    const job = this.jobs().find((j) => j.id === jobId);
+    this.scheduleDraft.set((job?.runTimesManaus || []).map((t) => ({ ...t })));
+    if (jobId === 'auto-tasks') {
+      this.processedPage.set(1);
+      this.loadProcessedOrders(true);
+    }
   }
 
   selectedJob(): CodeJob | null {
@@ -364,6 +473,117 @@ export class JobsComponent implements OnInit, OnDestroy {
           this.loadingLogs.set(false);
         }
         this.selectedJobLogs.set([]);
+      },
+    });
+  }
+
+  toTimeInput(time: CodeJobRunTime): string {
+    return `${String(time.hour).padStart(2, '0')}:${String(time.minute).padStart(2, '0')}`;
+  }
+
+  onScheduleTimeChange(index: number, event: Event) {
+    const input = event.target as HTMLInputElement | null;
+    const value = input?.value || '';
+    const [hourStr, minuteStr] = value.split(':');
+    const hour = Number(hourStr);
+    const minute = Number(minuteStr);
+    if (!Number.isInteger(hour) || !Number.isInteger(minute)) return;
+
+    const next = this.scheduleDraft().map((t, i) => (i === index ? { hour, minute } : t));
+    this.scheduleDraft.set(next);
+    this.scheduleDirty.set(true);
+  }
+
+  addScheduleTime(job: CodeJob) {
+    this.scheduleDraft.set([...this.scheduleDraft(), { hour: 12, minute: 0 }]);
+    this.scheduleDirty.set(true);
+  }
+
+  removeScheduleTime(index: number) {
+    if (this.scheduleDraft().length <= 1) return;
+    this.scheduleDraft.set(this.scheduleDraft().filter((_, i) => i !== index));
+    this.scheduleDirty.set(true);
+  }
+
+  saveSchedule(job: CodeJob) {
+    this.savingSchedule.set(true);
+    this.http.put<CodeJob>(`${this.apiUrl}/jobs/code/${job.id}/schedule`, {
+      runTimesManaus: this.scheduleDraft(),
+    }).subscribe({
+      next: () => {
+        this.savingSchedule.set(false);
+        this.scheduleDirty.set(false);
+        this.successMessage.set('Horários salvos.');
+        this.loadJobs(false);
+        this.loadLogs(job.id, false);
+        setTimeout(() => this.successMessage.set(''), 3000);
+      },
+      error: (err) => {
+        this.savingSchedule.set(false);
+        this.errorMessage.set(err?.error?.message || 'Erro ao salvar horários');
+        setTimeout(() => this.errorMessage.set(''), 5000);
+      },
+    });
+  }
+
+  loadProcessedOrders(withLoader: boolean) {
+    if (withLoader) {
+      this.loadingProcessed.set(true);
+    }
+    const q = encodeURIComponent(this.processedQuery().trim());
+    const page = this.processedPage();
+    this.http.get<ProcessedOrdersResponse>(
+      `${this.apiUrl}/jobs/code/auto-tasks/processed-orders?q=${q}&page=${page}&limit=50`,
+    ).subscribe({
+      next: (res) => {
+        this.processedOrders.set(res.items || []);
+        this.processedTotal.set(res.total || 0);
+        this.processedPage.set(res.page || page);
+        if (withLoader) {
+          this.loadingProcessed.set(false);
+        }
+      },
+      error: (err) => {
+        if (withLoader) {
+          this.loadingProcessed.set(false);
+        }
+        this.errorMessage.set(err?.error?.message || 'Erro ao carregar pedidos processados');
+        setTimeout(() => this.errorMessage.set(''), 5000);
+      },
+    });
+  }
+
+  onProcessedQueryChange(value: string) {
+    this.processedQuery.set(value);
+    if (this.processedSearchTimeout) {
+      clearTimeout(this.processedSearchTimeout);
+    }
+    this.processedSearchTimeout = setTimeout(() => {
+      this.processedPage.set(1);
+      this.loadProcessedOrders(true);
+    }, 350);
+  }
+
+  changeProcessedPage(delta: number) {
+    const next = this.processedPage() + delta;
+    if (next < 1) return;
+    this.processedPage.set(next);
+    this.loadProcessedOrders(true);
+  }
+
+  removeProcessedOrder(order: ProcessedOrder) {
+    if (!confirm(`Remover ${order.code} da lista de processados? O job poderá criar tasks novamente para este PV.`)) {
+      return;
+    }
+    this.http.delete(`${this.apiUrl}/jobs/code/auto-tasks/processed-orders/${encodeURIComponent(order.code)}`).subscribe({
+      next: () => {
+        this.successMessage.set(`${order.code} removido.`);
+        this.loadProcessedOrders(true);
+        setTimeout(() => this.successMessage.set(''), 3000);
+      },
+      error: (err) => {
+        this.errorMessage.set(err?.error?.message || 'Erro ao remover pedido');
+        setTimeout(() => this.errorMessage.set(''), 5000);
       },
     });
   }
@@ -398,6 +618,9 @@ export class JobsComponent implements OnInit, OnDestroy {
         this.successMessage.set('Execução manual iniciada.');
         this.loadJobs(false);
         this.loadLogs(job.id, false);
+        if (job.id === 'auto-tasks') {
+          setTimeout(() => this.loadProcessedOrders(false), 1500);
+        }
         setTimeout(() => this.successMessage.set(''), 3000);
       },
       error: (err) => {
