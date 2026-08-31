@@ -45,6 +45,8 @@ interface ProcessedOrdersResponse {
   total: number;
   page: number;
   limit: number;
+  totalPages: number;
+  todayOnly?: boolean;
 }
 
 @Component({
@@ -268,20 +270,48 @@ interface ProcessedOrdersResponse {
               <!-- PEDIDOS -->
               @if (activeTab() === 'pedidos' && job.id === 'auto-tasks') {
                 <div class="space-y-4">
-                  <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                  <div class="flex flex-col gap-3">
                     <div>
                       <h3 class="section-title">Pedidos já processados</h3>
-                      <p class="help-text">Pedidos de venda (PV) que já tiveram as tarefas criadas. Remover libera o PV para ser processado de novo.</p>
+                      <p class="help-text">Lista do banco de dados — pedidos (PV) que já tiveram as tarefas criadas. Remover libera o PV para ser processado de novo.</p>
                     </div>
-                    <div class="flex gap-2">
-                      <input
-                        type="search"
-                        class="form-input"
-                        style="min-width: 11rem;"
-                        placeholder="Buscar PV-…"
-                        [ngModel]="processedQuery()"
-                        (ngModelChange)="onProcessedQueryChange($event)"
-                      />
+
+                    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <input
+                          type="search"
+                          class="form-input"
+                          style="min-width: 12rem;"
+                          placeholder="Filtrar por PV-…"
+                          [ngModel]="processedQuery()"
+                          (ngModelChange)="onProcessedQueryChange($event)"
+                        />
+                        <label class="filter-chip" [class.filter-chip-active]="processedTodayOnly()">
+                          <input
+                            type="checkbox"
+                            class="sr-only"
+                            [checked]="processedTodayOnly()"
+                            (change)="toggleProcessedTodayOnly($event)"
+                          />
+                          Somente hoje (Manaus)
+                        </label>
+                      </div>
+
+                      <div class="flex items-center gap-2 text-xs" style="color: var(--cmm-muted);">
+                        <label for="processed-page-size">Por página</label>
+                        <select
+                          id="processed-page-size"
+                          class="form-input"
+                          style="min-height: 2rem; width: auto; font-size: 0.75rem; padding: 0.25rem 0.5rem;"
+                          [ngModel]="processedLimit()"
+                          (ngModelChange)="onProcessedLimitChange($event)"
+                        >
+                          <option [ngValue]="10">10</option>
+                          <option [ngValue]="25">25</option>
+                          <option [ngValue]="50">50</option>
+                          <option [ngValue]="100">100</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
 
@@ -291,10 +321,10 @@ interface ProcessedOrdersResponse {
                     </div>
                   } @else if (processedOrders().length === 0) {
                     <div class="empty-state py-10">
-                      @if (processedQuery()) {
-                        Nenhum PV encontrado para “{{ processedQuery() }}”.
+                      @if (processedQuery() || processedTodayOnly()) {
+                        Nenhum PV encontrado com os filtros atuais.
                       } @else {
-                        Ainda não há pedidos processados.
+                        Ainda não há pedidos processados no banco.
                       }
                     </div>
                   } @else {
@@ -303,7 +333,7 @@ interface ProcessedOrdersResponse {
                         <thead>
                           <tr style="border-bottom: 1px solid var(--cmm-border); color: var(--cmm-muted);">
                             <th class="text-left font-medium px-2 py-2">Pedido</th>
-                            <th class="text-left font-medium px-2 py-2 hidden md:table-cell">Quando</th>
+                            <th class="text-left font-medium px-2 py-2 hidden md:table-cell">Processado em</th>
                             <th class="text-right font-medium px-2 py-2">Ação</th>
                           </tr>
                         </thead>
@@ -325,12 +355,12 @@ interface ProcessedOrdersResponse {
                         </tbody>
                       </table>
                     </div>
-                    <div class="flex items-center justify-between text-xs pt-1" style="color: var(--cmm-muted);">
-                      <span>{{ processedTotal() }} pedido(s)</span>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1 text-xs" style="color: var(--cmm-muted);">
+                      <span>{{ processedRangeLabel() }}</span>
                       <div class="flex items-center gap-2">
                         <button type="button" class="btn btn-sm btn-ghost" [disabled]="processedPage() <= 1" (click)="changeProcessedPage(-1)">Anterior</button>
-                        <span>Página {{ processedPage() }}</span>
-                        <button type="button" class="btn btn-sm btn-ghost" [disabled]="processedPage() * 50 >= processedTotal()" (click)="changeProcessedPage(1)">Próxima</button>
+                        <span>Página {{ processedPage() }} de {{ processedTotalPages() }}</span>
+                        <button type="button" class="btn btn-sm btn-ghost" [disabled]="processedPage() >= processedTotalPages()" (click)="changeProcessedPage(1)">Próxima</button>
                       </div>
                     </div>
                   }
@@ -543,6 +573,30 @@ interface ProcessedOrdersResponse {
       clip: rect(0, 0, 0, 0);
       border: 0;
     }
+    .filter-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 2rem;
+      padding: 0.25rem 0.625rem;
+      border-radius: 999px;
+      border: 1px solid var(--cmm-border);
+      background: var(--cmm-panel);
+      color: var(--cmm-muted);
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      user-select: none;
+      transition: border-color 160ms ease-out, background 160ms ease-out, color 160ms ease-out;
+    }
+    .filter-chip:hover {
+      border-color: color-mix(in srgb, var(--cmm-accent) 35%, var(--cmm-border));
+      color: var(--cmm-ink);
+    }
+    .filter-chip-active {
+      border-color: var(--cmm-accent);
+      background: color-mix(in srgb, var(--cmm-accent) 12%, var(--cmm-panel));
+      color: var(--cmm-accent);
+    }
   `],
 })
 export class JobsComponent implements OnInit, OnDestroy {
@@ -569,7 +623,10 @@ export class JobsComponent implements OnInit, OnDestroy {
   processedOrders = signal<ProcessedOrder[]>([]);
   processedTotal = signal(0);
   processedPage = signal(1);
+  processedLimit = signal(25);
+  processedTotalPages = signal(1);
   processedQuery = signal('');
+  processedTodayOnly = signal(false);
   loadingProcessed = signal(false);
 
   ngOnInit() {
@@ -758,13 +815,17 @@ export class JobsComponent implements OnInit, OnDestroy {
     if (withLoader) this.loadingProcessed.set(true);
     const q = encodeURIComponent(this.processedQuery().trim());
     const page = this.processedPage();
+    const limit = this.processedLimit();
+    const today = this.processedTodayOnly() ? '1' : '0';
     this.http.get<ProcessedOrdersResponse>(
-      `${this.apiUrl}/jobs/code/auto-tasks/processed-orders?q=${q}&page=${page}&limit=50`,
+      `${this.apiUrl}/jobs/code/auto-tasks/processed-orders?q=${q}&page=${page}&limit=${limit}&today=${today}`,
     ).subscribe({
       next: (res) => {
         this.processedOrders.set(res.items || []);
         this.processedTotal.set(res.total || 0);
         this.processedPage.set(res.page || page);
+        this.processedLimit.set(res.limit || limit);
+        this.processedTotalPages.set(res.totalPages || 1);
         if (withLoader) this.loadingProcessed.set(false);
       },
       error: (err) => {
@@ -781,6 +842,32 @@ export class JobsComponent implements OnInit, OnDestroy {
       this.processedPage.set(1);
       this.loadProcessedOrders(true);
     }, 350);
+  }
+
+  toggleProcessedTodayOnly(event: Event) {
+    const input = event.target as HTMLInputElement | null;
+    this.processedTodayOnly.set(!!input?.checked);
+    this.processedPage.set(1);
+    this.loadProcessedOrders(true);
+  }
+
+  onProcessedLimitChange(value: number) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 1) return;
+    this.processedLimit.set(parsed);
+    this.processedPage.set(1);
+    this.loadProcessedOrders(true);
+  }
+
+  processedRangeLabel(): string {
+    const total = this.processedTotal();
+    if (total === 0) return '0 pedidos';
+    const page = this.processedPage();
+    const limit = this.processedLimit();
+    const start = (page - 1) * limit + 1;
+    const end = Math.min(page * limit, total);
+    const scope = this.processedTodayOnly() ? ' (hoje)' : '';
+    return `Mostrando ${start}–${end} de ${total} pedido(s)${scope}`;
   }
 
   changeProcessedPage(delta: number) {
