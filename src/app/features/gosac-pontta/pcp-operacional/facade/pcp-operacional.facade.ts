@@ -53,7 +53,7 @@ export class PcpOperacionalFacade {
 
   readonly scheduleSubtitle = computed(() => {
     const offsets = this.areaConfig().areas.map((a) => `+${a.businessDays}`).join(' / ');
-    return `Base: ${this.areaConfig().baseDateLabel}. Datas por área: ${offsets} dias úteis · Ter / Qui / Sex.`;
+    return `Base: prazo calculado da tarefa Aprovação do Projeto Executivo. Datas por área: ${offsets} dias úteis · Ter / Qui / Sex.`;
   });
 
   readonly totalPages = computed(() => {
