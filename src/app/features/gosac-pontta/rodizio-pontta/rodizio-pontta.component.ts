@@ -5,6 +5,8 @@ import {
   PonttaRotationApiService,
   PonttaRotation,
   PonttaProfile,
+  PonttaPcpArea,
+  PCP_AREA_OPTIONS,
 } from '../../../services/pontta-rotation.service';
 
 interface FormState {
@@ -15,6 +17,7 @@ interface FormState {
   name: string;
   turn: boolean;
   turn_v: boolean;
+  pcpArea: PonttaPcpArea | null;
   saving: boolean;
 }
 
@@ -36,7 +39,7 @@ interface ConfirmState {
       <div class="page-header">
         <div>
           <h1 class="page-title">Rodízio Pontta</h1>
-          <p class="page-subtitle">Cadastre e edite os projetistas do rodízio Pontta.</p>
+          <p class="page-subtitle">Cadastre projetistas, área PCP responsável e controle o rodízio.</p>
         </div>
         <div class="flex items-center gap-2">
           <button type="button" (click)="load()" [disabled]="loading()" class="btn btn-secondary">
@@ -50,6 +53,24 @@ interface ConfirmState {
           </button>
         </div>
       </div>
+
+      <label class="panel panel-pad flex items-start gap-3 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          class="mt-0.5 h-4 w-4 rounded"
+          style="accent-color: var(--cmm-accent);"
+          [ngModel]="assignByPcpArea()"
+          (ngModelChange)="onAssignByPcpAreaChange($event)"
+          [disabled]="savingAssignSetting()"
+        />
+        <div>
+          <p class="text-sm font-semibold" style="color: var(--cmm-ink);">Atribuir tarefas por área do PCP Operacional</p>
+          <p class="text-xs mt-0.5" style="color: var(--cmm-muted);">
+            Quando ativo, o job de tarefas automáticas classifica cada ambiente (molhada, íntima, social)
+            e atribui ao projetista responsável por aquela área no rodízio.
+          </p>
+        </div>
+      </label>
 
       @if (toast()) {
         <div
@@ -98,6 +119,7 @@ interface ConfirmState {
               <tr>
                 <th>Nome</th>
                 <th>Projetista ID</th>
+                <th>Área PCP</th>
                 <th>Da vez</th>
                 <th>Turn V</th>
                 <th style="text-align: right;">Ações</th>
@@ -112,6 +134,16 @@ interface ConfirmState {
                   </td>
                   <td class="text-xs font-mono truncate max-w-[240px]" style="color: var(--cmm-muted);" [title]="item.projetistaid">
                     {{ item.projetistaid }}
+                  </td>
+                  <td>
+                    @if (areaMeta(item.pcpArea); as meta) {
+                      <span class="inline-flex items-center gap-1.5 text-xs font-medium" [style.color]="meta.color">
+                        <span class="w-2 h-2 rounded-full" [style.background]="meta.color"></span>
+                        {{ meta.label }}
+                      </span>
+                    } @else {
+                      <span class="text-xs" style="color: var(--cmm-muted);">—</span>
+                    }
                   </td>
                   <td>
                     @if (item.turn) {
@@ -267,6 +299,23 @@ interface ConfirmState {
               />
             </div>
 
+            <div>
+              <label class="form-label">Área PCP responsável</label>
+              <select
+                class="form-input"
+                [ngModel]="form().pcpArea ?? ''"
+                (ngModelChange)="patchForm({ pcpArea: $event ? $event : null })"
+              >
+                <option value="">Sem área (rodízio geral)</option>
+                @for (opt of areaOptions; track opt.key) {
+                  <option [value]="opt.key">{{ opt.label }}</option>
+                }
+              </select>
+              <p class="text-xs mt-1" style="color: var(--cmm-muted);">
+                Usada quando “Atribuir tarefas por área do PCP” estiver ativo.
+              </p>
+            </div>
+
             <label class="flex items-center gap-3 panel panel-pad cursor-pointer select-none" style="padding: 0.875rem 1rem;">
               <input
                 type="checkbox"
@@ -329,9 +378,13 @@ interface ConfirmState {
   `,
 })
 export class RodizioPonttaComponent implements OnInit {
+  readonly areaOptions = PCP_AREA_OPTIONS;
+
   items = signal<PonttaRotation[]>([]);
   loading = signal(false);
   searchingPontta = signal(false);
+  assignByPcpArea = signal(false);
+  savingAssignSetting = signal(false);
 
   ponttaQuery = '';
   tableFilter = signal('');
@@ -343,7 +396,7 @@ export class RodizioPonttaComponent implements OnInit {
     const q = this.tableFilter().trim().toLowerCase();
     if (!q) return this.items();
     return this.items().filter((item) =>
-      [item.name, item.projetistaid, String(item.id)].join(' ').toLowerCase().includes(q),
+      [item.name, item.projetistaid, item.pcpArea || '', String(item.id)].join(' ').toLowerCase().includes(q),
     );
   });
 
@@ -355,6 +408,7 @@ export class RodizioPonttaComponent implements OnInit {
     name: '',
     turn: false,
     turn_v: true,
+    pcpArea: null,
     saving: false,
   });
 
@@ -371,6 +425,39 @@ export class RodizioPonttaComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    this.loadAssignSetting();
+  }
+
+  areaMeta(area: PonttaPcpArea | null | undefined) {
+    if (!area) return null;
+    return this.areaOptions.find((o) => o.key === area) || null;
+  }
+
+  loadAssignSetting(): void {
+    this.api.getAssignByPcpArea().subscribe({
+      next: (res) => this.assignByPcpArea.set(!!res.enabled),
+      error: () => this.assignByPcpArea.set(false),
+    });
+  }
+
+  onAssignByPcpAreaChange(enabled: boolean): void {
+    this.savingAssignSetting.set(true);
+    this.api.setAssignByPcpArea(enabled).subscribe({
+      next: (res) => {
+        this.assignByPcpArea.set(!!res.enabled);
+        this.savingAssignSetting.set(false);
+        this.showToast(
+          res.enabled
+            ? 'Atribuição por área PCP ativada'
+            : 'Atribuição por área PCP desativada — volta o rodízio geral',
+          'success',
+        );
+      },
+      error: (err) => {
+        this.savingAssignSetting.set(false);
+        this.showToast(err.error?.message || 'Erro ao salvar configuração', 'error');
+      },
+    });
   }
 
   load(): void {
@@ -398,6 +485,7 @@ export class RodizioPonttaComponent implements OnInit {
       name: '',
       turn: false,
       turn_v: true,
+      pcpArea: null,
       saving: false,
     });
   }
@@ -413,6 +501,7 @@ export class RodizioPonttaComponent implements OnInit {
       name: item.name,
       turn: !!item.turn,
       turn_v: item.turn_v !== false,
+      pcpArea: item.pcpArea || null,
       saving: false,
     });
   }
@@ -492,6 +581,7 @@ export class RodizioPonttaComponent implements OnInit {
           name: f.name,
           turn: f.turn,
           turn_v: true,
+          pcpArea: f.pcpArea,
         })
         .subscribe({
           next: () => {
@@ -513,6 +603,7 @@ export class RodizioPonttaComponent implements OnInit {
         name: f.name,
         turn: f.turn,
         turn_v: true,
+        pcpArea: f.pcpArea,
       })
       .subscribe({
         next: () => {
