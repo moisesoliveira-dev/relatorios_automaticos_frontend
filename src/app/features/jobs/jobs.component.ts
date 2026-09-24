@@ -128,8 +128,8 @@ interface ProcessedOrdersResponse {
                   <button
                     type="button"
                     class="btn btn-accent"
-                    [disabled]="job.isRunning || (job.id === 'delivery-material-dates' && !salesOrderDate())"
-                    (click)="runNow(job, job.id === 'delivery-material-dates' ? salesOrderDate() : undefined)"
+                    [disabled]="job.isRunning || ((job.id === 'delivery-material-dates' || job.id === 'auto-tasks') && !salesOrderDate())"
+                    (click)="runNow(job, (job.id === 'delivery-material-dates' || job.id === 'auto-tasks') ? salesOrderDate() : undefined)"
                   >
                     {{ job.isRunning ? 'Executando…' : 'Rodar agora' }}
                   </button>
@@ -190,10 +190,16 @@ interface ProcessedOrdersResponse {
                     </ol>
                   </section>
 
-                  @if (job.id === 'delivery-material-dates') {
+                  @if (job.id === 'delivery-material-dates' || job.id === 'auto-tasks') {
                     <section>
                       <label class="form-label" for="sales-order-date">Data dos pedidos de venda</label>
-                      <p class="help-text mb-2">Usada só no “Rodar agora”. O agendamento automático usa o dia anterior.</p>
+                      <p class="help-text mb-2">
+                        @if (job.id === 'auto-tasks') {
+                          Usada no “Rodar agora” para reprocessar um dia em que o job não rodou. Só cria tasks nos PVs que ainda não foram processados.
+                        } @else {
+                          Usada só no “Rodar agora”. O agendamento automático usa o dia anterior.
+                        }
+                      </p>
                       <input
                         id="sales-order-date"
                         type="date"
@@ -903,7 +909,7 @@ export class JobsComponent implements OnInit, OnDestroy {
   }
 
   runNow(job: CodeJob, salesOrderDate?: string) {
-    if (job.id === 'delivery-material-dates' && !salesOrderDate) {
+    if ((job.id === 'delivery-material-dates' || job.id === 'auto-tasks') && !salesOrderDate) {
       this.flashError('Escolha a data dos pedidos de venda.');
       return;
     }
@@ -912,7 +918,11 @@ export class JobsComponent implements OnInit, OnDestroy {
     const payload = salesOrderDate ? { salesOrderDate } : {};
     this.http.post<CodeJob>(`${this.apiUrl}/jobs/code/${job.id}/run`, payload).subscribe({
       next: () => {
-        this.flashOk('Execução iniciada. Acompanhe em Atividade.');
+        this.flashOk(
+          job.id === 'auto-tasks'
+            ? `Execução iniciada para ${salesOrderDate}. Só processa PVs ainda não feitos.`
+            : 'Execução iniciada. Acompanhe em Atividade.',
+        );
         this.loadJobs(false);
         this.loadLogs(job.id, false);
         if (job.id === 'auto-tasks') {
