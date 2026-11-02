@@ -190,7 +190,7 @@ export const MODELOS: Record<string, () => IaFlow> = {
             @if (!estado() && !terminou()) { <button type="button" class="btn btn-primary btn-sm w-full" (click)="comecar()" [disabled]="carregando()">Começar</button> }
             @else if (terminou()) { <button type="button" class="btn btn-secondary btn-sm w-full" (click)="comecar()">Testar de novo</button> }
             @else {
-              <input class="form-input flex-1" name="tx" [(ngModel)]="texto" placeholder="Resposta do cliente…" autocomplete="off" aria-label="Resposta do cliente" />
+              <input class="form-input flex-1" name="tx" [ngModel]="texto()" (ngModelChange)="texto.set($event)" placeholder="Resposta do cliente…" autocomplete="off" aria-label="Resposta do cliente" />
               <button type="submit" class="btn btn-primary btn-sm" [disabled]="carregando()">Enviar</button>
             }
           </form>
@@ -260,7 +260,7 @@ export class IaFluxosComponent {
   erros = signal<string[]>([]);
   terminou = signal(false);
   carregando = signal(false);
-  texto = '';
+  texto = signal('');
 
   @HostListener('document:keydown.escape')
   fechar(): void { if (this.noAberto() !== null) this.noAberto.set(null); else if (this.testando()) this.testando.set(false); }
@@ -351,10 +351,10 @@ export class IaFluxosComponent {
   private zerarTeste(): void { this.estado.set(null); this.log.set([]); this.erros.set([]); this.terminou.set(false); }
   comecar(): void { this.zerarTeste(); this.rodar(null, ''); }
   enviar(): void {
-    const t = this.texto.trim();
+    const t = this.texto().trim();
     if (!t) return;
     this.log.update((l) => [...l, { de: 'cliente', texto: t }]);
-    this.texto = '';
+    this.texto.set('');
     this.rodar(this.estado(), t);
   }
   private rodar(estado: IaFlowState | null, texto: string): void {

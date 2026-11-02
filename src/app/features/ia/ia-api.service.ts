@@ -56,14 +56,16 @@ export interface IaList {
   itens: IaConversationSummary[];
 }
 
-export interface IaSimulation {
-  etapaAntes: string;
-  origem: 'regras' | 'ia' | 'nenhuma';
-  entrada: { kind: string; [k: string]: unknown };
-  etapaDepois: string;
+export interface IaSimResposta {
+  /** Estado da conversa simulada: devolva-o no próximo passo. */
+  estado: Record<string, unknown>;
   mensagens: string[];
+  reescrita: boolean;
+  origem: 'regras' | 'ia' | 'nenhuma';
   efeitos: string[];
-  observacao: string;
+  terminou: boolean;
+  onde: { etapa: string; fluxo: { id: string; nome: string } | null; bloco: { numero: number; titulo: string } | null };
+  aviso: string | null;
 }
 
 export interface IaConfigField {
@@ -181,8 +183,8 @@ export class IaApiService {
   devolver(id: string) {
     return this.http.post<IaConversationSummary>(`${this.base}/conversations/${id}/devolver-ao-bot`, {});
   }
-  simulate(body: { text: string; step: string; trilha?: string | null; nome?: string | null; usarIA: boolean }) {
-    return this.http.post<IaSimulation>(`${this.base}/simulate`, body);
+  simulate(body: { texto?: string; estado?: Record<string, unknown> | null; inicio?: { step?: string; trilha?: string | null; nome?: string | null }; usarIA: boolean }) {
+    return this.http.post<IaSimResposta>(`${this.base}/simulate`, body);
   }
   catalog() {
     return this.http.get<IaCatalog>(`${this.base}/catalog`);

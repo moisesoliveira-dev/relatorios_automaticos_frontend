@@ -5,7 +5,7 @@ import { ToastService } from '../../core/ui/toast.service';
 import { ModalService } from '../../shared/services/modal.service';
 import { IaConteudoComponent } from './ia-conteudo.component';
 import {
-  IaApiService, IaConfigField, IaConversationDetail, IaConversationSummary, IaList, IaOverview, IaSimulation,
+  IaApiService, IaConfigField, IaConversationDetail, IaConversationSummary, IaList, IaOverview, IaSimResposta,
 } from './ia-api.service';
 
 type Aba = 'visao' | 'conversas' | 'atendimento' | 'simulador' | 'config';
@@ -245,52 +245,58 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
           }
         }
 
-        <!-- ═══════════ SIMULADOR ═══════════ -->
+        <!-- ═══════════ TESTAR ═══════════ -->
         @case ('simulador') {
-          <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
-            <div class="panel panel-pad lg:col-span-2 space-y-4 self-start">
-              <div>
-                <h2 class="sec-title">Testar uma mensagem</h2>
-                <p class="text-sm mt-1" style="color: var(--cmm-muted);">Veja o que o bot faria com uma mensagem, sem enviar nada a clientes reais.</p>
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+            <div class="panel lg:col-span-2 flex flex-col" style="min-height: 30rem;">
+              <div class="sim-bar">
+                <span class="sim-where" aria-live="polite">
+                  <span class="text-xs" style="color: var(--cmm-muted);">O cliente está em</span>
+                  <b>{{ simOnde() }}</b>
+                </span>
+                <button type="button" class="btn btn-secondary btn-sm" (click)="simComecar()" [disabled]="simCarregando()">↻ Recomeçar</button>
               </div>
-              <div class="flex gap-1.5 flex-wrap">
-                <span class="text-xs w-full" style="color: var(--cmm-muted);">Experimente:</span>
-                @for (ex of exemplos; track ex) { <button type="button" class="chip chip-btn" (click)="simTexto = ex">{{ ex }}</button> }
-              </div>
-              <div><label class="form-label" for="sim-etapa">Etapa em que o cliente está</label>
-                <select id="sim-etapa" class="form-input" [(ngModel)]="simEtapa">@for (e of etapas; track e.key) { <option [value]="e.key">{{ e.label }}</option> }</select></div>
-              <div><label class="form-label" for="sim-trilha">Escolha anterior</label>
-                <select id="sim-trilha" class="form-input" [(ngModel)]="simTrilha"><option value="">(nenhuma)</option>@for (t of trilhaOpcoes; track t.key) { <option [value]="t.key">{{ t.label }}</option> }</select></div>
-              <div><label class="form-label" for="sim-nome">Nome do cliente (opcional)</label><input id="sim-nome" class="form-input" [(ngModel)]="simNome" placeholder="Ana Paula" /></div>
-              <label class="switch-row"><span>Permitir que a IA interprete <small>conta no uso do dia</small></span>
-                <button type="button" role="switch" class="switch" [class.switch-on]="simUsarIA()" [attr.aria-checked]="simUsarIA()" (click)="simUsarIA.set(!simUsarIA())"><span class="switch-knob"></span></button></label>
-            </div>
-
-            <div class="panel lg:col-span-3 flex flex-col" style="min-height: 28rem;">
-              <div class="chat" #chat aria-live="polite">
+              <div class="chat" aria-live="polite">
                 @for (m of simLog(); track $index) {
-                  <div class="bubble bubble-user">{{ m.texto }}</div>
-                  @if (m.resultado; as r) {
-                    <div class="sim-meta">
-                      <span class="badge" [class.badge-accent]="r.origem === 'ia'" [class.badge-neutral]="r.origem !== 'ia'">{{ r.origem === 'ia' ? 'IA interpretou' : r.origem === 'regras' ? 'Regras fixas' : 'Sem IA' }}</span>
-                      <span class="chip">{{ etapaLabel(r.etapaAntes) }} → <b>{{ etapaLabel(r.etapaDepois) }}</b></span>
-                      <span class="chip">entrada: {{ r.entrada.kind }}</span>
-                      @for (e of r.efeitos; track e) { <span class="chip chip-fx">efeito: {{ e }}</span> }
-                    </div>
-                    @for (msg of r.mensagens; track $index) { <div class="bubble bubble-bot">{{ msg }}</div> }
-                    @if (!r.mensagens.length) { <div class="bubble bubble-none">(o bot não responde nada nesta situação)</div> }
-                    <p class="sim-note">{{ r.observacao }}</p>
-                  } @else { <div class="bubble bubble-none">{{ m.erro }}</div> }
-                } @empty {
-                  <div class="empty-state">Escreva como um cliente escreveria. Ex.: <b>2</b>, <b>quero uma cozinha</b>, <b>onde fica a loja?</b></div>
+                  <div class="bubble" [class.bubble-user]="m.de === 'cliente'" [class.bubble-bot]="m.de === 'bot'" [class.bubble-none]="m.de === 'sistema'" [class.bubble-fx]="m.de === 'efeito'">{{ m.texto }}</div>
                 }
+                @if (simCarregando()) { <div class="bubble bubble-bot bubble-typing" aria-label="Digitando">•••</div> }
               </div>
-              <form class="chat-input" (ngSubmit)="simular()">
-                <input class="form-input" name="simTexto" [(ngModel)]="simTexto" placeholder="Mensagem do cliente…" aria-label="Mensagem do cliente" maxlength="600" autocomplete="off" />
-                <button type="submit" class="btn btn-primary" [disabled]="simCarregando() || !simTexto.trim()">{{ simCarregando() ? 'Simulando…' : 'Enviar' }}</button>
-                @if (simLog().length) { <button type="button" class="btn btn-ghost" (click)="simLog.set([])">Limpar</button> }
+              @if (simAviso()) { <p class="sim-aviso" role="status">{{ simAviso() }}</p> }
+              <form class="chat-input" (ngSubmit)="simEnviar()">
+                @if (simTerminou()) {
+                  <button type="button" class="btn btn-primary w-full" (click)="simComecar()">Testar de novo</button>
+                } @else {
+                  <input class="form-input" name="simTexto" [ngModel]="simTexto()" (ngModelChange)="simTexto.set($event)" placeholder="Responda como o cliente…" aria-label="Mensagem do cliente" maxlength="600" autocomplete="off" />
+                  <button type="submit" class="btn btn-primary" [disabled]="simCarregando()">Enviar</button>
+                }
               </form>
             </div>
+
+            <aside class="space-y-4">
+              <div class="panel panel-pad space-y-3">
+                <h2 class="sec-title">Como funciona</h2>
+                <p class="text-sm" style="color: var(--cmm-muted);">Você é o cliente: a conversa começa pelo menu e segue por qualquer fluxo <b>já publicado</b> — o padrão ou os seus — do jeito que o cliente viveria. Nada é enviado, gravado, criado no Drive nem encaminhado.</p>
+                <p class="text-sm" style="color: var(--cmm-muted);">Para testar um fluxo ainda <b>não publicado</b>, abra-o em <b>Atendimento</b> e use “▶ Testar este fluxo”.</p>
+                <div class="flex gap-1.5 flex-wrap">
+                  <span class="text-xs w-full" style="color: var(--cmm-muted);">Atalhos:</span>
+                  @for (ex of exemplos; track ex) { <button type="button" class="chip chip-btn" (click)="simTexto.set(ex)" [disabled]="simTerminou()">{{ ex }}</button> }
+                </div>
+                <label class="switch-row"><span>Usar a IA no teste <small>interpreta texto livre, responde dúvidas e escreve no tom de cada fluxo (conta no uso)</small></span>
+                  <button type="button" role="switch" class="switch" [class.switch-on]="simUsarIA()" [attr.aria-checked]="simUsarIA()" (click)="simUsarIA.set(!simUsarIA())"><span class="switch-knob"></span></button></label>
+              </div>
+              <details class="panel panel-pad tech">
+                <summary class="font-semibold text-sm cursor-pointer">Avançado: começar numa etapa do fluxo padrão</summary>
+                <div class="space-y-3 mt-3">
+                  <div><label class="form-label" for="sim-etapa">Etapa</label>
+                    <select id="sim-etapa" class="form-input" [(ngModel)]="simEtapa">@for (e of etapasTeste; track e.key) { <option [value]="e.key">{{ e.label }}</option> }</select></div>
+                  <div><label class="form-label" for="sim-trilha">O cliente escolheu</label>
+                    <select id="sim-trilha" class="form-input" [(ngModel)]="simTrilha"><option value="">(automático)</option>@for (t of trilhaOpcoes; track t.key) { <option [value]="t.key">{{ t.label }}</option> }</select></div>
+                  <div><label class="form-label" for="sim-nome">Nome do cliente</label><input id="sim-nome" class="form-input" [(ngModel)]="simNome" placeholder="Ana Paula" /></div>
+                  <button type="button" class="btn btn-secondary btn-sm" (click)="simComecar(true)">Começar nesta etapa</button>
+                </div>
+              </details>
+            </aside>
           </div>
         }
 
@@ -457,6 +463,11 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
     .bubble-none { align-self: flex-start; font-style: italic; color: var(--cmm-muted); background: color-mix(in srgb, var(--cmm-border) 45%, var(--cmm-panel)); }
     .sim-meta { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin: .15rem 0; }
     .sim-note { font-size: .7rem; color: var(--cmm-muted); margin: 0 0 .75rem; }
+    .sim-bar { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem 1.25rem; border-bottom: 1px solid var(--cmm-border); flex-wrap: wrap; }
+    .sim-where { display: flex; flex-direction: column; min-width: 0; } .sim-where b { font-size: .9rem; overflow-wrap: anywhere; }
+    .sim-aviso { margin: 0 1.25rem .5rem; font-size: .78rem; color: var(--cmm-warning); font-weight: 600; }
+    .bubble-fx { align-self: center; background: var(--cmm-accent-soft); color: var(--cmm-accent); font-weight: 700; font-size: .72rem; border-radius: 99px; text-align: center; }
+    .bubble-typing { letter-spacing: .2em; opacity: .7; }
     .chat-input { display: flex; gap: .5rem; padding: 1rem; border-top: 1px solid var(--cmm-border); }
     .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: .875rem; font-weight: 600; } .switch-row small { display: block; font-weight: 400; color: var(--cmm-muted); }
     .switch { flex-shrink: 0; width: 2.9rem; height: 1.6rem; border-radius: 99px; border: none; background: var(--cmm-border); position: relative; cursor: pointer; transition: background-color 300ms; }
@@ -504,7 +515,7 @@ export class IaComponent implements OnInit, OnDestroy {
     simulador: 'Escreva como um cliente e veja a resposta do bot, sem enviar nada a ninguém.',
     config: 'Liga/desliga, chave da OpenAI, modelos, limites de uso e integrações.',
   };
-  exemplos = ['2', 'quero uma cozinha', 'onde fica a loja?', 'quanto custa?'];
+  exemplos = ['1', '2', '3', 'quero uma cozinha', 'onde fica a loja?', '0', '10'];
   etapas = ETAPAS;
   grupos = GRUPOS;
   trilhaOpcoes = Object.entries(TRILHAS).filter(([k]) => k !== 'sem_trilha').map(([key, label]) => ({ key, label }));
@@ -531,10 +542,15 @@ export class IaComponent implements OnInit, OnDestroy {
   simEtapa = 'MENU';
   simTrilha = '';
   simNome = '';
-  simTexto = '';
+  simTexto = signal('');
   simUsarIA = signal(true);
   simCarregando = signal(false);
-  simLog = signal<Array<{ texto: string; resultado?: IaSimulation; erro?: string }>>([]);
+  simLog = signal<Array<{ de: 'cliente' | 'bot' | 'efeito' | 'sistema'; texto: string }>>([]);
+  simEstado = signal<Record<string, unknown> | null>(null);
+  simOnde = signal('—');
+  simAviso = signal<string | null>(null);
+  simTerminou = signal(false);
+  etapasTeste = ETAPAS.filter((e) => e.key !== 'HUMANO');
 
   // config
   campos = signal<IaConfigField[]>([]);
@@ -623,6 +639,7 @@ export class IaComponent implements OnInit, OnDestroy {
   setAba(a: Aba): void {
     this.aba.set(a);
     if (a === 'conversas' && !this.lista()) this.carregarLista();
+    if (a === 'simulador' && !this.simEstado() && !this.simLog().length) this.simComecar();
     if (a === 'config' && !this.campos().length) this.carregarConfig();
     if (a === 'visao') this.carregarOverview();
   }
@@ -671,15 +688,46 @@ export class IaComponent implements OnInit, OnDestroy {
     this.api.devolver(d.id).subscribe({ next: () => { this.toast.success('Conversa devolvida ao bot.'); this.abrir(d); this.carregarLista(); this.carregarOverview(); }, error: () => this.toast.error('Não foi possível devolver.') });
   }
 
-  // ───── simulador
-  simular(): void {
-    const texto = this.simTexto.trim();
-    if (!texto) return;
+  // ───── testar (conversa simulada)
+  simComecar(avancado = false): void {
+    this.simLog.set([]); this.simEstado.set(null); this.simTerminou.set(false); this.simAviso.set(null); this.simTexto.set('');
+    this.simPasso(null, '', avancado ? { step: this.simEtapa, trilha: this.simTrilha || null, nome: this.simNome.trim() || null } : undefined);
+  }
+  simEnviar(): void {
+    const texto = this.simTexto().trim();
+    if (!texto || this.simCarregando()) return;
+    this.simLog.update((l) => [...l, { de: 'cliente', texto }]);
+    this.simTexto.set('');
+    this.simPasso(this.simEstado(), texto);
+  }
+  private simPasso(estado: Record<string, unknown> | null, texto: string, inicio?: { step?: string; trilha?: string | null; nome?: string | null }): void {
     this.simCarregando.set(true);
-    this.api.simulate({ text: texto, step: this.simEtapa, trilha: this.simTrilha || null, nome: this.simNome.trim() || null, usarIA: this.simUsarIA() }).subscribe({
-      next: (r) => { this.simLog.update((l) => [...l, { texto, resultado: r }]); this.simTexto = ''; this.simCarregando.set(false); this.rolarChat(); },
-      error: (e) => { this.simLog.update((l) => [...l, { texto, erro: e?.error?.message || 'A simulação falhou.' }]); this.simCarregando.set(false); },
+    this.api.simulate({ texto, estado, inicio, usarIA: this.simUsarIA() }).subscribe({
+      next: (r) => {
+        this.simLog.update((l) => [
+          ...l,
+          ...r.mensagens.map((m) => ({ de: 'bot' as const, texto: m })),
+          ...r.efeitos.map((e) => ({ de: 'efeito' as const, texto: '⚙ ' + e })),
+          ...(r.terminou ? [{ de: 'efeito' as const, texto: '🤝 Conversa encaminhada a um atendente — fim do teste' }] : []),
+          ...(r.reescrita ? [{ de: 'sistema' as const, texto: 'A IA reescreveu esta resposta no tom do fluxo.' }] : []),
+        ]);
+        this.simEstado.set(r.estado);
+        this.simTerminou.set(r.terminou);
+        this.simAviso.set(r.aviso);
+        this.simOnde.set(this.descreverOnde(r.onde));
+        this.simCarregando.set(false);
+        this.rolarChat();
+      },
+      error: (e) => {
+        const m = e?.error?.message;
+        this.simLog.update((l) => [...l, { de: 'sistema', texto: Array.isArray(m) ? m.join(' ') : m || 'O teste falhou.' }]);
+        this.simCarregando.set(false);
+      },
     });
+  }
+  private descreverOnde(o: IaSimResposta['onde']): string {
+    if (o.fluxo) return `${o.fluxo.nome}${o.bloco ? ` › etapa ${o.bloco.numero}: ${o.bloco.titulo}` : ''}`;
+    return `Fluxo padrão › ${this.etapaLabel(o.etapa)}`;
   }
   private rolarChat(): void { setTimeout(() => { const el = document.querySelector('.chat'); el?.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }); }, 50); }
 
