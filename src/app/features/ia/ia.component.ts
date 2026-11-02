@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { IconComponent, IconName } from '../../shared/components/icon.component';
 import { CounterDirective } from '../../core/motion/counter.directive';
 import { ToastService } from '../../core/ui/toast.service';
 import { ModalService } from '../../shared/services/modal.service';
@@ -48,7 +49,7 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
 @Component({
   selector: 'app-ia',
   standalone: true,
-  imports: [FormsModule, CounterDirective, IaConteudoComponent],
+  imports: [FormsModule, CounterDirective, IconComponent, IaConteudoComponent],
   template: `
     <div class="space-y-6">
       <!-- Cabeçalho: nome, estado (clique para ligar/desligar) e o propósito da tela -->
@@ -67,7 +68,7 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
       <div class="tabs" role="tablist" aria-label="Seções da IA">
         @for (t of abas; track t.key) {
           <button type="button" role="tab" class="tab" [class.tab-on]="aba() === t.key" [attr.aria-selected]="aba() === t.key" (click)="setAba(t.key)">
-            {{ t.label }}
+            <app-icon [name]="icones[t.key]" [size]="16" />{{ t.label }}
             @if (t.key === 'conversas' && overview()?.totais?.comErro) { <span class="seg-count">{{ overview()!.totais.comErro }}</span> }
           </button>
         }
@@ -285,9 +286,11 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
         <!-- ═══════════ AJUSTES ═══════════ -->
         @case ('config') {
           <div class="panel pb-2 mb-24">
-            @for (g of grupos; track g.key; let first = $first) {
-              <h2 class="cfg-h" [class.cfg-h-first]="first">{{ g.titulo }}</h2>
-              @for (f of camposDo(g.key); track f.key) {
+            @for (g of grupos; track g.key; let first = $first; let gi = $index) {
+              <button type="button" class="cfg-h cfg-h-btn" [class.cfg-h-first]="first" [attr.aria-expanded]="grupoAberto(g.key, gi)" (click)="alternarGrupo(g.key, gi)">
+                <span>{{ g.titulo }}</span><span class="cfg-chev" [class.cfg-chev-open]="grupoAberto(g.key, gi)"><app-icon name="baixo" [size]="16" /></span>
+              </button>
+              @if (grupoAberto(g.key, gi)) { @for (f of camposDo(g.key); track f.key) {
                 <div class="cfg-row">
                   <div class="min-w-0">
                     <label class="font-semibold text-sm" [attr.for]="'cfg-' + f.key">{{ f.label }}@if (f.sensitive) { <span class="cfg-warn" title="Afeta o atendimento aos clientes na hora"> ⚠</span> }</label>
@@ -316,13 +319,13 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
                     }
                   </div>
                 </div>
-              }
+              } }
             }
           </div>
 
           @if (alteracoes() > 0) {
             <div class="savebar" role="region" aria-label="Alterações não salvas">
-              <span><b>{{ alteracoes() }}</b> alteração(ões) não salva(s)</span>
+              <span><b>{{ alteracoes() }}</b> {{ alteracoes() === 1 ? 'alteração' : 'alterações' }} sem salvar</span>
               <div class="flex gap-2">
                 <button type="button" class="btn btn-ghost btn-sm" (click)="descartar()">Descartar</button>
                 <button type="button" class="btn btn-accent btn-sm" (click)="salvar()" [disabled]="salvando()">{{ salvando() ? 'Salvando…' : 'Salvar alterações' }}</button>
@@ -396,7 +399,9 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
     .live-on .live-dot { animation: pulse-dot 1.6s ease-in-out infinite; box-shadow: 0 0 10px currentColor; }
     .ia-head { margin-bottom: .25rem; }
     .tabs { display: flex; gap: 1.75rem; border-bottom: 1px solid var(--cmm-border); overflow-x: auto; margin-bottom: .5rem; }
-    .tab { position: relative; padding: .75rem .1rem; border: none; background: none; color: var(--cmm-muted); font-weight: 600; font-size: .9375rem; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 200ms, border-color 250ms; }
+    .cfg-h-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; background: none; border: none; cursor: pointer; text-align: left; }
+    .cfg-chev { display: inline-flex; color: var(--cmm-muted); transition: transform 250ms var(--ease-out-expo); } .cfg-chev-open { transform: rotate(180deg); }
+    .tab { display: inline-flex; align-items: center; gap: .4rem; position: relative; padding: .75rem .1rem; border: none; background: none; color: var(--cmm-muted); font-weight: 600; font-size: .9375rem; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 200ms, border-color 250ms; }
     .tab:hover { color: var(--cmm-ink); }
     .tab-on { color: var(--cmm-ink); border-bottom-color: var(--cmm-accent); }
     .live-btn { cursor: pointer; transition: background-color 200ms, border-color 200ms; } .live-btn:hover { border-color: currentColor; }
@@ -492,6 +497,14 @@ export class IaComponent implements OnInit, OnDestroy {
   private readonly toast = inject(ToastService);
   private readonly modal = inject(ModalService);
 
+  private gruposAbertos = signal<Set<string> | null>(null);
+  grupoAberto(k: string, i: number): boolean { const s = this.gruposAbertos(); return s ? s.has(k) : i < 2; }
+  alternarGrupo(k: string, i: number): void {
+    const atual = new Set(this.gruposAbertos() ?? this.grupos.slice(0, 2).map((g) => g.key));
+    if (atual.has(k)) atual.delete(k); else atual.add(k);
+    this.gruposAbertos.set(atual);
+  }
+  icones: Record<Aba, IconName> = { visao: 'painel', conversas: 'conversas', atendimento: 'fluxo', simulador: 'teste', config: 'ajustes' };
   abas: Array<{ key: Aba; label: string }> = [
     { key: 'visao', label: 'Painel' }, { key: 'conversas', label: 'Conversas' }, { key: 'atendimento', label: 'Atendimento' },
     { key: 'simulador', label: 'Testar' }, { key: 'config', label: 'Ajustes' },
@@ -500,7 +513,7 @@ export class IaComponent implements OnInit, OnDestroy {
   propositos: Record<Aba, string> = {
     visao: 'Como o atendimento está agora: volume, onde os clientes estão e o que precisa de atenção.',
     conversas: 'Veja cada cliente, leia a conversa e assuma ou devolva ao bot.',
-    atendimento: 'Defina o que o cliente pode fazer, o que a IA diz e como ela fala. Nada vale para o cliente até você publicar.',
+    atendimento: 'Monte os caminhos de conversa e o jeito de falar. Nada vale para o cliente até você publicar.',
     simulador: 'Escreva como um cliente e veja a resposta do bot, sem enviar nada a ninguém.',
     config: 'Liga/desliga, chave da OpenAI, modelos, limites de uso e integrações.',
   };

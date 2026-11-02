@@ -86,3 +86,10 @@ Motor central em `core/motion/motion.service.ts` (biblioteca `motion`) + CSS em 
 - **Selos só quando mudam uma decisão.** Estados repetidos viram texto/ponto (`● Ativo · opção 6`), não chips.
 - **Listas de configuração planas:** um painel, títulos de seção em caixa-alta, uma linha por ajuste; avisos como ⚠ e "↺ padrão" só quando aplicável.
 - Estado de ligado/desligado é o próprio selo do cabeçalho (clicável), não um botão extra.
+
+## Padrões de editor (aba IA)
+- **Ícones, não emojis.** Use `<app-icon name="…">` (`shared/components/icon.component.ts`, traço fino 24px). Ações repetidas (mover, excluir, fechar, voltar, desfazer) são botões só de ícone com `aria-label` e `title`; ações principais (Testar, Publicar) levam texto.
+- **Lista de etapas = linha do tempo vertical**, na ordem real, com "+" entre as etapas para inserir. Detalhes abrem em painel lateral; escolhas curtas (tipo da etapa, nome/descrição do fluxo) abrem em janela central. Nada de grade de cartões para algo que tem ordem.
+- **Modelos por tipo:** cada tipo de etapa nasce no formato certo (ex.: Confirmação já vem com Sim/Não) e se liga sozinho à etapa anterior.
+- **Divulgação progressiva:** o essencial fica à vista; o que é técnico vai em "Avançado" (`<details class="adv">`) ou em seções recolhidas (Ajustes).
+- Texto de interface sem jargão de programador: "3 alterações sem publicar", nunca "alteração(ões)".

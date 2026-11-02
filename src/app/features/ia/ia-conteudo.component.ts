@@ -1,5 +1,6 @@
 import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { IconComponent, IconName } from '../../shared/components/icon.component';
 import { ToastService } from '../../core/ui/toast.service';
 import { ModalService } from '../../shared/services/modal.service';
 import { IaFluxosComponent, MODELOS } from './ia-fluxos.component';
@@ -9,22 +10,22 @@ import { IaApiService, IaContent, IaContentDoc, IaFlow, IaKb } from './ia-api.se
 
 
 /** Mensagens agrupadas pela etapa do atendimento em que o cliente as lê. */
-const GRUPOS: Array<{ id: string; titulo: string; texto: string; icone: string; chaves: Array<[string, string]> }> = [
-  { id: 'inicio', titulo: 'Início e menu', icone: '👋', texto: 'A primeira conversa e quando o cliente volta.', chaves: [
+const GRUPOS: Array<{ id: string; titulo: string; texto: string; icone: IconName; chaves: Array<[string, string]> }> = [
+  { id: 'inicio', titulo: 'Início e menu', icone: 'mensagem', texto: 'A primeira conversa e quando o cliente volta.', chaves: [
     ['menu_inicial', 'Boas-vindas e menu'], ['menu_reapresentado', 'Menu reapresentado'], ['reconhecimento', 'Cliente que já foi atendido'], ['reinicio_por_pausa', 'Reinício após pausa'] ] },
-  { id: 'nome', titulo: 'Nome', icone: '🪪', texto: 'Como o bot pede e confirma o nome.', chaves: [
+  { id: 'nome', titulo: 'Nome', icone: 'cracha', texto: 'Como o bot pede e confirma o nome.', chaves: [
     ['pedir_nome', 'Pedir o nome'], ['confirmar_nome', 'Confirmar o nome'] ] },
-  { id: 'arquivos', titulo: 'Arquivos', icone: '📎', texto: 'Envio de projeto e planta.', chaves: [
+  { id: 'arquivos', titulo: 'Arquivos', icone: 'arquivo', texto: 'Envio de projeto e planta.', chaves: [
     ['pedir_projeto', 'Pedir o projeto'], ['aguardar_ok_atendente', 'Aguardar OK (vai ao atendente)'], ['aguardar_ok_continuar', 'Aguardar OK (continua o bot)'], ['referencias_ok', 'Aguardar OK das referências'] ] },
-  { id: 'imovel', titulo: 'Imóvel e ambientes', icone: '🏠', texto: 'Casa ou apartamento, planta e ambientes de interesse.', chaves: [
+  { id: 'imovel', titulo: 'Imóvel e ambientes', icone: 'casa', texto: 'Casa ou apartamento, planta e ambientes de interesse.', chaves: [
     ['casa_ou_ap', 'Casa ou apartamento?'], ['planta_instrucoes', 'Como achar a planta'], ['planta_achou_ou_nao', 'Achou a planta?'], ['ambientes_categorias', 'Escolha dos ambientes'] ] },
-  { id: 'agenda', titulo: 'Agendamento', icone: '📅', texto: 'Medição e escolha de horário.', chaves: [
+  { id: 'agenda', titulo: 'Agendamento', icone: 'calendario', texto: 'Medição e escolha de horário.', chaves: [
     ['agendar_medicao_pergunta', 'Quer agendar medição?'], ['escolher_horario', 'Escolher o horário'], ['horario_agendado', 'Horário agendado'], ['horario_indisponivel', 'Horário indisponível'], ['nao_quer_agendar', 'Não quer agendar'] ] },
-  { id: 'loja', titulo: 'Pagamento e loja', icone: '📍', texto: 'Boleto e endereço da loja física.', chaves: [
+  { id: 'loja', titulo: 'Pagamento e loja', icone: 'pin', texto: 'Boleto e endereço da loja física.', chaves: [
     ['info_boleto', 'Informações de boleto'], ['pergunta_visita_boleto', 'Visita após o boleto'], ['endereco_loja', 'Endereço da loja'], ['pergunta_visita_loja', 'Visita à loja'] ] },
-  { id: 'fim', titulo: 'Encaminhamento', icone: '🤝', texto: 'Quando o cliente passa ao projetista.', chaves: [
+  { id: 'fim', titulo: 'Encaminhamento', icone: 'atendente', texto: 'Quando o cliente passa ao projetista.', chaves: [
     ['redirecionando_projetistas', 'Encaminhando ao projetista'], ['redirecionando_projetistas_com_nome', 'Encaminhando (com nome)'] ] },
-  { id: 'avisos', titulo: 'Avisos e erros', icone: '⚠️', texto: 'Resposta inválida, assunto fora do tema, áudio.', chaves: [
+  { id: 'avisos', titulo: 'Avisos e erros', icone: 'alerta', texto: 'Resposta inválida, assunto fora do tema, áudio.', chaves: [
     ['invalida_generica', 'Opção inválida'], ['invalida_nome', 'Nome inválido'], ['invalida_nome_1_etapa', 'Nome inválido (falta 1 etapa)'], ['invalida_nome_2_etapas', 'Nome inválido (faltam 2 etapas)'], ['invalida_arquivos', 'Arquivo não enviado'], ['invalida_ambientes', 'Ambientes inválidos'], ['invalida_horario', 'Horário inválido'], ['fora_escopo', 'Fora do assunto'], ['fora_escopo_limite', 'Limite de fora do assunto'], ['audio_nao_suportado', 'Áudio recebido'] ] },
 ];
 
@@ -33,7 +34,7 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
 @Component({
   selector: 'app-ia-conteudo',
   standalone: true,
-  imports: [FormsModule, IaFluxosComponent, IaTomComponent, IaSaberComponent],
+  imports: [FormsModule, IconComponent, IaFluxosComponent, IaTomComponent, IaSaberComponent],
   template: `
     @if (conteudo(); as c) {
       <div class="space-y-5 pb-24">
@@ -42,11 +43,11 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
           <header class="gal-head">
             <div>
               <h2 class="sec-title">Fluxos de atendimento</h2>
-              <p class="text-sm mt-1" style="color: var(--cmm-muted);">Cada cartão é um caminho de conversa. Abra um para editar etapas, jeito de falar e o que a IA sabe.</p>
+              <p class="text-sm mt-1" style="color: var(--cmm-muted);">Cada cartão é um jeito de atender. Clique para abrir e editar.</p>
             </div>
             <p class="pub-info">
-              {{ c.publishedAt ? 'Publicado em ' + data(c.publishedAt) : 'Usando os textos originais' }}
-              @if (c.hasPrevious) { · <button type="button" class="link" (click)="reverter()">voltar à versão anterior</button> }
+              @if (c.publishedAt) { Publicado em {{ data(c.publishedAt) }} }
+              @if (c.hasPrevious) { <button type="button" class="link inline-flex items-center gap-1" (click)="reverter()" title="Volta para a versão publicada antes desta"><app-icon name="desfazer" [size]="13" />Versão anterior</button> }
             </p>
           </header>
           @if (c.problemas.length) {
@@ -57,25 +58,25 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
           }
           <div class="gallery">
             <button type="button" class="gcard gcard-std" (click)="abrir('padrao')">
-              <span class="g-ico" aria-hidden="true">⭐</span>
+              <span class="g-ico" aria-hidden="true"><app-icon name="estrela" [size]="20" /></span>
               <b class="g-title">Fluxo padrão</b>
-              <span class="g-desc">O atendimento que a Vera já faz: menu com 5 opções, nome, arquivos, ambientes, agendamento e encaminhamento.</span>
-              <span class="g-meta">Opções 1 a 5 · {{ tomLabel(doc().guidance.tone) }} · {{ kb().length }} assunto(s)@if (editadasPadrao() > 0) { · <b class="g-edit">{{ editadasPadrao() }} alteração(ões)</b> }</span>
+              <span class="g-desc">O atendimento principal da Vera, com as opções 1 a 5 do menu.</span>
+              <span class="g-meta"><span class="g-dot g-dot-on"></span>Sempre ativo@if (editadasPadrao() > 0) { · <b class="g-edit">{{ editadasPadrao() }} editada(s)</b> }</span>
             </button>
             @for (f of doc().fluxos; track $index; let i = $index) {
               <button type="button" class="gcard" (click)="abrir('f' + i)">
-                <span class="g-ico" aria-hidden="true">🧭</span>
+                <span class="g-ico" aria-hidden="true"><app-icon name="fluxo" [size]="20" /></span>
                 <b class="g-title">{{ f.nome || 'Sem nome' }}</b>
-                <span class="g-desc">{{ f.descricao || 'Sem descrição.' }}</span>
-                <span class="g-meta"><span class="g-dot" [class.g-dot-on]="f.ativo"></span>{{ f.ativo ? 'Ativo' : 'Desativado' }}@if (f.menuOpcao) { · opção {{ f.menuOpcao }} }  · {{ f.nos.length }} etapa(s)</span>
+                <span class="g-desc">{{ f.descricao || 'Sem descrição' }}</span>
+                <span class="g-meta"><span class="g-dot" [class.g-dot-on]="f.ativo"></span>{{ f.ativo ? 'Ativo' : 'Desativado' }}@if (f.menuOpcao) { · menu {{ f.menuOpcao }} } · {{ f.nos.length }} {{ f.nos.length === 1 ? 'etapa' : 'etapas' }}</span>
               </button>
             }
             <div class="gcard gcard-new">
-              <span class="g-ico" aria-hidden="true">＋</span>
-              <b class="g-title">Criar novo fluxo</b>
-              <span class="g-desc">Monte seu caminho de conversa, usando o Google Drive se precisar.</span>
+              <span class="g-ico" aria-hidden="true"><app-icon name="mais" [size]="20" /></span>
+              <b class="g-title">Novo fluxo</b>
+              <span class="g-desc">Crie um atendimento do seu jeito.</span>
               <span class="g-chips">
-                <button type="button" class="btn btn-primary btn-sm" (click)="novoFluxo('coleta')" [disabled]="doc().fluxos.length >= 10">Coleta de dados + Drive</button>
+                <button type="button" class="btn btn-primary btn-sm" (click)="novoFluxo('coleta')" [disabled]="doc().fluxos.length >= 10" title="Pergunta o nome, cria a pasta no Drive, recebe arquivos e encaminha">Coleta com Drive</button>
                 <button type="button" class="btn btn-secondary btn-sm" (click)="novoFluxo('branco')" [disabled]="doc().fluxos.length >= 10">Em branco</button>
               </span>
             </div>
@@ -83,13 +84,13 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
         } @else {
           <!-- ═════ DENTRO DE UM FLUXO ═════ -->
           <div class="ws-head">
-            <button type="button" class="btn btn-ghost btn-sm" (click)="fecharFluxo()">← Todos os fluxos</button>
-            <h2 class="sec-title flex-1 min-w-[9rem]">{{ ehPadrao() ? '⭐ Fluxo padrão' : '🧭 ' + (fluxoAtual()!.nome || 'Sem nome') }}</h2>
+            <button type="button" class="back-btn" (click)="fecharFluxo()" aria-label="Voltar para todos os fluxos" title="Todos os fluxos"><app-icon name="voltar" [size]="18" /></button>
+            <h2 class="sec-title flex-1 min-w-[9rem]">{{ ehPadrao() ? 'Fluxo padrão' : (fluxoAtual()!.nome || 'Sem nome') }}</h2>
           </div>
           <div class="seg" role="tablist" aria-label="Áreas do fluxo">
-            <button type="button" role="tab" class="seg-btn" [class.seg-on]="aba() === 'etapas'" [attr.aria-selected]="aba() === 'etapas'" (click)="aba.set('etapas')">Etapas</button>
-            <button type="button" role="tab" class="seg-btn" [class.seg-on]="aba() === 'jeito'" [attr.aria-selected]="aba() === 'jeito'" (click)="aba.set('jeito')">Jeito de falar</button>
-            <button type="button" role="tab" class="seg-btn" [class.seg-on]="aba() === 'saber'" [attr.aria-selected]="aba() === 'saber'" (click)="aba.set('saber')">O que ela sabe</button>
+            <button type="button" role="tab" class="seg-btn" [class.seg-on]="aba() === 'etapas'" [attr.aria-selected]="aba() === 'etapas'" (click)="aba.set('etapas')"><app-icon name="fluxo" [size]="15" />Etapas</button>
+            <button type="button" role="tab" class="seg-btn" [class.seg-on]="aba() === 'jeito'" [attr.aria-selected]="aba() === 'jeito'" (click)="aba.set('jeito')"><app-icon name="brilho" [size]="15" />Jeito de falar</button>
+            <button type="button" role="tab" class="seg-btn" [class.seg-on]="aba() === 'saber'" [attr.aria-selected]="aba() === 'saber'" (click)="aba.set('saber')"><app-icon name="livro" [size]="15" />O que ela sabe</button>
           </div>
 
           @switch (aba()) {
@@ -99,8 +100,8 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
                 <div class="board">
                   @for (g of grupos; track g.id; let i = $index) {
                     <button type="button" class="card-node" (click)="abrirGrupo(g.id)" [attr.aria-label]="'Editar etapa ' + (i + 1) + ': ' + g.titulo">
-                      <span class="cn-top"><span class="cn-num">{{ i + 1 }}</span><span class="cn-tipo">{{ g.chaves.length }} mensagem(ns)</span></span>
-                      <b class="cn-title">{{ g.icone }} {{ g.titulo }}</b>
+                      <span class="cn-top"><span class="cn-num">{{ i + 1 }}</span><span class="cn-tipo">{{ g.chaves.length }} {{ g.chaves.length === 1 ? 'mensagem' : 'mensagens' }}</span></span>
+                      <b class="cn-title"><app-icon [name]="g.icone" [size]="16" /> {{ g.titulo }}</b>
                       <span class="cn-snip">{{ g.texto }}</span>
                       <span class="cn-dest">@if (editadasNoGrupo(g.id) > 0) { <span class="badge badge-accent">{{ editadasNoGrupo(g.id) }} editada(s)</span> }</span>
                     </button>
@@ -130,9 +131,9 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
           <div class="sheet-backdrop" (click)="grupoSheet.set(null)" aria-hidden="true"></div>
           <aside class="sheet" role="dialog" aria-modal="true" [attr.aria-label]="g.titulo" style="--sheet-w: 44rem;">
             <header class="sheet-head">
-              <span class="text-xl" aria-hidden="true">{{ g.icone }}</span>
+              <span class="g-ico" aria-hidden="true"><app-icon [name]="g.icone" [size]="18" /></span>
               <div class="min-w-0 flex-1"><h3 class="font-semibold">{{ g.titulo }}</h3><p class="text-xs" style="color: var(--cmm-muted);">{{ g.texto }}</p></div>
-              <button type="button" class="btn btn-ghost btn-sm !px-2" (click)="grupoSheet.set(null)" aria-label="Fechar">✕</button>
+              <button type="button" class="back-btn" (click)="grupoSheet.set(null)" aria-label="Fechar"><app-icon name="fechar" [size]="18" /></button>
             </header>
             <div class="sheet-body space-y-3">
               @if (g.id === 'inicio') {
@@ -196,15 +197,15 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
       }
 
       @if (alteracoes() > 0 || c.draft) {
-        <div class="savebar" role="region" aria-label="Rascunho do conteúdo">
-          <span>
-            @if (alteracoes() > 0) { <b>{{ alteracoes() }}</b> alteração(ões) não publicada(s) }
-            @else { Rascunho igual ao publicado }
-            @if (sujo()) { · <i>não salvo</i> } @else if (c.draftAt) { · rascunho salvo }
+        <div class="savebar" role="region" aria-label="Alterações em rascunho">
+          <span class="sb-msg">
+            <span class="sb-dot" [class.sb-dot-saved]="!sujo()"></span>
+            @if (alteracoes() > 0) { <b>{{ alteracoes() }}</b> {{ alteracoes() === 1 ? 'alteração' : 'alterações' }} sem publicar } @else { Sem alterações }
+            <span class="sb-sub">{{ sujo() ? 'não salvo' : c.draftAt ? 'rascunho salvo' : '' }}</span>
           </span>
-          <div class="flex gap-2">
-            <button type="button" class="btn btn-ghost btn-sm" (click)="descartar()" [disabled]="ocupado()">Descartar</button>
-            <button type="button" class="btn btn-secondary btn-sm" title="Guarda sem publicar: nada muda para os clientes" (click)="salvarRascunho()" [disabled]="ocupado() || !sujo()">Salvar rascunho</button>
+          <div class="flex items-center gap-1.5">
+            <button type="button" class="sb-icon" (click)="descartar()" [disabled]="ocupado()" aria-label="Descartar alterações" title="Descartar alterações"><app-icon name="desfazer" [size]="16" /></button>
+            <button type="button" class="btn btn-secondary btn-sm" title="Guarda sem publicar: nada muda para os clientes" (click)="salvarRascunho()" [disabled]="ocupado() || !sujo()">Salvar</button>
             <button type="button" class="btn btn-accent btn-sm" (click)="publicar()" [disabled]="ocupado() || alteracoes() === 0">Publicar</button>
           </div>
         </div>
@@ -221,6 +222,12 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
     .step { display: inline-flex; align-items: center; gap: .35rem; } .step small { color: var(--cmm-muted); }
     .step b { width: 1.35rem; height: 1.35rem; border-radius: 99px; display: grid; place-items: center; font-size: .7rem; background: var(--cmm-accent-soft); color: var(--cmm-accent); }
     .step-sep { color: var(--cmm-muted); }
+    .back-btn { display: inline-grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: .7rem; border: 1px solid var(--cmm-border); background: var(--cmm-panel); color: var(--cmm-ink); cursor: pointer; transition: background-color 180ms, border-color 180ms; }
+    .back-btn:hover { background: var(--cmm-accent-soft); border-color: var(--cmm-accent); }
+    .sb-msg { display: inline-flex; align-items: center; gap: .5rem; } .sb-sub { opacity: .6; font-size: .78rem; }
+    .sb-dot { width: .5rem; height: .5rem; border-radius: 99px; background: var(--cmm-warning); } .sb-dot-saved { background: var(--cmm-success); }
+    .sb-icon { display: inline-grid; place-items: center; width: 2rem; height: 2rem; border-radius: .6rem; border: none; background: transparent; color: inherit; opacity: .7; cursor: pointer; } .sb-icon:hover:not(:disabled) { opacity: 1; background: rgba(255,255,255,.12); } .sb-icon:disabled { opacity: .3; }
+    .seg-btn { display: inline-flex; align-items: center; gap: .4rem; }
     .gal-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
     .pub-info { font-size: .8125rem; color: var(--cmm-muted); }
     .link { border: none; background: none; color: var(--cmm-accent); font-weight: 600; cursor: pointer; padding: 0; font-size: inherit; }
@@ -233,7 +240,7 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
     .gcard:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--cmm-accent) 55%, var(--cmm-border)); box-shadow: var(--cmm-shadow-lift); }
     .gcard-std { background: linear-gradient(160deg, var(--cmm-accent-soft), var(--cmm-panel) 60%); }
     .gcard-new { border-style: dashed; cursor: default; background: transparent; } .gcard-new .g-chips { margin-top: auto; } .gcard-new:hover { transform: none; box-shadow: none; }
-    .g-ico { width: 2.6rem; height: 2.6rem; border-radius: .85rem; display: grid; place-items: center; font-size: 1.3rem; background: var(--cmm-accent-soft); }
+    .g-ico { flex-shrink: 0; width: 2.6rem; height: 2.6rem; border-radius: .85rem; display: grid; place-items: center; color: var(--cmm-accent); background: var(--cmm-accent-soft); }
     .g-title { font-family: var(--font-display); font-size: 1.1rem; line-height: 1.15; }
     .g-desc { font-size: .8125rem; color: var(--cmm-muted); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .g-chips { margin-top: auto; display: flex; flex-wrap: wrap; gap: .4rem; }
@@ -248,7 +255,7 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
     .cn-top { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
     .cn-num { width: 1.5rem; height: 1.5rem; border-radius: 99px; display: grid; place-items: center; font-size: .72rem; font-weight: 800; background: var(--cmm-accent-soft); color: var(--cmm-accent); }
     .cn-tipo { font-size: .72rem; font-weight: 700; color: var(--cmm-muted); text-transform: uppercase; letter-spacing: .05em; }
-    .cn-title { font-size: .95rem; line-height: 1.2; }
+    .cn-title { font-size: .95rem; line-height: 1.2; display: inline-flex; align-items: center; gap: .4rem; }
     .cn-snip { font-size: .8rem; color: var(--cmm-muted); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .cn-dest { margin-top: auto; display: flex; gap: .35rem; }
     .acc-chev { color: var(--cmm-muted); transition: transform 300ms var(--ease-out-expo); flex-shrink: 0; }

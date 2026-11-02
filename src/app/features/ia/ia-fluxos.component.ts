@@ -1,6 +1,7 @@
 import { Component, HostListener, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ModalService } from '../../shared/services/modal.service';
+import { IconComponent, IconName } from '../../shared/components/icon.component';
 import { IaApiService, IaFlow, IaFlowState, IaNode, IaTool } from './ia-api.service';
 
 type Tipo = IaNode['tipo'];
@@ -8,15 +9,15 @@ type Tipo = IaNode['tipo'];
 type Grupo = 'Falar' | 'Receber do cliente' | 'Fazer' | 'Terminar';
 
 /** Cada tipo é um modelo: já nasce com o formato certo (o que pergunta, quantas opções, o que faz sozinho). */
-const TIPOS: Array<{ tipo: Tipo; grupo: Grupo; label: string; icone: string; ajuda: string }> = [
-  { tipo: 'mensagem', grupo: 'Falar', label: 'Mensagem', icone: '💬', ajuda: 'O bot informa algo e segue sozinho para o próximo passo.' },
-  { tipo: 'confirmacao', grupo: 'Falar', label: 'Confirmação', icone: '✅', ajuda: 'Pergunta e o cliente responde Sim ou Não. As duas opções já vêm prontas; você só escolhe o caminho de cada uma.' },
-  { tipo: 'opcoes', grupo: 'Receber do cliente', label: 'Escolha', icone: '🔢', ajuda: 'Um menu: o cliente escolhe um número e cada opção leva a um caminho (de 2 a 8).' },
-  { tipo: 'pergunta', grupo: 'Receber do cliente', label: 'Pergunta', icone: '❓', ajuda: 'Espera uma resposta escrita e guarda numa variável (ex.: nome, bairro).' },
-  { tipo: 'arquivos', grupo: 'Receber do cliente', label: 'Solicitação', icone: '📎', ajuda: 'Pede arquivos ou documentos e espera o “OK”. Pode guardar no Drive, criando a pasta ou usando a que já existe.' },
-  { tipo: 'acao', grupo: 'Fazer', label: 'Ferramenta', icone: '🧰', ajuda: 'Executa algo por conta própria, como criar a pasta no Drive ou salvar as respostas.' },
-  { tipo: 'encaminhar', grupo: 'Terminar', label: 'Encaminhar', icone: '🤝', ajuda: 'Passa o cliente a um atendente (rodízio) e termina o fluxo.' },
-  { tipo: 'fim', grupo: 'Terminar', label: 'Encerrar', icone: '🏁', ajuda: 'Termina o fluxo e volta ao menu inicial.' },
+const TIPOS: Array<{ tipo: Tipo; grupo: Grupo; label: string; icon: IconName; ajuda: string }> = [
+  { tipo: 'mensagem', grupo: 'Falar', label: 'Mensagem', icon: 'mensagem', ajuda: 'Informa algo e segue sozinho.' },
+  { tipo: 'confirmacao', grupo: 'Falar', label: 'Confirmação', icon: 'confirmacao', ajuda: 'Pergunta com Sim ou Não.' },
+  { tipo: 'opcoes', grupo: 'Receber do cliente', label: 'Escolha', icon: 'escolha', ajuda: 'Menu numerado, cada opção segue um caminho.' },
+  { tipo: 'pergunta', grupo: 'Receber do cliente', label: 'Pergunta', icon: 'pergunta', ajuda: 'Espera uma resposta escrita e guarda.' },
+  { tipo: 'arquivos', grupo: 'Receber do cliente', label: 'Solicitação', icon: 'arquivo', ajuda: 'Pede arquivos; pode guardar no Drive.' },
+  { tipo: 'acao', grupo: 'Fazer', label: 'Ferramenta', icon: 'ferramenta', ajuda: 'Faz algo sozinho, como salvar no Drive.' },
+  { tipo: 'encaminhar', grupo: 'Terminar', label: 'Encaminhar', icon: 'atendente', ajuda: 'Passa a um atendente e termina.' },
+  { tipo: 'fim', grupo: 'Terminar', label: 'Encerrar', icon: 'fim', ajuda: 'Termina e volta ao menu.' },
 ];
 const GRUPOS: Grupo[] = ['Falar', 'Receber do cliente', 'Fazer', 'Terminar'];
 
@@ -36,75 +37,100 @@ export const MODELOS: Record<string, () => IaFlow> = {
 @Component({
   selector: 'app-ia-fluxos',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, IconComponent],
   template: `
     @if (atual(); as f) {
-      <div class="space-y-4">
-        <!-- Configurações do fluxo, numa linha -->
-        <section class="flowbar">
-          <span class="flow-sp"></span>
-          <label class="bar-item">Opção no menu
+      <div class="fx">
+        <section class="fx-bar">
+          <button type="button" role="switch" class="switch" [class.switch-on]="f.ativo" [attr.aria-checked]="f.ativo" aria-label="Fluxo ativo no menu" (click)="editar((x) => (x.ativo = !x.ativo))"><span class="switch-knob"></span></button>
+          <span class="fx-state">{{ f.ativo ? 'Ativo' : 'Desativado' }}</span>
+          <label class="fx-opt" title="Número que o cliente digita no menu inicial">no menu como
             <select class="form-input bar-sel" aria-label="Opção no menu" [ngModel]="f.menuOpcao" (ngModelChange)="editar((x) => (x.menuOpcao = $event === null ? null : +$event))">
               <option [ngValue]="null">—</option>
               @for (n of [6, 7, 8, 9]; track n) { <option [ngValue]="n" [disabled]="opcaoUsada(n)">{{ n }}{{ opcaoUsada(n) ? ' (em uso)' : '' }}</option> }
             </select></label>
-          <label class="bar-item">Ativo
-            <button type="button" role="switch" class="switch" [class.switch-on]="f.ativo" [attr.aria-checked]="f.ativo" (click)="editar((x) => (x.ativo = !x.ativo))"><span class="switch-knob"></span></button></label>
-          <button type="button" class="btn btn-accent btn-sm" (click)="abrirTeste()">▶ Testar</button>
-          <details class="more">
-            <summary class="btn btn-ghost btn-sm" aria-label="Mais opções do fluxo">⋯</summary>
-            <div class="more-pop">
-              <label class="form-label" for="fl-nome">Nome (aparece no menu do cliente)</label>
-              <input id="fl-nome" class="form-input mb-3" maxlength="40" [ngModel]="f.nome" (ngModelChange)="editar((x) => (x.nome = $event))" />
-              <label class="form-label" for="fl-desc">Descrição (só para você)</label>
-              <input id="fl-desc" class="form-input" maxlength="200" [ngModel]="f.descricao ?? ''" (ngModelChange)="editar((x) => (x.descricao = $event))" />
-              <button type="button" class="btn btn-ghost btn-sm mt-3" style="color: var(--cmm-danger);" (click)="excluir()">Excluir fluxo</button>
-            </div>
-          </details>
+          <span class="flex-1"></span>
+          <button type="button" class="icon-btn" aria-label="Nome, descrição e excluir o fluxo" title="Nome, descrição e excluir" (click)="config.set(true)"><app-icon name="ajustes" /></button>
+          <button type="button" class="btn btn-accent btn-sm inline-flex items-center gap-1.5" (click)="abrirTeste()"><app-icon name="play" [size]="13" />Testar</button>
         </section>
 
-        <!-- Quadro de etapas -->
-        <div>
-          <p class="text-sm mb-3" style="color: var(--cmm-muted);">O cliente começa na etapa 1 e segue o caminho que você definir. Clique numa etapa para editar.</p>
-          <div class="board">
-            @for (n of f.nos; track n.id; let i = $index) {
-              <button type="button" class="card-node" [attr.data-tipo]="n.tipo" [class.card-warn]="incompleto(n)" (click)="noAberto.set(i)" [attr.aria-label]="'Editar etapa ' + (i + 1) + ': ' + n.titulo">
-                <span class="cn-top"><span class="cn-num">{{ i + 1 }}</span><span class="cn-tipo">{{ info(n.tipo).icone }} {{ info(n.tipo).label }}</span>@if (i === 0) { <span class="badge badge-accent">Início</span> }</span>
-                <b class="cn-title">{{ n.titulo || 'Sem nome' }}</b>
-                <span class="cn-snip">{{ resumo(n) }}</span>
-                <span class="cn-dest">
-                  @for (d of destinosDe(n, f); track $index) { <span>{{ d }}</span> }
-                </span>
-                @if (incompleto(n)) { <span class="badge badge-warning">Faltam detalhes</span> }
-              </button>
-            }
-            <div class="card-add">
-              <p class="font-semibold text-sm mb-2">＋ Nova etapa — escolha o tipo</p>
-              @for (g of grupos; track g) {
-                <p class="add-grupo">{{ g }}</p>
-                <div class="flex flex-wrap gap-1.5">
-                  @for (t of tiposDo(g); track t.tipo) { <button type="button" class="chip-type" [title]="t.ajuda" (click)="addNo(t.tipo)" [disabled]="f.nos.length >= 40">{{ t.icone }} {{ t.label }}</button> }
-                </div>
+        <ol class="tl" aria-label="Etapas do fluxo, na ordem em que o cliente passa por elas">
+          @for (n of f.nos; track n.id; let i = $index) {
+            <li class="tl-li">
+              @if (i > 0) {
+                <button type="button" class="tl-add" (click)="picker.set(i)" [disabled]="f.nos.length >= 40" [attr.aria-label]="'Inserir etapa antes da etapa ' + (i + 1)" title="Inserir etapa aqui"><app-icon name="mais" [size]="13" [stroke]="2.4" /></button>
               }
+              <div class="tl-step" [attr.data-tipo]="n.tipo" [class.tl-warn]="incompleto(n)" role="button" tabindex="0" (click)="noAberto.set(i)" (keydown.enter)="noAberto.set(i)" [attr.aria-label]="'Editar etapa ' + (i + 1) + ': ' + n.titulo">
+                <span class="tl-ico"><app-icon [name]="info(n.tipo).icon" [size]="18" /></span>
+                <span class="tl-main">
+                  <span class="tl-top"><b class="tl-title">{{ n.titulo || 'Sem nome' }}</b>@if (n.titulo !== info(n.tipo).label) { <span class="tl-kind">{{ info(n.tipo).label }}</span> }@if (i === 0) { <span class="tl-kind tl-start">início</span> }</span>
+                  <span class="tl-sum">{{ resumo(n) }}</span>
+                  @if (ramos(n, f).length) { <span class="tl-ramos">@for (r of ramos(n, f); track $index) { <span class="tl-ramo" [class.tl-ramo-bad]="r.ruim">{{ r.texto }}</span> }</span> }
+                </span>
+                @if (incompleto(n)) { <span class="tl-flag" title="Faltam detalhes nesta etapa"><app-icon name="alerta" [size]="16" /></span> }
+                <span class="tl-acts">
+                  <button type="button" class="icon-btn icon-btn-sm" aria-label="Mover para cima" title="Mover para cima" [disabled]="i === 0" (click)="mover(i, -1, false); $event.stopPropagation()"><app-icon name="cima" [size]="15" /></button>
+                  <button type="button" class="icon-btn icon-btn-sm" aria-label="Mover para baixo" title="Mover para baixo" [disabled]="i === f.nos.length - 1" (click)="mover(i, 1, false); $event.stopPropagation()"><app-icon name="baixo" [size]="15" /></button>
+                  <button type="button" class="icon-btn icon-btn-sm icon-danger" aria-label="Excluir etapa" title="Excluir" (click)="removerNo(i); $event.stopPropagation()"><app-icon name="lixeira" [size]="15" /></button>
+                </span>
               </div>
+            </li>
+          }
+          <li class="tl-li">
+            <button type="button" class="tl-end" (click)="picker.set(f.nos.length)" [disabled]="f.nos.length >= 40"><app-icon name="mais" [size]="15" [stroke]="2.4" />{{ f.nos.length ? 'Adicionar etapa' : 'Criar a primeira etapa' }}</button>
+          </li>
+        </ol>
+      </div>
+
+      <!-- Escolher o tipo da nova etapa -->
+      @if (picker() !== null) {
+        <div class="dlg-backdrop" (click)="picker.set(null)" aria-hidden="true"></div>
+        <div class="dlg dlg-wide" role="dialog" aria-modal="true" aria-label="Escolha o tipo da etapa">
+          <header class="dlg-head"><h3>O que acontece nesta etapa?</h3><button type="button" class="icon-btn icon-btn-sm" (click)="picker.set(null)" aria-label="Fechar"><app-icon name="fechar" /></button></header>
+          <div class="pick-grid">
+            @for (g of grupos; track g) {
+              <p class="pick-grupo">{{ g }}</p>
+              @for (t of tiposDo(g); track t.tipo) {
+                <button type="button" class="pick" [attr.data-tipo]="t.tipo" (click)="addNo(t.tipo, picker()!)">
+                  <span class="tl-ico"><app-icon [name]="t.icon" [size]="18" /></span>
+                  <span><b>{{ t.label }}</b><small>{{ t.ajuda }}</small></span>
+                </button>
+              }
+            }
           </div>
         </div>
-      </div>
+      }
+
+      <!-- Nome, descrição e excluir -->
+      @if (config()) {
+        <div class="dlg-backdrop" (click)="config.set(false)" aria-hidden="true"></div>
+        <div class="dlg" role="dialog" aria-modal="true" aria-label="Configurar o fluxo">
+          <header class="dlg-head"><h3>Sobre este fluxo</h3><button type="button" class="icon-btn icon-btn-sm" (click)="config.set(false)" aria-label="Fechar"><app-icon name="fechar" /></button></header>
+          <div class="space-y-3">
+            <div><label class="form-label" for="fl-nome">Nome (o cliente vê no menu)</label>
+              <input id="fl-nome" class="form-input" maxlength="40" [ngModel]="f.nome" (ngModelChange)="editar((x) => (x.nome = $event))" /></div>
+            <div><label class="form-label" for="fl-desc">Descrição (só para você)</label>
+              <input id="fl-desc" class="form-input" maxlength="200" [ngModel]="f.descricao ?? ''" (ngModelChange)="editar((x) => (x.descricao = $event))" /></div>
+          </div>
+          <footer class="dlg-foot">
+            <button type="button" class="btn btn-ghost btn-sm inline-flex items-center gap-1.5" style="color: var(--cmm-danger);" (click)="excluir()"><app-icon name="lixeira" [size]="15" />Excluir fluxo</button>
+            <button type="button" class="btn btn-primary btn-sm" (click)="config.set(false)">Pronto</button>
+          </footer>
+        </div>
+      }
 
       <!-- Editar etapa (painel lateral) -->
       @if (noAberto() !== null && f.nos[noAberto()!]; as n) {
         <div class="sheet-backdrop" (click)="noAberto.set(null)" aria-hidden="true"></div>
         <aside class="sheet" role="dialog" aria-modal="true" aria-labelledby="no-titulo" style="--sheet-w: 34rem;">
           <header class="sheet-head">
-            <span class="text-xl" aria-hidden="true">{{ info(n.tipo).icone }}</span>
+            <span class="tl-ico" [attr.data-tipo]="n.tipo"><app-icon [name]="info(n.tipo).icon" [size]="18" /></span>
             <input id="no-titulo" class="node-title" maxlength="60" aria-label="Nome da etapa" [ngModel]="n.titulo" (ngModelChange)="editarNo(noAberto()!, (x) => (x.titulo = $event))" />
             <span class="badge badge-neutral">{{ info(n.tipo).label }}</span>
-            <button type="button" class="btn btn-ghost btn-sm !px-2" (click)="noAberto.set(null)" aria-label="Fechar">✕</button>
+            <button type="button" class="icon-btn icon-btn-sm" (click)="noAberto.set(null)" aria-label="Fechar"><app-icon name="fechar" /></button>
           </header>
           <div class="sheet-body space-y-4">
-            <p class="text-xs" style="color: var(--cmm-muted);">{{ info(n.tipo).ajuda }}</p>
-
-            @if (n.tipo !== 'acao') {
+                        @if (n.tipo !== 'acao') {
               <div>
                 <label class="form-label" for="nt">{{ n.tipo === 'encaminhar' ? 'Mensagem ao encaminhar (opcional — se vazio, usa a padrão)' : n.tipo === 'fim' ? 'Mensagem final (opcional)' : 'O que o bot diz' }}</label>
                 <textarea id="nt" class="form-input" rows="5" maxlength="1000" [ngModel]="n.texto ?? ''" (ngModelChange)="editarNo(noAberto()!, (x) => (x.texto = $event))" placeholder="Use {nome} ou {sua_variavel} para citar respostas."></textarea>
@@ -112,17 +138,17 @@ export const MODELOS: Record<string, () => IaFlow> = {
             }
 
             @if (n.tipo === 'pergunta') {
-              <div class="grid sm:grid-cols-2 gap-3">
-                <div><label class="form-label" for="nv">Guardar a resposta em</label>
-                  <input class="form-input" id="nv" placeholder="nome, bairro…" [ngModel]="n.variavel ?? ''" (ngModelChange)="editarNo(noAberto()!, (x) => (x.variavel = $event))" /></div>
-                <div><label class="form-label" for="nval">Tipo de resposta</label>
-                  <select class="form-input" id="nval" [ngModel]="n.validacao ?? 'texto'" (ngModelChange)="editarNo(noAberto()!, (x) => (x.validacao = $event))"><option value="texto">Texto livre</option><option value="nome">Nome de pessoa (valida)</option></select></div>
-              </div>
+              <div><label class="form-label" for="nv">Guardar a resposta como</label>
+                <input class="form-input" id="nv" placeholder="ex.: nome, bairro" [ngModel]="n.variavel ?? ''" (ngModelChange)="editarNo(noAberto()!, (x) => (x.variavel = $event))" />
+                <p class="text-xs mt-1" style="color: var(--cmm-muted);">Depois você pode citar a resposta nos textos escrevendo {{ '{' }}{{ n.variavel || 'nome' }}{{ '}' }}.</p></div>
+              <details class="adv">
+                <summary><app-icon name="ajustes" [size]="14" />Avançado</summary>
+                <label class="form-label" for="nval">Conferir a resposta como</label>
+                <select class="form-input" id="nval" [ngModel]="n.validacao ?? 'texto'" (ngModelChange)="editarNo(noAberto()!, (x) => (x.validacao = $event))"><option value="texto">Texto livre</option><option value="nome">Nome de pessoa</option></select>
+              </details>
             }
 
             @if (n.tipo === 'arquivos') {
-              <div><label class="form-label" for="nm">Mínimo de arquivos antes do “OK”</label>
-                <input class="form-input !w-28" type="number" min="0" max="20" id="nm" [ngModel]="n.minimo ?? 0" (ngModelChange)="editarNo(noAberto()!, (x) => (x.minimo = +$event))" /></div>
               <div>
                 <label class="form-label" for="nd">Onde guardar o que o cliente enviar</label>
                 <select class="form-input" id="nd" [ngModel]="n.armazenar ?? ''" (ngModelChange)="armazenar($event)">
@@ -137,6 +163,11 @@ export const MODELOS: Record<string, () => IaFlow> = {
                   <p class="text-xs mt-2" style="color: var(--cmm-muted);">{{ n.pasta === 'existente' ? 'Procura a pasta do cliente. Se não existir, nada é criado e os arquivos não são guardados.' : 'Procura a pasta do cliente; se não existir, cria (ano/mês/ANDAMENTO). Precisa do nome do cliente, perguntado antes com a variável “nome”.' }}</p>
                 }
               </div>
+              <details class="adv">
+                <summary><app-icon name="ajustes" [size]="14" />Avançado</summary>
+                <label class="form-label" for="nm">Mínimo de arquivos antes do “OK”</label>
+                <input class="form-input !w-28" type="number" min="0" max="20" id="nm" [ngModel]="n.minimo ?? 0" (ngModelChange)="editarNo(noAberto()!, (x) => (x.minimo = +$event))" />
+              </details>
             }
 
             @if (n.tipo === 'acao') {
@@ -171,8 +202,6 @@ export const MODELOS: Record<string, () => IaFlow> = {
 
             @if (n.tipo === 'opcoes') {
               <div class="space-y-2">
-                <div><label class="form-label" for="nvo">Guardar a escolha em (opcional)</label>
-                  <input class="form-input" id="nvo" placeholder="ambiente" [ngModel]="n.variavel ?? ''" (ngModelChange)="editarNo(noAberto()!, (x) => (x.variavel = $event))" /></div>
                 <p class="form-label !mb-0">Opções (numeradas automaticamente)</p>
                 @for (o of n.opcoes ?? []; track $index; let j = $index) {
                   <div class="opt">
@@ -182,10 +211,13 @@ export const MODELOS: Record<string, () => IaFlow> = {
                       <option [ngValue]="null">→ escolha o destino</option>
                       @for (d of destinos(n.id); track d.id) { <option [ngValue]="d.id">→ {{ d.rotulo }}</option> }
                     </select>
-                    <button type="button" class="btn btn-ghost btn-sm !px-2" (click)="editarNo(noAberto()!, (x) => x.opcoes!.splice(j, 1))" [disabled]="(n.opcoes?.length ?? 0) <= 2" aria-label="Remover opção">✕</button>
+                    <button type="button" class="btn btn-ghost btn-sm !px-2" (click)="editarNo(noAberto()!, (x) => x.opcoes!.splice(j, 1))" [disabled]="(n.opcoes?.length ?? 0) <= 2" aria-label="Remover opção"><app-icon name="fechar" [size]="14" /></button>
                   </div>
                 }
-                <button type="button" class="btn btn-secondary btn-sm" (click)="editarNo(noAberto()!, (x) => x.opcoes!.push({ rotulo: '', proximo: null }))" [disabled]="(n.opcoes?.length ?? 0) >= 8">+ Opção</button>
+                <details class="adv mb-2"><summary><app-icon name="ajustes" [size]="14" />Avançado</summary>
+                  <label class="form-label" for="nvo">Guardar a escolha como (opcional)</label>
+                  <input class="form-input" id="nvo" placeholder="ex.: ambiente" [ngModel]="n.variavel ?? ''" (ngModelChange)="editarNo(noAberto()!, (x) => (x.variavel = $event))" /></details>
+                <button type="button" class="btn btn-secondary btn-sm inline-flex items-center gap-1.5" (click)="editarNo(noAberto()!, (x) => x.opcoes!.push({ rotulo: '', proximo: null }))" [disabled]="(n.opcoes?.length ?? 0) >= 8"><app-icon name="mais" [size]="14" />Opção</button>
               </div>
             }
 
@@ -202,9 +234,7 @@ export const MODELOS: Record<string, () => IaFlow> = {
             }
           </div>
           <footer class="sheet-foot">
-            <button type="button" class="btn btn-secondary btn-sm" (click)="mover(noAberto()!, -1)" [disabled]="noAberto() === 0">← Mover antes</button>
-            <button type="button" class="btn btn-secondary btn-sm" (click)="mover(noAberto()!, 1)" [disabled]="noAberto() === f.nos.length - 1">Mover depois →</button>
-            <button type="button" class="btn btn-ghost btn-sm" style="color: var(--cmm-danger);" (click)="removerNo(noAberto()!)">Excluir</button>
+            <button type="button" class="icon-btn icon-danger" (click)="removerNo(noAberto()!)" aria-label="Excluir esta etapa" title="Excluir esta etapa"><app-icon name="lixeira" /></button>
             <button type="button" class="btn btn-primary btn-sm ml-auto" (click)="noAberto.set(null)">Pronto</button>
           </footer>
         </aside>
@@ -216,7 +246,7 @@ export const MODELOS: Record<string, () => IaFlow> = {
         <aside class="sheet" role="dialog" aria-modal="true" aria-label="Testar o fluxo" style="--sheet-w: 28rem;">
           <header class="sheet-head">
             <div class="min-w-0 flex-1"><h3 class="font-semibold">Testar este fluxo</h3><p class="text-xs" style="color: var(--cmm-muted);">Roda o rascunho sem enviar nada a clientes nem mexer no Drive.</p></div>
-            <button type="button" class="btn btn-ghost btn-sm !px-2" (click)="testando.set(false)" aria-label="Fechar">✕</button>
+            <button type="button" class="icon-btn icon-btn-sm" (click)="testando.set(false)" aria-label="Fechar"><app-icon name="fechar" /></button>
           </header>
           <div class="sheet-body test-chat">
             @for (m of log(); track $index) { <div class="bubble" [class.bubble-user]="m.de === 'cliente'" [class.bubble-bot]="m.de === 'bot'" [class.bubble-fx]="m.de === 'efeito'">{{ m.texto }}</div> }
@@ -237,41 +267,67 @@ export const MODELOS: Record<string, () => IaFlow> = {
   `,
   styles: [`
     :host { display: block; }
-    .flowbar { display: flex; align-items: center; gap: .75rem 1.25rem; flex-wrap: wrap; padding: .6rem .75rem .6rem 1rem; border: 1px solid var(--cmm-border); border-radius: 1rem; background: var(--cmm-panel); }
-    .flow-sp { flex: 1 1 0; }
-    .flowbar { justify-content: flex-end; }
-    .flow-name { flex: 1 1 12rem; min-width: 0; border: 1px solid transparent; background: transparent; font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; padding: .3rem .5rem; border-radius: .6rem; color: var(--cmm-ink); }
-    .flow-name:hover, .flow-name:focus { border-color: var(--cmm-border); outline: none; background: var(--cmm-bg, var(--cmm-panel)); }
-    .bar-item { display: inline-flex; align-items: center; gap: .5rem; font-size: .8125rem; font-weight: 600; color: var(--cmm-muted); }
-    .bar-sel { width: 5.2rem; min-height: 0; padding-block: .3rem; }
-    .more { position: relative; } .more > summary { list-style: none; cursor: pointer; } .more > summary::-webkit-details-marker { display: none; }
-    .more-pop { position: absolute; right: 0; top: calc(100% + .4rem); z-index: 20; width: 18rem; padding: 1rem; border: 1px solid var(--cmm-border); border-radius: 1rem; background: var(--cmm-panel); box-shadow: var(--cmm-shadow-lift); }
-    .meta-grid { display: grid; grid-template-columns: 1fr; gap: .75rem 1rem; align-items: end; }
-    .meta-grid2 { display: grid; grid-template-columns: 1fr; gap: .75rem 1rem; margin-top: .75rem; align-items: end; }
-    @media (min-width: 900px) { .meta-grid { grid-template-columns: 1fr 12rem auto; } .meta-grid2 { grid-template-columns: 1fr auto; } }
-    .board { display: grid; grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr)); gap: .85rem; }
-    .card-node { position: relative; display: flex; flex-direction: column; gap: .4rem; text-align: left; padding: .9rem 1rem 1rem; border: 1.5px solid var(--cmm-border); border-top-width: 4px; border-radius: 1rem; background: var(--cmm-panel); color: var(--cmm-ink); cursor: pointer; min-height: 11rem; transition: transform 350ms var(--ease-out-expo), border-color 200ms, box-shadow 350ms var(--ease-out-expo); }
-    .card-node:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--cmm-accent) 55%, var(--cmm-border)); box-shadow: var(--cmm-shadow-lift); }
+    .fx { display: flex; flex-direction: column; gap: 1rem; max-width: 46rem; }
+    .fx-bar { display: flex; align-items: center; gap: .6rem .9rem; flex-wrap: wrap; padding: .55rem .75rem; border: 1px solid var(--cmm-border); border-radius: 1rem; background: var(--cmm-panel); }
+    .fx-state { font-size: .8125rem; font-weight: 600; }
+    .fx-opt { display: inline-flex; align-items: center; gap: .45rem; font-size: .8125rem; color: var(--cmm-muted); }
+    .bar-sel { width: 4.6rem; min-height: 0; padding-block: .25rem; }
+    .icon-btn { display: inline-grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: .65rem; border: 1px solid transparent; background: transparent; color: var(--cmm-muted); cursor: pointer; transition: background-color 180ms, color 180ms, border-color 180ms; }
+    .icon-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--cmm-border) 45%, transparent); color: var(--cmm-ink); }
+    .icon-btn:disabled { opacity: .35; cursor: default; }
+    .icon-btn-sm { width: 1.9rem; height: 1.9rem; border-radius: .5rem; }
+    .icon-danger:hover:not(:disabled) { color: var(--cmm-danger); background: color-mix(in srgb, var(--cmm-danger) 10%, transparent); }
+    /* linha do tempo */
+    .tl { list-style: none; margin: 0; padding: 0; }
+    .tl-li { position: relative; padding-left: 0; }
+    .tl-li + .tl-li { padding-top: 1.6rem; }
+    .tl-li + .tl-li::before { content: ''; position: absolute; left: 1.55rem; top: 0; height: 1.6rem; width: 2px; background: color-mix(in srgb, var(--cmm-muted) 40%, var(--cmm-border)); border-radius: 2px; }
+    .tl-add { position: absolute; left: 1.05rem; top: .3rem; z-index: 2; width: 1.05rem; height: 1.05rem; border-radius: 99px; border: 1px solid var(--cmm-border); background: var(--cmm-panel); color: var(--cmm-muted); display: grid; place-items: center; cursor: pointer; opacity: 0; transform: scale(.7); transition: opacity 160ms, transform 200ms, background-color 160ms, color 160ms; padding: 0; }
+    .tl-li:hover > .tl-add, .tl-add:focus-visible { opacity: 1; transform: scale(1); }
+    .tl-add:hover { background: var(--cmm-accent); color: #fff; border-color: var(--cmm-accent); }
+    @media (hover: none) { .tl-add { opacity: 1; transform: none; } }
+    .tl-step { --tc: #64748b; display: flex; align-items: flex-start; gap: .85rem; padding: .8rem .9rem; border: 1px solid var(--cmm-border); border-radius: 1rem; background: var(--cmm-panel); cursor: pointer; transition: border-color 180ms, box-shadow 250ms, transform 250ms var(--ease-out-expo); }
+    .tl-step:hover { border-color: color-mix(in srgb, var(--tc) 55%, var(--cmm-border)); box-shadow: var(--cmm-shadow-lift); }
+    .tl-step:focus-visible { outline: 2px solid var(--cmm-accent); outline-offset: 2px; }
+    .tl-warn { border-color: color-mix(in srgb, var(--cmm-warning) 65%, var(--cmm-border)); }
+    .tl-ico { flex-shrink: 0; width: 2.4rem; height: 2.4rem; border-radius: .8rem; display: grid; place-items: center; color: var(--tc); background: color-mix(in srgb, var(--tc) 13%, var(--cmm-panel)); }
+    [data-tipo='mensagem'] { --tc: #64748b; } [data-tipo='confirmacao'] { --tc: #10b981; } [data-tipo='opcoes'] { --tc: #8b5cf6; } [data-tipo='pergunta'] { --tc: #3b82f6; }
+    [data-tipo='arquivos'] { --tc: #f59e0b; } [data-tipo='acao'] { --tc: #14b8a6; } [data-tipo='encaminhar'] { --tc: var(--cmm-accent); } [data-tipo='fim'] { --tc: #94a3b8; }
+    .tl-step .tl-ico, .sheet-head .tl-ico, .pick .tl-ico { color: var(--tc); }
+    .tl-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: .15rem; }
+    .tl-top { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
+    .tl-title { font-size: .95rem; }
+    .tl-kind { font-size: .72rem; color: var(--cmm-muted); }
+    .tl-start { font-weight: 700; color: var(--cmm-accent); text-transform: uppercase; letter-spacing: .05em; font-size: .65rem; }
+    .tl-sum { font-size: .8125rem; color: var(--cmm-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .tl-ramos { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .3rem; }
+    .tl-ramo { font-size: .72rem; font-weight: 600; padding: .12rem .55rem; border-radius: 99px; background: color-mix(in srgb, var(--tc) 11%, var(--cmm-panel)); color: var(--cmm-ink); }
+    .tl-ramo-bad { background: color-mix(in srgb, var(--cmm-warning) 16%, var(--cmm-panel)); color: var(--cmm-warning); }
+    .tl-flag { color: var(--cmm-warning); display: inline-flex; margin-top: .45rem; }
+    .tl-acts { display: flex; gap: .1rem; opacity: 0; transition: opacity 160ms; margin: -.1rem -.2rem 0 0; }
+    .tl-step:hover .tl-acts, .tl-step:focus-within .tl-acts { opacity: 1; }
+    @media (hover: none) { .tl-acts { opacity: 1; } }
+    .tl-end { display: inline-flex; align-items: center; gap: .45rem; margin-left: .5rem; padding: .5rem .9rem; border: 1.5px dashed var(--cmm-border); border-radius: 99px; background: transparent; color: var(--cmm-muted); font-weight: 600; font-size: .85rem; cursor: pointer; transition: border-color 180ms, color 180ms, background-color 180ms; }
+    .tl-end:hover:not(:disabled) { border-color: var(--cmm-accent); color: var(--cmm-accent); background: var(--cmm-accent-soft); }
+    /* janelas centrais */
+    .dlg-backdrop { position: fixed; inset: 0; z-index: 140; background: rgba(15,15,20,.45); backdrop-filter: blur(2px); animation: fade 200ms both; }
+    .dlg { position: fixed; z-index: 141; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(26rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); overflow: auto; padding: 1.1rem 1.25rem 1.25rem; border-radius: 1.25rem; background: var(--cmm-panel); border: 1px solid var(--cmm-border); box-shadow: var(--cmm-shadow-lift); animation: dlg-in 260ms var(--ease-out-expo) both; }
+    .dlg-wide { width: min(34rem, calc(100vw - 2rem)); }
+    @keyframes fade { from { opacity: 0; } } @keyframes dlg-in { from { opacity: 0; transform: translate(-50%, -46%) scale(.97); } }
+    .dlg-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .9rem; } .dlg-head h3 { font-weight: 700; font-size: 1.05rem; }
+    .dlg-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 1.1rem; }
+    .pick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem; }
+    .pick-grupo { grid-column: 1 / -1; font-size: .7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--cmm-muted); margin: .5rem 0 0; }
+    .pick-grupo:first-child { margin-top: 0; }
+    .pick { display: flex; align-items: center; gap: .65rem; text-align: left; padding: .6rem .7rem; border: 1px solid var(--cmm-border); border-radius: .9rem; background: var(--cmm-panel); color: var(--cmm-ink); cursor: pointer; transition: border-color 160ms, background-color 160ms; }
+    .pick:hover { border-color: var(--tc); background: color-mix(in srgb, var(--tc) 7%, var(--cmm-panel)); }
+    .pick b { display: block; font-size: .875rem; } .pick small { display: block; font-size: .72rem; line-height: 1.3; color: var(--cmm-muted); }
+    @media (max-width: 560px) { .pick-grid { grid-template-columns: 1fr; } .tl-step { padding: .7rem; } }
+    details.adv { border-top: 1px solid var(--cmm-border); padding-top: .75rem; } details.adv > summary { cursor: pointer; font-size: .8125rem; font-weight: 600; color: var(--cmm-muted); list-style: none; display: flex; align-items: center; gap: .35rem; } details.adv > summary::-webkit-details-marker { display: none; } details.adv[open] > summary { margin-bottom: .75rem; }
     .pasta-seg { display: inline-flex; gap: .25rem; padding: .25rem; border-radius: .6rem; background: color-mix(in srgb, var(--cmm-border) 45%, var(--cmm-panel)); max-width: 100%; flex-wrap: wrap; }
     .pasta-seg button { padding: .4rem .8rem; border: none; border-radius: .45rem; background: transparent; color: var(--cmm-muted); font-weight: 600; font-size: .8rem; cursor: pointer; }
     .pasta-seg button.on { background: var(--cmm-panel); color: var(--cmm-ink); box-shadow: 0 1px 4px rgba(0,0,0,.15); }
-    .add-grupo { font-size: .7rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--cmm-muted); margin: .6rem 0 .25rem; }
     .opt-fix { padding: .5rem .75rem; border-radius: .5rem; background: var(--cmm-surface-2, rgba(128,128,128,.1)); font-weight: 600; min-width: 4rem; }
-    .card-node[data-tipo='confirmacao'] { border-top-color: #10b981; }
-    .card-node[data-tipo='pergunta'] { border-top-color: #3b82f6; } .card-node[data-tipo='opcoes'] { border-top-color: #8b5cf6; }
-    .card-node[data-tipo='arquivos'] { border-top-color: #f59e0b; } .card-node[data-tipo='acao'] { border-top-color: #10b981; }
-    .card-node[data-tipo='encaminhar'] { border-top-color: var(--cmm-accent); } .card-node[data-tipo='fim'] { border-top-color: var(--cmm-muted); } .card-node[data-tipo='mensagem'] { border-top-color: #64748b; }
-    .card-warn { border-color: color-mix(in srgb, var(--cmm-warning) 60%, var(--cmm-border)); }
-    .cn-top { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
-    .cn-num { width: 1.5rem; height: 1.5rem; border-radius: 99px; display: grid; place-items: center; font-size: .72rem; font-weight: 800; background: var(--cmm-accent-soft); color: var(--cmm-accent); }
-    .cn-tipo { font-size: .72rem; font-weight: 700; color: var(--cmm-muted); text-transform: uppercase; letter-spacing: .05em; }
-    .cn-title { font-size: .95rem; line-height: 1.2; }
-    .cn-snip { font-size: .8rem; color: var(--cmm-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .cn-dest { margin-top: auto; display: flex; flex-direction: column; gap: .15rem; font-size: .75rem; font-weight: 600; color: var(--cmm-accent); }
-    .cn-dest span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .card-add { border: 1.5px dashed var(--cmm-border); border-radius: 1rem; padding: .9rem 1rem; display: flex; flex-direction: column; justify-content: center; min-height: 11rem; }
-    .chip-type { padding: .3rem .7rem; border-radius: 99px; border: 1px solid var(--cmm-border); background: var(--cmm-panel); font-size: .78rem; font-weight: 600; cursor: pointer; color: var(--cmm-ink); transition: background-color 200ms, border-color 200ms; }
-    .chip-type:hover:not(:disabled) { background: var(--cmm-accent-soft); border-color: var(--cmm-accent); }
     .node-title { flex: 1 1 auto; min-width: 0; border: 1px solid transparent; background: transparent; font-weight: 700; font-size: 1.05rem; padding: .25rem .4rem; border-radius: .5rem; color: var(--cmm-ink); }
     .node-title:hover, .node-title:focus { border-color: var(--cmm-border); outline: none; }
     .next-box { padding: .9rem 1rem; border-radius: .9rem; background: color-mix(in srgb, var(--cmm-border) 28%, var(--cmm-panel)); }
@@ -303,6 +359,8 @@ export class IaFluxosComponent {
 
   tipos = TIPOS;
   grupos = GRUPOS;
+  picker = signal<number | null>(null);
+  config = signal(false);
   tiposDo(g: Grupo) { return TIPOS.filter((t) => t.grupo === g); }
   noAberto = signal<number | null>(null);
   testando = signal(false);
@@ -317,26 +375,35 @@ export class IaFluxosComponent {
   texto = signal('');
 
   @HostListener('document:keydown.escape')
-  fechar(): void { if (this.noAberto() !== null) this.noAberto.set(null); else if (this.testando()) this.testando.set(false); }
+  fechar(): void { if (this.picker() !== null) this.picker.set(null); else if (this.config()) this.config.set(false); else if (this.noAberto() !== null) this.noAberto.set(null); else if (this.testando()) this.testando.set(false); }
 
   info(t: Tipo) { return TIPOS.find((x) => x.tipo === t)!; }
   ferramenta(k?: string) { return this.ferramentas().find((t) => t.key === k); }
   opcaoUsada(n: number): boolean { return this.fluxos().some((f, i) => i !== this.indice() && f.ativo && f.menuOpcao === n); }
   destinos(excluirId: string) {
-    return (this.atual()?.nos ?? []).map((n, i) => ({ id: n.id, rotulo: `${i + 1}. ${this.info(n.tipo).icone} ${n.titulo || this.info(n.tipo).label}` })).filter((d) => d.id !== excluirId);
+    return (this.atual()?.nos ?? []).map((n, i) => ({ id: n.id, rotulo: `${i + 1}. ${n.titulo || this.info(n.tipo).label}` })).filter((d) => d.id !== excluirId);
   }
   private nomeDe(f: IaFlow, id: string | null | undefined): string {
     const i = f.nos.findIndex((n) => n.id === id);
     return i < 0 ? '⚠ sem destino' : `→ ${i + 1}. ${f.nos[i].titulo || this.info(f.nos[i].tipo).label}`;
   }
-  destinosDe(n: IaNode, f: IaFlow): string[] {
-    if (n.tipo === 'encaminhar') return ['🤝 Passa a um atendente'];
-    if (n.tipo === 'fim') return ['🏁 Volta ao menu'];
+  /** Para onde a etapa leva, em chips curtos (só o que foge do óbvio "segue para a próxima"). */
+  ramos(n: IaNode, f: IaFlow): Array<{ texto: string; ruim: boolean }> {
+    const alvo = (id: string | null | undefined) => {
+      const k = f.nos.findIndex((x) => x.id === id);
+      return k < 0 ? null : k + 1;
+    };
+    const i = f.nos.findIndex((x) => x.id === n.id);
+    if (n.tipo === 'encaminhar' || n.tipo === 'fim') return [];
     if (n.tipo === 'opcoes' || n.tipo === 'confirmacao') {
-      const o = n.opcoes ?? [];
-      return [...o.slice(0, 3).map((x, j) => `${j + 1} ${x.rotulo || '…'} ${this.nomeDe(f, x.proximo)}`), ...(o.length > 3 ? [`+ ${o.length - 3} opção(ões)`] : [])];
+      return (n.opcoes ?? []).map((o, j) => {
+        const k = alvo(o.proximo);
+        return { texto: `${n.tipo === 'confirmacao' ? o.rotulo : `${j + 1}. ${o.rotulo || '…'}`} → ${k ? 'etapa ' + k : 'sem destino'}`, ruim: !k };
+      });
     }
-    return [this.nomeDe(f, n.proximo)];
+    const k = alvo(n.proximo);
+    if (!k) return [{ texto: 'sem próxima etapa', ruim: true }];
+    return k === i + 2 ? [] : [{ texto: `segue para a etapa ${k}`, ruim: false }];
   }
   resumo(n: IaNode): string {
     if (n.tipo === 'acao') return this.ferramenta(n.acao)?.label ?? 'Escolha a ferramenta';
@@ -369,36 +436,42 @@ export class IaFluxosComponent {
     this.emit((fs) => fs.splice(i, 1));
   }
 
-  addNo(tipo: Tipo): void {
-    const novoIndice = this.atual()?.nos.length ?? 0;
+  addNo(tipo: Tipo, em?: number): void {
+    const f0 = this.atual();
+    const pos = Math.max(0, Math.min(em ?? f0?.nos.length ?? 0, f0?.nos.length ?? 0));
+    this.picker.set(null);
     this.editar((f) => {
       const max = f.nos.reduce((m, n) => Math.max(m, Number(n.id.replace(/\D/g, '')) || 0), 0);
+      const depois = f.nos[pos]?.id ?? null;
       const base: IaNode = { id: 'n' + (max + 1), tipo, titulo: this.info(tipo).label, proximo: null };
-      if (tipo === 'mensagem' || tipo === 'pergunta' || tipo === 'arquivos') base.texto = '';
+      if (tipo === 'mensagem' || tipo === 'pergunta' || tipo === 'arquivos') { base.texto = ''; base.proximo = depois; }
       if (tipo === 'pergunta') { base.variavel = ''; base.validacao = 'texto'; }
       if (tipo === 'arquivos') base.minimo = 1;
-      if (tipo === 'confirmacao') { base.texto = ''; base.opcoes = [{ rotulo: 'Sim', proximo: null }, { rotulo: 'Não', proximo: null }]; }
-      if (tipo === 'opcoes') { base.texto = ''; base.opcoes = [{ rotulo: '', proximo: null }, { rotulo: '', proximo: null }]; }
-      if (tipo === 'acao') base.acao = '';
-      f.nos.push(base);
+      if (tipo === 'confirmacao') { base.texto = ''; base.opcoes = [{ rotulo: 'Sim', proximo: depois }, { rotulo: 'Não', proximo: null }]; }
+      if (tipo === 'opcoes') { base.texto = ''; base.opcoes = [{ rotulo: '', proximo: depois }, { rotulo: '', proximo: null }]; }
+      if (tipo === 'acao') { base.acao = ''; base.proximo = depois; }
+      // Liga sozinho a etapa anterior à nova, para o caminho linear já nascer pronto.
+      const ant = f.nos[pos - 1];
+      if (ant && ['mensagem', 'pergunta', 'arquivos', 'acao'].includes(ant.tipo) && (!ant.proximo || ant.proximo === depois)) ant.proximo = base.id;
+      f.nos.splice(pos, 0, base);
     });
-    this.noAberto.set(novoIndice);
+    this.noAberto.set(pos);
   }
   armazenar(v: string): void {
     this.editarNo(this.noAberto()!, (x) => { x.armazenar = v === 'drive' ? 'drive' : undefined; x.pasta = v === 'drive' ? (x.pasta ?? 'criar') : undefined; });
   }
-  mover(i: number, d: number): void {
+  mover(i: number, d: number, abrir = true): void {
     this.editar((f) => { const j = i + d; if (j < 0 || j >= f.nos.length) return; [f.nos[i], f.nos[j]] = [f.nos[j], f.nos[i]]; });
-    this.noAberto.set(Math.max(0, Math.min((this.atual()?.nos.length ?? 1) - 1, i + d)));
+    if (abrir) this.noAberto.set(Math.max(0, Math.min((this.atual()?.nos.length ?? 1) - 1, i + d)));
   }
   async removerNo(i: number): Promise<void> {
     const n = this.atual()?.nos[i];
-    if (!n || !(await this.modal.confirm('Excluir esta etapa?', `“${n.titulo}” será removida e os caminhos que levavam a ela ficam sem destino.`, 'Excluir'))) return;
+    if (!n || !(await this.modal.confirm('Excluir esta etapa?', `“${n.titulo}” será removida e quem chegava nela passa direto para a etapa seguinte.`, 'Excluir'))) return;
     this.editar((f) => {
       const [rm] = f.nos.splice(i, 1);
       for (const x of f.nos) {
-        if (x.proximo === rm.id) x.proximo = null;
-        x.opcoes?.forEach((o) => { if (o.proximo === rm.id) o.proximo = null; });
+        if (x.proximo === rm.id) x.proximo = rm.proximo ?? null;
+        x.opcoes?.forEach((o) => { if (o.proximo === rm.id) o.proximo = rm.proximo ?? null; });
       }
     });
     this.noAberto.set(null);
@@ -427,8 +500,8 @@ export class IaFluxosComponent {
         this.log.update((l) => [
           ...l,
           ...r.mensagens.map((m) => ({ de: 'bot' as const, texto: m })),
-          ...r.efeitos.map((e) => ({ de: 'efeito' as const, texto: '⚙ ' + e })),
-          ...(r.saiu ? [{ de: 'efeito' as const, texto: r.saiu === 'encaminhado' ? '🤝 Cliente encaminhado a um atendente' : '🏁 Volta ao menu inicial' }] : []),
+          ...r.efeitos.map((e) => ({ de: 'efeito' as const, texto: e })),
+          ...(r.saiu ? [{ de: 'efeito' as const, texto: r.saiu === 'encaminhado' ? 'Cliente encaminhado a um atendente' : 'Volta ao menu inicial' }] : []),
         ]);
         this.estado.set(r.estado);
         this.terminou.set(!!r.saiu);
