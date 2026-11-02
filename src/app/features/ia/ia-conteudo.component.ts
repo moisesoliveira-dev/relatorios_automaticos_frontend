@@ -2,9 +2,10 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../core/ui/toast.service';
 import { ModalService } from '../../shared/services/modal.service';
-import { IaApiService, IaContent, IaContentDoc, IaKb } from './ia-api.service';
+import { IaFluxosComponent } from './ia-fluxos.component';
+import { IaApiService, IaContent, IaContentDoc, IaFlow, IaKb } from './ia-api.service';
 
-type Secao = 'mensagens' | 'base' | 'ambientes' | 'guia';
+type Secao = 'mensagens' | 'fluxos' | 'base' | 'ambientes' | 'guia';
 
 /** Mensagens agrupadas pela etapa do atendimento em que o cliente as lê. */
 const GRUPOS: Array<{ id: string; titulo: string; texto: string; icone: string; chaves: Array<[string, string]> }> = [
@@ -31,7 +32,7 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
 @Component({
   selector: 'app-ia-conteudo',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, IaFluxosComponent],
   template: `
     @if (conteudo(); as c) {
       <div class="space-y-5 pb-24">
@@ -121,6 +122,21 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
                 }
               </div>
             </div>
+          }
+
+          <!-- ═════ FLUXOS ═════ -->
+          @case ('fluxos') {
+            <div class="panel panel-pad">
+              <h2 class="sec-title">Fluxos de atendimento</h2>
+              <p class="text-sm mt-1" style="color: var(--cmm-muted);">Monte seus próprios caminhos de conversa, além do fluxo padrão. Cada fluxo ativo ganha uma opção (6 a 9) no menu inicial. Dá para usar as ferramentas do sistema — hoje, o <b>Google Drive</b> (criar a pasta do cliente, guardar arquivos e respostas) — e encaminhar a um atendente.</p>
+              @if (c.problemas.length) {
+                <div class="mt-3 p-3 rounded-lg text-sm" style="background: color-mix(in srgb, var(--cmm-warning) 10%, var(--cmm-panel));">
+                  <p class="font-semibold mb-1">Para publicar, corrija:</p>
+                  <ul class="list-disc pl-5 space-y-0.5">@for (p of c.problemas; track p) { <li>{{ p }}</li> }</ul>
+                </div>
+              }
+            </div>
+            <app-ia-fluxos [fluxos]="doc().fluxos" [ferramentas]="c.ferramentas" (mudou)="setFluxos($event)" />
           }
 
           <!-- ═════ BASE DE CONHECIMENTO ═════ -->
@@ -257,7 +273,7 @@ export class IaConteudoComponent implements OnInit {
 
   grupos = GRUPOS;
   secoes: Array<{ key: Secao; label: string }> = [
-    { key: 'mensagens', label: 'Mensagens' }, { key: 'base', label: 'Base de conhecimento' }, { key: 'ambientes', label: 'Ambientes' }, { key: 'guia', label: 'Guia da IA' },
+    { key: 'mensagens', label: 'Mensagens' }, { key: 'fluxos', label: 'Fluxos' }, { key: 'base', label: 'Base de conhecimento' }, { key: 'ambientes', label: 'Ambientes' }, { key: 'guia', label: 'Guia da IA' },
   ];
   opcoesMenu = [{ n: 4, label: 'Pagamento por boleto' }, { n: 5, label: 'Endereço da loja' }];
   numerosAmbiente = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -287,6 +303,7 @@ export class IaConteudoComponent implements OnInit {
     const cats = new Set([...Object.keys(d.categorias), ...Object.keys(p.categorias)]);
     for (const k of cats) if ((d.categorias[k] ?? '') !== (p.categorias[k] ?? '')) n++;
     if (JSON.stringify(d.guidance) !== JSON.stringify(p.guidance)) n++;
+    if (JSON.stringify(d.fluxos) !== JSON.stringify(p.fluxos)) n++;
     if (JSON.stringify([...d.menuDesativado].sort()) !== JSON.stringify([...p.menuDesativado].sort())) n++;
     return n;
   });
@@ -294,7 +311,7 @@ export class IaConteudoComponent implements OnInit {
   ngOnInit(): void { this.carregar(); }
 
   private vazio(): IaContentDoc {
-    return { messages: {}, kb: null, categorias: {}, guidance: { tone: 'padrao', instructions: '' }, menuDesativado: [] };
+    return { messages: {}, kb: null, categorias: {}, guidance: { tone: 'padrao', instructions: '' }, menuDesativado: [], fluxos: [] };
   }
   private clone(d: IaContentDoc): IaContentDoc { return JSON.parse(JSON.stringify(d)); }
 
@@ -372,6 +389,9 @@ export class IaConteudoComponent implements OnInit {
     this.setMsg('ambientes_categorias', t);
     this.toast.success('Lista atualizada na mensagem de ambientes (veja em Mensagens).');
   }
+
+  // ───── fluxos
+  setFluxos(f: IaFlow[]): void { this.mudar((d) => { d.fluxos = f; }); }
 
   // ───── guia
   setTom(k: string): void { this.mudar((d) => { d.guidance.tone = k; }); }

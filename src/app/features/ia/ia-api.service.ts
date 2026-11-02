@@ -93,12 +93,54 @@ export interface IaKb {
   keywords: string[];
   text: string;
 }
+export interface IaNode {
+  id: string;
+  tipo: 'mensagem' | 'opcoes' | 'pergunta' | 'arquivos' | 'acao' | 'encaminhar' | 'fim';
+  titulo: string;
+  texto?: string;
+  proximo?: string | null;
+  opcoes?: Array<{ rotulo: string; proximo: string | null }>;
+  variavel?: string;
+  validacao?: 'nome' | 'texto';
+  minimo?: number;
+  acao?: string;
+}
+export interface IaFlow {
+  id: string;
+  nome: string;
+  descricao?: string;
+  ativo: boolean;
+  menuOpcao: number | null;
+  nos: IaNode[];
+}
+export interface IaFlowState {
+  flowId: string;
+  nodeId: string;
+  historico: string[];
+  vars: Record<string, string>;
+  arquivos: number;
+  invalidos: number;
+}
+export interface IaFlowPreview {
+  estado: IaFlowState | null;
+  mensagens: string[];
+  efeitos: string[];
+  saiu: 'menu' | 'encaminhado' | null;
+}
+export interface IaTool {
+  key: string;
+  label: string;
+  descricao: string;
+  disponivel: boolean;
+}
+
 export interface IaContentDoc {
   messages: Record<string, string>;
   kb: IaKb[] | null;
   categorias: Record<string, string>;
   guidance: { tone: string; instructions: string };
   menuDesativado: number[];
+  fluxos: IaFlow[];
 }
 export interface IaContent {
   published: IaContentDoc;
@@ -107,6 +149,8 @@ export interface IaContent {
   draft: IaContentDoc | null;
   draftAt: string | null;
   hasPrevious: boolean;
+  problemas: string[];
+  ferramentas: IaTool[];
   defaults: { messages: Record<string, string>; kb: IaKb[]; categorias: Record<string, string> };
   specs: Record<string, { objetivo: string | null; pontos: string[]; placeholders: string[] }>;
   tones: Array<{ key: string; label: string }>;
@@ -157,6 +201,9 @@ export class IaApiService {
   }
   publish() {
     return this.http.post<IaContent>(`${this.base}/content/publish`, {});
+  }
+  previewFlow(fluxo: IaFlow, estado: IaFlowState | null, texto: string) {
+    return this.http.post<IaFlowPreview>(`${this.base}/content/flows/preview`, { fluxo, estado, texto });
   }
   rollback() {
     return this.http.post<IaContent>(`${this.base}/content/rollback`, {});
