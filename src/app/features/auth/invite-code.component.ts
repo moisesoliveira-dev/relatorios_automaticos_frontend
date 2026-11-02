@@ -48,7 +48,7 @@ import { AuthService } from '../../core/services/auth.service';
             <button
               type="submit"
               [disabled]="isLoading() || code.length !== 6"
-              class="btn btn-accent w-full"
+              class="btn btn-accent btn-static w-full"
             >
               @if (isLoading()) {
                 Validando...

@@ -420,6 +420,27 @@ html.dark .btn-danger {
   border-radius: 0.625rem;
 }
 
+/* Botão estático: sem magnetismo, ripple, brilho nem deslocamento (ex.: "Entrar" do login) */
+.btn-static,
+.btn-static:hover,
+.btn-static:active {
+  transform: none !important;
+  translate: none !important;
+  transition: none !important;
+  filter: none !important;
+  animation: none !important;
+  will-change: auto;
+}
+.btn-static::after {
+  display: none !important;
+}
+.btn-static.btn-accent,
+.btn-static.btn-accent:hover:not(:disabled) {
+  background: linear-gradient(120deg, var(--cmm-accent), var(--cmm-accent-2));
+  background-size: 100% 100%;
+  background-position: 0 0;
+}
+
 /* ——— Formulários ——— */
 
 .form-label {
@@ -973,18 +994,37 @@ html.dark .job-log-card .job-log-data {
   animation: gradient-pan 6s linear infinite;
 }
 
-/* Transição entre páginas (View Transitions API) */
-::view-transition-old(root) {
-  animation: 320ms var(--ease-in-out-quart) both vt-out;
+/* Transição entre páginas: CORTINA só na área de conteúdo. Menu lateral e barra superior ficam parados. */
+main#conteudo {
+  view-transition-name: page;
 }
+::view-transition-group(root),
+::view-transition-old(root),
 ::view-transition-new(root) {
-  animation: 520ms var(--ease-out-expo) both vt-in;
+  animation: none;
+  mix-blend-mode: normal;
 }
-@keyframes vt-out {
-  to { opacity: 0; transform: translateY(-14px) scale(0.985); filter: blur(6px); }
+::view-transition-old(page) {
+  animation: 320ms cubic-bezier(0.7, 0, 0.84, 0) both page-leave;
 }
-@keyframes vt-in {
-  from { opacity: 0; transform: translateY(26px) scale(0.985); filter: blur(8px); }
+::view-transition-new(page) {
+  animation: 780ms cubic-bezier(0.76, 0, 0.24, 1) both page-wipe;
+}
+@keyframes page-leave {
+  to { opacity: 0; transform: translateX(-3.5%); }
+}
+@keyframes page-wipe {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+/* Painéis que chegam depois (dados carregando): máscara que desce, sem desfoque */
+.reveal-mask {
+  animation: reveal-mask 650ms var(--ease-out-expo) both;
+}
+@keyframes reveal-mask {
+  from { clip-path: inset(0 0 100% 0 round 1rem); opacity: 0.2; transform: translateY(-8px); }
+  to { clip-path: inset(0 0 -2px 0 round 1rem); opacity: 1; transform: none; }
 }
 
 /* Troca de tema em círculo expansivo */
@@ -1016,7 +1056,10 @@ html[data-motion="off"] *::after {
 html[data-motion="off"] body::before {
   animation: none;
 }
-html[data-motion="off"]::view-transition-old(root),
-html[data-motion="off"]::view-transition-new(root) {
+html[data-motion="off"]::view-transition-old(page),
+html[data-motion="off"]::view-transition-new(page) {
   animation: none;
 }
+
+/* main#conteudo cria um contexto de empilhamento (view-transition-name); com um painel modal aberto ele sobe acima da barra superior */
+main#conteudo:has(.drawer) { position: relative; z-index: 130; }

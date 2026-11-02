@@ -142,7 +142,7 @@ import { environment } from '../../../environments/environment';
               <button
                 type="submit"
                 [disabled]="isLoading()"
-                class="btn btn-accent w-full mt-6"
+                class="btn btn-accent btn-static w-full mt-6"
               >
                 @if (isLoading()) {
                   <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">

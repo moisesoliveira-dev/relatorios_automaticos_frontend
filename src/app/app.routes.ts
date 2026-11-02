@@ -65,6 +65,12 @@ export const routes: Routes = [
                 loadComponent: () => import('./features/jobs/jobs.component').then(m => m.JobsComponent)
             },
             {
+                path: 'ia',
+                canActivate: [tabGuard],
+                data: { tabs: ['ia'] },
+                loadComponent: () => import('./features/ia/ia.component').then(m => m.IaComponent)
+            },
+            {
                 path: 'perfil',
                 loadComponent: () => import('./features/profile/profile.component').then(m => m.ProfileComponent)
             },

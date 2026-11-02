@@ -89,7 +89,7 @@ import { environment } from '../../../environments/environment';
                 </div>
 
                 <div class="field-in" style="--i: 2">
-                  <button type="submit" [disabled]="isLoading()" class="btn btn-accent w-full !min-h-[3rem] !text-base">
+                  <button type="submit" [disabled]="isLoading()" class="btn btn-accent btn-static w-full !min-h-[3rem] !text-base">
                     @if (isLoading()) {
                       <span class="spinner" style="width: 1.1rem; height: 1.1rem; border-color: rgba(28,9,0,0.25); border-top-color: #1c0900;"></span>
                       Entrando…
@@ -134,7 +134,7 @@ import { environment } from '../../../environments/environment';
                     <p id="reg-password-help" class="mt-1.5 text-xs" style="color: var(--cmm-muted);">Use pelo menos 8 caracteres.</p>
                   </div>
                   <div class="field-in" style="--i: 3">
-                    <button type="submit" [disabled]="isRegisterLoading()" class="btn btn-accent w-full !min-h-[3rem] !text-base">
+                    <button type="submit" [disabled]="isRegisterLoading()" class="btn btn-accent btn-static w-full !min-h-[3rem] !text-base">
                       @if (isRegisterLoading()) {
                         <span class="spinner" style="width: 1.1rem; height: 1.1rem; border-color: rgba(28,9,0,0.25); border-top-color: #1c0900;"></span>
                         Enviando…

@@ -35,6 +35,7 @@ export const TAB_TREE: TabNode[] = [
     { key: 'dashboard', label: 'Dashboard' },
     { key: 'reports', label: 'Relatórios' },
     { key: 'jobs', label: 'Automações' },
+    { key: 'ia', label: 'IA' },
     {
         key: 'gosac-pontta',
         label: 'Gosac / Pontta',

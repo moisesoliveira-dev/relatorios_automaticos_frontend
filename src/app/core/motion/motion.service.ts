@@ -1,5 +1,5 @@
 import { Injectable, NgZone, inject } from '@angular/core';
-import { Router, NavigationEnd } from '@angular/router';
+import { Router, NavigationEnd, NavigationStart } from '@angular/router';
 import { animate, stagger } from 'motion';
 
 /**
@@ -31,6 +31,9 @@ export class MotionService {
   private queue = new Set<HTMLElement>();
   private flushScheduled = false;
   private readonly done = new WeakSet<HTMLElement>();
+  /** Até este instante, o que aparece faz parte da própria troca de página (a cortina já anima). */
+  private navSettleUntil = 0;
+  private appReady = false;
 
   /** Movimento ligado? (preferência do sistema ou interruptor do app) */
   get enabled(): boolean {
@@ -56,8 +59,13 @@ export class MotionService {
       this.bindScrollEffects();
       this.bindPointerEffects();
       this.router.events.subscribe((e) => {
-        if (e instanceof NavigationEnd) window.scrollTo({ top: 0 });
+        if (e instanceof NavigationStart) this.navSettleUntil = performance.now() + 450;
+        if (e instanceof NavigationEnd) {
+          this.navSettleUntil = performance.now() + 450;
+          window.scrollTo({ top: 0 });
+        }
       });
+      setTimeout(() => (this.appReady = true), 900);
     });
   }
 
@@ -83,6 +91,11 @@ export class MotionService {
 
   private enqueue(el: HTMLElement): void {
     if (this.done.has(el) || !this.enabled) return;
+    // Durante a troca de página o conteúdo já nasce "dentro" da cortina: marca como feito e não reanima.
+    if (this.appReady && performance.now() < this.navSettleUntil) {
+      this.done.add(el);
+      return;
+    }
     // Elemento dentro de outro que já vai animar? Só o de fora anima (evita animação dupla).
     for (const pending of this.queue) if (pending !== el && pending.contains(el) && !el.matches('tbody tr')) return;
 
@@ -107,18 +120,22 @@ export class MotionService {
     const blocks = items.filter((el) => !el.matches('tbody tr'));
 
     if (blocks.length) {
-      const run = animate(
-        blocks,
-        { opacity: [0, 1], transform: ['translateY(34px) scale(0.965)', 'translateY(0px) scale(1)'], filter: ['blur(10px)', 'blur(0px)'] },
-        { duration: 0.85, delay: stagger(0.085), ease: EASE_OUT_EXPO },
-      );
-      this.release(blocks, run);
+      // Máscara que desce (classe CSS), com atraso escalonado. Sem desfoque nem deslocamento grande.
+      blocks.forEach((el, i) => {
+        el.style.opacity = '';
+        el.style.animationDelay = `${i * 70}ms`;
+        el.classList.add('reveal-mask');
+        setTimeout(() => {
+          el.classList.remove('reveal-mask');
+          el.style.animationDelay = '';
+        }, 650 + i * 70 + 80);
+      });
     }
     if (rows.length) {
       const run = animate(
         rows,
-        { opacity: [0, 1], transform: ['translateX(-22px)', 'translateX(0px)'] },
-        { duration: 0.55, delay: stagger(0.035, { startDelay: 0.15 }), ease: EASE_OUT_EXPO },
+        { opacity: [0, 1], transform: ['translateX(-10px)', 'translateX(0px)'] },
+        { duration: 0.35, delay: stagger(0.025, { startDelay: 0.05 }), ease: EASE_OUT_EXPO },
       );
       this.release(rows, run);
     }
@@ -181,7 +198,7 @@ export class MotionService {
       }
 
       // Magnetismo: botões principais "puxam" na direção do cursor
-      document.querySelectorAll<HTMLElement>('.btn-primary, .btn-accent').forEach((btn) => {
+      document.querySelectorAll<HTMLElement>('.btn-primary:not(.btn-static), .btn-accent:not(.btn-static)').forEach((btn) => {
         if (btn.matches(':disabled')) return;
         const r = btn.getBoundingClientRect();
         const cx = r.left + r.width / 2;
@@ -215,7 +232,7 @@ export class MotionService {
       (e) => {
         if (!this.enabled) return;
         const btn = (e.target as HTMLElement | null)?.closest?.('.btn') as HTMLElement | null;
-        if (!btn || btn.matches(':disabled')) return;
+        if (!btn || btn.matches(':disabled') || btn.classList.contains('btn-static')) return;
         const r = btn.getBoundingClientRect();
         const size = Math.max(r.width, r.height);
         const ripple = document.createElement('span');
