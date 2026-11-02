@@ -20,7 +20,7 @@ export class App implements OnInit, OnDestroy {
   constructor(private authService: AuthService) { }
 
   ngOnInit() {
-    // Liga o motor de movimento (revelação em cascata, spotlight, magnetismo, progresso de rolagem...)
+    // Liga o motor de movimento (revelação em cascata, spotlight, progresso de rolagem...)
     this.motion.start();
     // Acessibilidade de todos os diálogos (foco preso, Escape, rótulos)
     this.dialogs.start();

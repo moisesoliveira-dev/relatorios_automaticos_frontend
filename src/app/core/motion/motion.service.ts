@@ -177,7 +177,7 @@ export class MotionService {
     update();
   }
 
-  // ───────────── ponteiro: spotlight, magnetismo e ripple ─────────────
+  // ───────────── ponteiro: spotlight dos painéis e ripple do clique ─────────────
 
   private bindPointerEffects(): void {
     let raf = 0;
@@ -196,24 +196,6 @@ export class MotionService {
         panel.style.setProperty('--mx', `${e.clientX - r.left}px`);
         panel.style.setProperty('--my', `${e.clientY - r.top}px`);
       }
-
-      // Magnetismo: botões principais "puxam" na direção do cursor
-      document.querySelectorAll<HTMLElement>('.btn-primary:not(.btn-static), .btn-accent:not(.btn-static)').forEach((btn) => {
-        if (btn.matches(':disabled')) return;
-        const r = btn.getBoundingClientRect();
-        const cx = r.left + r.width / 2;
-        const cy = r.top + r.height / 2;
-        const dx = e.clientX - cx;
-        const dy = e.clientY - cy;
-        const dist = Math.hypot(dx, dy);
-        const reach = 90 + Math.max(r.width, r.height) / 2;
-        if (dist < reach && this.enabled) {
-          const pull = (1 - dist / reach) * 0.35;
-          btn.style.translate = `${dx * pull}px ${dy * pull}px`;
-        } else if (btn.style.translate) {
-          btn.style.translate = '';
-        }
-      });
     };
 
     document.addEventListener(
