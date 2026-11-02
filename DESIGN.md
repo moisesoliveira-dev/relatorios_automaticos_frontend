@@ -36,13 +36,13 @@ O menu lateral é grafite nos dois temas. A borda padrão de TUDO usa `--cmm-bor
 - Alvos de toque ≥ 42px.
 
 ## Componentes (nomes de classe estáveis)
-`.btn` + `.btn-primary | .btn-accent | .btn-secondary | .btn-danger | .btn-ghost` · `.form-label` + `.form-input` · `.panel` · `.badge` · `.table-shell` · `.empty-state` · `.skeleton` · `.spinner` · `.auth-*` · `.toast`.
+`.btn-static` (botão sem movimento, ripple ou brilho — usado nos botões de envio das telas de autenticação) · `.btn` + `.btn-primary | .btn-accent | .btn-secondary | .btn-danger | .btn-ghost` · `.form-label` + `.form-input` · `.panel` · `.badge` · `.table-shell` · `.empty-state` · `.skeleton` · `.spinner` · `.auth-*` · `.toast`.
 
 ## Motion — "exagerado, mas controlável"
 Motor central em `core/motion/motion.service.ts` (biblioteca `motion`) + CSS em `styles.css`. Nenhuma tela precisa declarar animação: o que aparece anima sozinho.
 
 - **Entrada em cascata** de painéis, cabeçalhos, tabelas e linhas (translateY/scale + desfoque, easing expo-out).
-- **Transição de página** com View Transitions (fade + slide + blur) e título da barra que gira ao trocar.
+- **Transição de página** por *cortina*: só o conteúdo (`main#conteudo`) muda — a página antiga sai com um fade curto e a nova é revelada por um `clip-path` da esquerda para a direita; menu e barra superior ficam parados.
 - **Aurora** em movimento atrás do app, com parallax na rolagem, grão fino e barra de progresso de rolagem.
 - **Botões**: magnéticos, ripple ao clicar, brilho que varre no hover, "afundam" ao pressionar.
 - **Painéis**: spotlight que segue o mouse, borda que acende, sombra que cresce.
@@ -65,3 +65,8 @@ Motor central em `core/motion/motion.service.ts` (biblioteca `motion`) + CSS em 
 
 ## Dark mode
 `html.dark` troca as variáveis. O tema é aplicado antes do primeiro desenho (sem "piscar").
+
+## Telas com identidade própria
+- **Dashboard**: central de comando — selo de saúde geral, blocos por serviço com latência, linha do tempo de relatórios e atalhos.
+- **Usuários**: faixa de panorama (pessoas, ativas, administradores, aguardando decisão).
+- **IA** (`/ia`): visão geral (KPIs, série de 14 dias, funil por etapa), conversas com gaveta de detalhe, simulador, configuração em tempo de execução (barra de salvar flutuante) e catálogo de mensagens. Painéis modais usam z-index 1000+; `main#conteudo:has(.drawer)` sobe acima da barra superior.

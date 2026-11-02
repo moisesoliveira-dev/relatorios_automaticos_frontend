@@ -12,14 +12,35 @@ import { CounterDirective } from '../../core/motion/counter.directive';
   imports: [CommonModule, RouterLink, FormsModule, CounterDirective],
   template: `
     <div class="space-y-6">
+      <!-- Cabeçalho: saudação + saúde geral do sistema numa frase -->
       <div class="page-header">
         <div>
+          <p class="eyebrow">{{ hoje }}</p>
           <h1 class="page-title">Olá, <span class="text-gradient">{{ firstName() }}</span></h1>
-          <p class="page-subtitle">Resumo do sistema de relatórios</p>
+          <p class="page-subtitle">{{ resumoSaude().texto }}</p>
         </div>
+        <span class="health-pill" [class.health-ok]="resumoSaude().nivel === 'ok'" [class.health-warn]="resumoSaude().nivel === 'warn'" [class.health-bad]="resumoSaude().nivel === 'bad'">
+          <span class="health-dot"></span>{{ resumoSaude().rotulo }}
+        </span>
       </div>
 
-      <!-- Stats -->
+      <!-- Faixa de saúde: cada serviço é um bloco com barra de latência -->
+      @if (dashboardService.systemStatus().length) {
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          @for (service of dashboardService.systemStatus(); track service.name) {
+            <div class="panel svc" [attr.data-status]="service.status">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-sm font-semibold truncate">{{ service.name }}</span>
+                <span class="svc-dot"></span>
+              </div>
+              <p class="svc-lat font-display">{{ service.latency }}</p>
+              <p class="svc-state">{{ service.status === 'online' ? 'Operando' : service.status === 'warning' ? 'Lento' : 'Fora do ar' }}</p>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Números do mês -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         @for (stat of statsDisplay(); track stat.label) {
           <div class="panel panel-pad">
@@ -28,136 +49,111 @@ import { CounterDirective } from '../../core/motion/counter.directive';
                 <p class="text-sm" style="color: var(--cmm-muted);">{{ stat.label }}</p>
                 <p class="stat-value font-display font-extrabold mt-1 tracking-tight" style="color: var(--cmm-ink);" [appCounter]="stat.value" aria-live="off">{{ stat.value }}</p>
               </div>
-              <div
-                class="hidden sm:flex w-9 h-9 rounded-lg items-center justify-center flex-shrink-0"
-                style="background: var(--cmm-accent-soft); color: var(--cmm-accent);"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" [attr.d]="stat.svgPath"/>
-                </svg>
+              <div class="hidden sm:flex w-9 h-9 rounded-lg items-center justify-center flex-shrink-0" style="background: var(--cmm-accent-soft); color: var(--cmm-accent);">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" [attr.d]="stat.svgPath"/></svg>
               </div>
             </div>
             <div class="mt-3 flex items-center gap-1.5 text-sm">
-              <span
-                class="badge"
-                [class.badge-success]="stat.trend >= 0"
-                [class.badge-danger]="stat.trend < 0"
-              >
-                {{ stat.trend >= 0 ? '↑' : '↓' }} {{ stat.trend >= 0 ? stat.trend : -stat.trend }}%
-              </span>
+              <span class="badge" [class.badge-success]="stat.trend >= 0" [class.badge-danger]="stat.trend < 0">{{ stat.trend >= 0 ? '↑' : '↓' }} {{ stat.trend >= 0 ? stat.trend : -stat.trend }}%</span>
               <span style="color: var(--cmm-muted);">vs mês anterior</span>
             </div>
           </div>
         }
       </div>
 
-      <!-- Quick Actions -->
-      <div class="panel">
-        <div class="panel-pad" style="border-bottom: 1px solid var(--cmm-border);">
-          <h2 class="text-base font-semibold" style="color: var(--cmm-ink);">Ações Rápidas</h2>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x" style="border-color: var(--cmm-border);">
-          @for (action of quickActions; track action.label) {
-            <a
-              [routerLink]="action.route"
-              class="flex items-center gap-3 p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--cmm-accent)_5%,var(--cmm-panel))]"
-              style="color: var(--cmm-ink);"
-            >
-              <svg class="w-5 h-5 flex-shrink-0" style="color: var(--cmm-accent);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" [attr.d]="action.icon"/>
-              </svg>
-              <div>
-                <p class="font-medium text-sm">{{ action.label }}</p>
-                <p class="text-sm" style="color: var(--cmm-muted);">{{ action.description }}</p>
-              </div>
-            </a>
-          }
-        </div>
-      </div>
-
-      <!-- Recent Activity + System Status -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div class="panel">
-          <div class="panel-pad" style="border-bottom: 1px solid var(--cmm-border);">
-            <h2 class="text-base font-semibold" style="color: var(--cmm-ink);">Relatórios Recentes</h2>
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <!-- Linha do tempo de relatórios -->
+        <div class="panel xl:col-span-2">
+          <div class="panel-pad flex items-center justify-between" style="border-bottom: 1px solid var(--cmm-border);">
+            <h2 class="text-base font-semibold" style="color: var(--cmm-ink);">Atividade recente</h2>
+            <a routerLink="/reports" class="text-sm font-medium" style="color: var(--cmm-accent);">Ver relatórios →</a>
           </div>
           <div class="panel-pad">
             @if (dashboardService.loading()) {
-              <div class="flex items-center justify-center py-8">
-                <div
-                  class="animate-spin w-6 h-6 rounded-full"
-                  style="border: 2px solid var(--cmm-border); border-top-color: var(--cmm-accent);"
-                ></div>
-              </div>
+              <div class="flex items-center justify-center py-8"><div class="animate-spin w-6 h-6 rounded-full" style="border: 2px solid var(--cmm-border); border-top-color: var(--cmm-accent);"></div></div>
             } @else if (dashboardService.recentReports().length === 0) {
               <div class="empty-state">
                 <p>Nenhum relatório gerado ainda.</p>
-                <a
-                  routerLink="/reports/ocorrencias"
-                  class="inline-block mt-2 text-sm font-medium"
-                  style="color: var(--cmm-accent);"
-                >
-                  Gerar primeiro relatório →
-                </a>
+                <a routerLink="/reports/ocorrencias" class="inline-block mt-2 text-sm font-medium" style="color: var(--cmm-accent);">Gerar primeiro relatório →</a>
               </div>
             } @else {
-              <div class="divide-y" style="border-color: var(--cmm-border);">
+              <ol class="timeline">
                 @for (report of dashboardService.recentReports(); track report.id) {
-                  <div class="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
-                    <div class="min-w-0">
+                  <li class="tl-item" [attr.data-status]="report.status">
+                    <span class="tl-node" aria-hidden="true">{{ report.status === 'success' ? '✓' : report.status === 'failed' ? '!' : '…' }}</span>
+                    <div class="min-w-0 flex-1">
                       <p class="font-medium text-sm truncate" style="color: var(--cmm-ink);">{{ report.name }}</p>
-                      <p class="text-sm mt-0.5" style="color: var(--cmm-muted);">
-                        {{ report.date }} · {{ report.records }} registros
-                      </p>
+                      <p class="text-sm mt-0.5" style="color: var(--cmm-muted);">{{ report.date }} · {{ report.records }} registros</p>
                     </div>
-                    <span
-                      class="badge flex-shrink-0"
-                      [class.badge-success]="report.status === 'success'"
-                      [class.badge-danger]="report.status === 'failed'"
-                      [class.badge-warning]="report.status === 'pending'"
-                    >
+                    <span class="badge flex-shrink-0" [class.badge-success]="report.status === 'success'" [class.badge-danger]="report.status === 'failed'" [class.badge-warning]="report.status === 'pending'">
                       {{ report.status === 'success' ? 'Concluído' : report.status === 'failed' ? 'Falhou' : 'Processando' }}
                     </span>
-                  </div>
+                  </li>
                 }
-              </div>
+              </ol>
             }
           </div>
         </div>
 
-        <div class="panel">
-          <div class="panel-pad" style="border-bottom: 1px solid var(--cmm-border);">
-            <h2 class="text-base font-semibold" style="color: var(--cmm-ink);">Status do Sistema</h2>
-          </div>
-          <div class="panel-pad space-y-4">
-            @for (service of dashboardService.systemStatus(); track service.name) {
-              <div class="flex items-center justify-between gap-3">
-                <div class="flex items-center gap-3 min-w-0">
-                  <span
-                    class="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                    [style.background]="
-                      service.status === 'online' ? 'var(--cmm-success)' :
-                      service.status === 'warning' ? 'var(--cmm-warning)' :
-                      'var(--cmm-danger)'
-                    "
-                  ></span>
-                  <span class="text-sm" style="color: var(--cmm-ink);">{{ service.name }}</span>
-                </div>
-                <span class="text-sm flex-shrink-0" style="color: var(--cmm-muted);">{{ service.latency }}</span>
-              </div>
-            }
-          </div>
+        <!-- Atalhos -->
+        <div class="space-y-3">
+          <h2 class="text-base font-semibold px-1" style="color: var(--cmm-ink);">Ir direto para</h2>
+          @for (action of quickActions; track action.label) {
+            <a [routerLink]="action.route" class="panel shortcut">
+              <span class="shortcut-ico"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" [attr.d]="action.icon"/></svg></span>
+              <span class="min-w-0"><span class="block font-semibold text-sm">{{ action.label }}</span><span class="block text-sm" style="color: var(--cmm-muted);">{{ action.description }}</span></span>
+              <span class="shortcut-arrow" aria-hidden="true">→</span>
+            </a>
+          }
         </div>
       </div>
     </div>
   `,
   styles: [`
     .stat-value { font-size: clamp(2rem, 1.6rem + 1.2vw, 2.9rem); line-height: 1; font-variant-numeric: tabular-nums; }
+    .eyebrow { font-size: .75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--cmm-accent); margin-bottom: .35rem; }
+    .health-pill { display: inline-flex; align-items: center; gap: .5rem; padding: .45rem 1rem; border-radius: 999px; font-size: .8125rem; font-weight: 700; border: 1px solid transparent; align-self: center; }
+    .health-ok { color: var(--cmm-success); background: color-mix(in srgb, var(--cmm-success) 13%, var(--cmm-panel)); border-color: color-mix(in srgb, var(--cmm-success) 30%, transparent); }
+    .health-warn { color: var(--cmm-warning); background: color-mix(in srgb, var(--cmm-warning) 13%, var(--cmm-panel)); border-color: color-mix(in srgb, var(--cmm-warning) 30%, transparent); }
+    .health-bad { color: var(--cmm-danger); background: color-mix(in srgb, var(--cmm-danger) 13%, var(--cmm-panel)); border-color: color-mix(in srgb, var(--cmm-danger) 30%, transparent); }
+    .health-dot { width: 8px; height: 8px; border-radius: 99px; background: currentColor; animation: pulse-dot 1.8s ease-in-out infinite; }
+    .svc { padding: 1rem 1.1rem; border-top: 3px solid var(--cmm-success); }
+    .svc[data-status='warning'] { border-top-color: var(--cmm-warning); }
+    .svc[data-status='offline'], .svc[data-status='error'] { border-top-color: var(--cmm-danger); }
+    .svc-dot { width: 9px; height: 9px; border-radius: 99px; background: var(--cmm-success); }
+    .svc[data-status='warning'] .svc-dot { background: var(--cmm-warning); }
+    .svc[data-status='offline'] .svc-dot, .svc[data-status='error'] .svc-dot { background: var(--cmm-danger); }
+    .svc-lat { margin-top: .5rem; font-size: 1.5rem; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+    .svc-state { font-size: .75rem; color: var(--cmm-muted); }
+    .timeline { position: relative; display: flex; flex-direction: column; gap: 1rem; }
+    .timeline::before { content: ''; position: absolute; left: 1.05rem; top: .5rem; bottom: .5rem; width: 2px; background: var(--cmm-border); }
+    .tl-item { position: relative; display: flex; align-items: center; gap: .9rem; }
+    .tl-node { position: relative; z-index: 1; flex-shrink: 0; width: 2.1rem; height: 2.1rem; border-radius: 99px; display: grid; place-items: center; font-weight: 800; font-size: .8rem; background: color-mix(in srgb, var(--cmm-success) 16%, var(--cmm-panel)); color: var(--cmm-success); border: 2px solid var(--cmm-panel); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cmm-success) 35%, transparent); }
+    .tl-item[data-status='failed'] .tl-node { background: color-mix(in srgb, var(--cmm-danger) 16%, var(--cmm-panel)); color: var(--cmm-danger); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cmm-danger) 35%, transparent); }
+    .tl-item[data-status='pending'] .tl-node { background: color-mix(in srgb, var(--cmm-warning) 16%, var(--cmm-panel)); color: var(--cmm-warning); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cmm-warning) 35%, transparent); }
+    .shortcut { display: flex; align-items: center; gap: .9rem; padding: .9rem 1rem; color: var(--cmm-ink); transition: transform 350ms var(--ease-out-expo), border-color 200ms; }
+    .shortcut:hover { transform: translateX(4px); border-color: color-mix(in srgb, var(--cmm-accent) 50%, var(--cmm-border)); }
+    .shortcut-ico { flex-shrink: 0; width: 2.6rem; height: 2.6rem; border-radius: .8rem; display: grid; place-items: center; background: var(--cmm-accent-soft); color: var(--cmm-accent); }
+    .shortcut-arrow { margin-left: auto; color: var(--cmm-muted); transition: transform 300ms var(--ease-out-expo), color 200ms; }
+    .shortcut:hover .shortcut-arrow { transform: translateX(4px); color: var(--cmm-accent); }
   `]
 })
 export class DashboardComponent implements OnInit {
   authService = inject(AuthService);
   dashboardService = inject(DashboardService);
+
+  hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  /** Uma frase e um selo com a saúde geral, calculados dos serviços monitorados. */
+  resumoSaude = computed(() => {
+    const lista = this.dashboardService.systemStatus();
+    if (!lista.length) return { nivel: 'ok', rotulo: 'Verificando…', texto: 'Resumo do sistema de relatórios' };
+    const fora = lista.filter((x) => x.status !== 'online' && x.status !== 'warning').length;
+    const lentos = lista.filter((x) => x.status === 'warning').length;
+    if (fora) return { nivel: 'bad', rotulo: `${fora} serviço(s) fora do ar`, texto: 'Há serviços fora do ar — veja os blocos abaixo.' };
+    if (lentos) return { nivel: 'warn', rotulo: `${lentos} serviço(s) lento(s)`, texto: 'Tudo funcionando, mas algo está mais lento que o normal.' };
+    return { nivel: 'ok', rotulo: 'Tudo operando', texto: 'Todos os serviços estão respondendo normalmente.' };
+  });
 
   /** Primeiro nome para a saudação (mais humano que o nome completo). */
   firstName = computed(() => (this.authService.user()?.name ?? '').trim().split(/\s+/)[0] || 'por aqui');

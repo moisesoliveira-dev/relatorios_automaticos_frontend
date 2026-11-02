@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, computed } from '@angular/core';
+import { CounterDirective } from '../../core/motion/counter.directive';
 import { UsersApiService } from './data/users-api.service';
 import { UsersFacade } from './facade/users.facade';
 import { UsersListComponent } from './components/users-list.component';
@@ -11,6 +12,7 @@ import { UsersModalsComponent } from './components/users-modals.component';
   selector: 'app-users',
   standalone: true,
   imports: [
+    CounterDirective,
     UsersListComponent,
     UsersInvitesTabComponent,
     UsersRegistrationsTabComponent,
@@ -28,6 +30,19 @@ import { UsersModalsComponent } from './components/users-modals.component';
           <div class="flex flex-wrap gap-2">
             <button type="button" (click)="facade.openCreateModal()" class="btn btn-primary">Cadastrar Usuário</button>
             <button type="button" (click)="facade.openInviteModal()" class="btn btn-secondary">Convidar Usuário</button>
+          </div>
+        }
+      </div>
+
+      <!-- Panorama: quem tem acesso e o que está esperando decisão -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        @for (k of resumo(); track k.label) {
+          <div class="panel panel-pad flex items-center gap-4" [class.attn]="k.atencao">
+            <span class="k-ico" aria-hidden="true">{{ k.icone }}</span>
+            <div>
+              <p class="k-num font-display" [appCounter]="'' + k.valor">{{ k.valor }}</p>
+              <p class="text-sm" style="color: var(--cmm-muted);">{{ k.label }}</p>
+            </div>
           </div>
         }
       </div>
@@ -79,9 +94,25 @@ import { UsersModalsComponent } from './components/users-modals.component';
       <app-users-modals />
     </div>
   `,
+  styles: [`
+    .k-ico { flex-shrink: 0; width: 2.75rem; height: 2.75rem; border-radius: .9rem; display: grid; place-items: center; font-size: 1.25rem; background: var(--cmm-accent-soft); }
+    .k-num { font-size: 1.9rem; font-weight: 800; line-height: 1; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+    .attn { border-color: color-mix(in srgb, var(--cmm-warning) 55%, var(--cmm-border)); background: color-mix(in srgb, var(--cmm-warning) 7%, var(--cmm-panel)); }
+  `],
 })
 export class UsersComponent implements OnInit {
   constructor(readonly facade: UsersFacade) {}
+
+  resumo = computed(() => {
+    const u = this.facade.users();
+    const pend = this.facade.pendingInvites().length + this.facade.pendingRegistrations().length;
+    return [
+      { icone: '👥', label: 'Pessoas com acesso', valor: u.length, atencao: false },
+      { icone: '✅', label: 'Ativas', valor: u.filter((x) => x.isActive !== false).length, atencao: false },
+      { icone: '🛡️', label: 'Administradores', valor: u.filter((x) => x.role === 'master' || x.role === 'admin').length, atencao: false },
+      { icone: '⏳', label: 'Aguardando decisão', valor: pend, atencao: pend > 0 },
+    ];
+  });
 
   ngOnInit(): void {
     this.facade.init();
