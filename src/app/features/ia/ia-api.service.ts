@@ -183,7 +183,7 @@ export class IaApiService {
   devolver(id: string) {
     return this.http.post<IaConversationSummary>(`${this.base}/conversations/${id}/devolver-ao-bot`, {});
   }
-  simulate(body: { texto?: string; estado?: Record<string, unknown> | null; inicio?: { step?: string; trilha?: string | null; nome?: string | null }; usarIA: boolean }) {
+  simulate(body: { texto?: string; estado?: Record<string, unknown> | null; inicio?: { step?: string; trilha?: string | null; nome?: string | null; fluxoId?: string }; usarIA: boolean }) {
     return this.http.post<IaSimResposta>(`${this.base}/simulate`, body);
   }
   catalog() {

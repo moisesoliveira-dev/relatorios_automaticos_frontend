@@ -249,6 +249,13 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
         @case ('simulador') {
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
             <div class="panel lg:col-span-2 flex flex-col" style="min-height: 30rem;">
+              <div class="sim-pick">
+                <label class="form-label !mb-0" for="sim-fluxo">O que testar</label>
+                <select id="sim-fluxo" class="form-input" [ngModel]="simFluxo()" (ngModelChange)="simEscolherFluxo($event)">
+                  <option value="">Jornada completa — começa no menu inicial</option>
+                  @for (f of simFluxos(); track f.id) { <option [value]="f.id">🧭 {{ f.nome }}{{ f.ativo ? '' : ' (desativado)' }} — direto no fluxo</option> }
+                </select>
+              </div>
               <div class="sim-bar">
                 <span class="sim-where" aria-live="polite">
                   <span class="text-xs" style="color: var(--cmm-muted);">O cliente está em</span>
@@ -276,7 +283,7 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
             <aside class="space-y-4">
               <div class="panel panel-pad space-y-3">
                 <h2 class="sec-title">Como funciona</h2>
-                <p class="text-sm" style="color: var(--cmm-muted);">Você é o cliente: a conversa começa pelo menu e segue por qualquer fluxo <b>já publicado</b> — o padrão ou os seus — do jeito que o cliente viveria. Nada é enviado, gravado, criado no Drive nem encaminhado.</p>
+                <p class="text-sm" style="color: var(--cmm-muted);">Você é o cliente. Escolha em <b>O que testar</b> a jornada completa (começa no menu) ou entre <b>direto num dos seus fluxos já publicados</b>. Nada é enviado, gravado, criado no Drive nem encaminhado.</p>
                 <p class="text-sm" style="color: var(--cmm-muted);">Para testar um fluxo ainda <b>não publicado</b>, abra-o em <b>Atendimento</b> e use “▶ Testar este fluxo”.</p>
                 <div class="flex gap-1.5 flex-wrap">
                   <span class="text-xs w-full" style="color: var(--cmm-muted);">Atalhos:</span>
@@ -463,6 +470,7 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
     .bubble-none { align-self: flex-start; font-style: italic; color: var(--cmm-muted); background: color-mix(in srgb, var(--cmm-border) 45%, var(--cmm-panel)); }
     .sim-meta { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin: .15rem 0; }
     .sim-note { font-size: .7rem; color: var(--cmm-muted); margin: 0 0 .75rem; }
+    .sim-pick { display: flex; align-items: center; gap: .75rem; padding: .75rem 1.25rem; border-bottom: 1px solid var(--cmm-border); flex-wrap: wrap; } .sim-pick select { flex: 1 1 16rem; min-width: 0; }
     .sim-bar { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem 1.25rem; border-bottom: 1px solid var(--cmm-border); flex-wrap: wrap; }
     .sim-where { display: flex; flex-direction: column; min-width: 0; } .sim-where b { font-size: .9rem; overflow-wrap: anywhere; }
     .sim-aviso { margin: 0 1.25rem .5rem; font-size: .78rem; color: var(--cmm-warning); font-weight: 600; }
@@ -550,6 +558,9 @@ export class IaComponent implements OnInit, OnDestroy {
   simOnde = signal('—');
   simAviso = signal<string | null>(null);
   simTerminou = signal(false);
+  /** Fluxos próprios já publicados (os únicos que o teste consegue seguir). */
+  simFluxos = signal<Array<{ id: string; nome: string; ativo: boolean }>>([]);
+  simFluxo = signal('');
   etapasTeste = ETAPAS.filter((e) => e.key !== 'HUMANO');
 
   // config
@@ -639,7 +650,7 @@ export class IaComponent implements OnInit, OnDestroy {
   setAba(a: Aba): void {
     this.aba.set(a);
     if (a === 'conversas' && !this.lista()) this.carregarLista();
-    if (a === 'simulador' && !this.simEstado() && !this.simLog().length) this.simComecar();
+    if (a === 'simulador') { this.simCarregarFluxos(); if (!this.simEstado() && !this.simLog().length) this.simComecar(); }
     if (a === 'config' && !this.campos().length) this.carregarConfig();
     if (a === 'visao') this.carregarOverview();
   }
@@ -691,7 +702,19 @@ export class IaComponent implements OnInit, OnDestroy {
   // ───── testar (conversa simulada)
   simComecar(avancado = false): void {
     this.simLog.set([]); this.simEstado.set(null); this.simTerminou.set(false); this.simAviso.set(null); this.simTexto.set('');
-    this.simPasso(null, '', avancado ? { step: this.simEtapa, trilha: this.simTrilha || null, nome: this.simNome.trim() || null } : undefined);
+    const inicio = avancado ? { step: this.simEtapa, trilha: this.simTrilha || null, nome: this.simNome.trim() || null } : this.simFluxo() ? { fluxoId: this.simFluxo() } : undefined;
+    this.simPasso(null, '', inicio);
+  }
+  simEscolherFluxo(id: string): void { this.simFluxo.set(id); this.simComecar(); }
+  /** Lê os fluxos publicados (não o rascunho): é o que o cliente consegue seguir de verdade. */
+  private simCarregarFluxos(): void {
+    this.api.content().subscribe({
+      next: (c) => {
+        this.simFluxos.set((c.published.fluxos ?? []).map((f) => ({ id: f.id, nome: f.nome, ativo: f.ativo })));
+        if (this.simFluxo() && !this.simFluxos().some((f) => f.id === this.simFluxo())) this.simFluxo.set('');
+      },
+      error: () => undefined,
+    });
   }
   simEnviar(): void {
     const texto = this.simTexto().trim();
