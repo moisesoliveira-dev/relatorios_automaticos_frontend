@@ -8,7 +8,7 @@ import {
   IaApiService, IaConfigField, IaConversationDetail, IaConversationSummary, IaList, IaOverview, IaSimulation,
 } from './ia-api.service';
 
-type Aba = 'visao' | 'conversas' | 'simulador' | 'config' | 'mensagens';
+type Aba = 'visao' | 'conversas' | 'atendimento' | 'simulador' | 'config';
 
 const ETAPAS: Array<{ key: string; label: string }> = [
   { key: 'MENU', label: 'Menu inicial' },
@@ -68,9 +68,12 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
               }
             }
           </div>
-          <p class="page-subtitle">Acompanhe, teste e configure o atendimento automático do WhatsApp.</p>
+          <p class="page-subtitle">{{ propositos[aba()] }}</p>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap justify-end">
+          @if (overview(); as o) {
+            <button type="button" class="btn btn-sm" [class.btn-danger]="o.sistema.enabled" [class.btn-accent]="!o.sistema.enabled" (click)="alternarLigado()" [disabled]="loading()">{{ o.sistema.enabled ? 'Desligar o bot' : 'Ligar o bot' }}</button>
+          }
           <span class="text-xs" style="color: var(--cmm-muted);" aria-live="off">{{ atualizadoLabel() }}</span>
           <button type="button" class="btn btn-secondary btn-sm" (click)="refreshAll()" [disabled]="loading()">Atualizar</button>
         </div>
@@ -87,9 +90,24 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
       </div>
 
       @switch (aba()) {
-        <!-- ═══════════ VISÃO GERAL ═══════════ -->
+        <!-- ═══════════ PAINEL ═══════════ -->
         @case ('visao') {
           @if (overview(); as o) {
+            <!-- O que precisa de você agora -->
+            <section class="attn panel panel-pad" [class.attn-ok]="!alertas().length" aria-label="Precisa de atenção">
+              @if (alertas().length) {
+                <h2 class="sec-title mb-3">Precisa de atenção</h2>
+                <ul class="space-y-2">
+                  @for (a of alertas(); track a.texto) {
+                    <li class="attn-item"><span aria-hidden="true">{{ a.icone }}</span><span class="flex-1 text-sm">{{ a.texto }}</span>
+                      <button type="button" class="btn btn-secondary btn-sm" (click)="a.acao()">{{ a.botao }}</button></li>
+                  }
+                </ul>
+              } @else {
+                <p class="text-sm font-semibold">✅ Tudo certo: nada precisa da sua atenção agora.</p>
+              }
+            </section>
+
             <div class="grid grid-cols-2 lg:grid-cols-6 gap-3">
               @for (k of kpis(); track k.label) {
                 <div class="panel panel-pad kpi">
@@ -147,8 +165,9 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
                 </div>
               </div>
 
-              <div class="panel panel-pad">
-                <h2 class="sec-title mb-4">Saúde dos agentes</h2>
+              <details class="panel panel-pad tech">
+                <summary class="sec-title cursor-pointer">Detalhes técnicos da IA</summary>
+                <div class="mt-4">
                 <dl class="kv">
                   <div><dt>Modelo</dt><dd class="font-mono text-xs">{{ o.sistema.model }}</dd></div>
                   <div><dt>Pontta</dt><dd>{{ o.sistema.ponttaEnabled ? 'Ligado' : 'Desligado' }}</dd></div>
@@ -163,7 +182,8 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
                 <ul class="plain-list">
                   @for (d of comunicacao(); track d.label) { <li><span>{{ d.label }}</span><b>{{ d.value }}</b></li> } @empty { <li class="muted">Nenhuma ainda.</li> }
                 </ul>
-              </div>
+                </div>
+              </details>
             </div>
           } @else {
             <div class="grid grid-cols-2 lg:grid-cols-6 gap-3">
@@ -230,8 +250,12 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
           <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
             <div class="panel panel-pad lg:col-span-2 space-y-4 self-start">
               <div>
-                <h2 class="sec-title">Simulador</h2>
+                <h2 class="sec-title">Testar uma mensagem</h2>
                 <p class="text-sm mt-1" style="color: var(--cmm-muted);">Veja o que o bot faria com uma mensagem, sem enviar nada a clientes reais.</p>
+              </div>
+              <div class="flex gap-1.5 flex-wrap">
+                <span class="text-xs w-full" style="color: var(--cmm-muted);">Experimente:</span>
+                @for (ex of exemplos; track ex) { <button type="button" class="chip chip-btn" (click)="simTexto = ex">{{ ex }}</button> }
               </div>
               <div><label class="form-label" for="sim-etapa">Etapa em que o cliente está</label>
                 <select id="sim-etapa" class="form-input" [(ngModel)]="simEtapa">@for (e of etapas; track e.key) { <option [value]="e.key">{{ e.label }}</option> }</select></div>
@@ -328,8 +352,8 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
           }
         }
 
-        <!-- ═══════════ MENSAGENS ═══════════ -->
-        @case ('mensagens') { <app-ia-conteudo /> }
+        <!-- ═══════════ ATENDIMENTO ═══════════ -->
+        @case ('atendimento') { <app-ia-conteudo /> }
       }
     </div>
 
@@ -375,6 +399,14 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
   `,
   styles: [`
     :host { display: block; }
+    .attn { border-left: 4px solid var(--cmm-warning); background: color-mix(in srgb, var(--cmm-warning) 7%, var(--cmm-panel)); }
+    .attn-ok { border-left-color: var(--cmm-success); background: color-mix(in srgb, var(--cmm-success) 7%, var(--cmm-panel)); }
+    .attn-item { display: flex; align-items: center; gap: .75rem; }
+    .tech > summary { list-style: none; } .tech > summary::-webkit-details-marker { display: none; }
+    .tech > summary::after { content: '▾'; float: right; color: var(--cmm-muted); transition: transform 300ms; } .tech[open] > summary::after { transform: rotate(180deg); }
+    .chip { display: inline-flex; align-items: center; padding: .15rem .65rem; border-radius: 99px; font-size: .75rem; background: var(--cmm-accent-soft); color: var(--cmm-accent); font-weight: 600; }
+    .chip-btn { border: 1px dashed color-mix(in srgb, var(--cmm-accent) 45%, transparent); cursor: pointer; }
+    .chip-btn:hover { background: var(--cmm-accent); color: var(--cmm-accent-ink); }
     .sec-title { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; }
     .mini-title { margin: 1.25rem 0 .5rem; font-size: .6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--cmm-muted); }
     .mini-title span { text-transform: none; letter-spacing: 0; font-weight: 500; }
@@ -454,9 +486,18 @@ export class IaComponent implements OnInit, OnDestroy {
   private readonly modal = inject(ModalService);
 
   abas: Array<{ key: Aba; label: string }> = [
-    { key: 'visao', label: 'Visão geral' }, { key: 'conversas', label: 'Conversas' }, { key: 'simulador', label: 'Simulador' },
-    { key: 'config', label: 'Configuração' }, { key: 'mensagens', label: 'Mensagens e guia' },
+    { key: 'visao', label: 'Painel' }, { key: 'conversas', label: 'Conversas' }, { key: 'atendimento', label: 'Atendimento' },
+    { key: 'simulador', label: 'Testar' }, { key: 'config', label: 'Ajustes' },
   ];
+  /** O que cada tela serve — aparece sob o título e muda junto com a aba. */
+  propositos: Record<Aba, string> = {
+    visao: 'Como o atendimento está agora: volume, onde os clientes estão e o que precisa de atenção.',
+    conversas: 'Veja cada cliente, leia a conversa e assuma ou devolva ao bot.',
+    atendimento: 'Defina o que o cliente pode fazer, o que a IA diz e como ela fala. Nada vale para o cliente até você publicar.',
+    simulador: 'Escreva como um cliente e veja a resposta do bot, sem enviar nada a ninguém.',
+    config: 'Liga/desliga, chave da OpenAI, modelos, limites de uso e integrações.',
+  };
+  exemplos = ['2', 'quero uma cozinha', 'onde fica a loja?', 'quanto custa?'];
   etapas = ETAPAS;
   grupos = GRUPOS;
   trilhaOpcoes = Object.entries(TRILHAS).filter(([k]) => k !== 'sem_trilha').map(([key, label]) => ({ key, label }));
@@ -521,6 +562,23 @@ export class IaComponent implements OnInit, OnDestroy {
   });
   decisoes = computed(() => this.pares(this.overview()?.sistema.agentDecisions, DECISOES));
   comunicacao = computed(() => this.pares(this.overview()?.sistema.comunicacao.resultados, COMUNICACAO));
+  /** Tudo que exige uma ação do operador, em ordem de importância. */
+  alertas = computed(() => {
+    const o = this.overview();
+    if (!o) return [];
+    const out: Array<{ icone: string; texto: string; botao: string; acao: () => void }> = [];
+    const chave = this.campos().find((c) => c.key === 'OPENAI_API_KEY');
+    if (!o.sistema.enabled)
+      out.push({ icone: '⏸️', texto: 'O bot está desligado: ninguém está sendo atendido automaticamente.', botao: 'Ver ajustes', acao: () => this.setAba('config') });
+    if (o.sistema.enabled && o.sistema.aiEnabled && chave && !chave.configured)
+      out.push({ icone: '🔑', texto: 'A IA está ligada, mas não há chave da OpenAI: o bot só usa regras fixas.', botao: 'Configurar chave', acao: () => this.setAba('config') });
+    if (o.sistema.aiBreakerOpen)
+      out.push({ icone: '⚠️', texto: 'A IA foi pausada por falhas seguidas e voltará sozinha em instantes.', botao: 'Atualizar', acao: () => this.refreshAll() });
+    if (o.totais.comErro > 0)
+      out.push({ icone: '❗', texto: `${o.totais.comErro} conversa(s) com falha na entrega ao atendente — o cliente pode estar esperando.`, botao: 'Ver conversas', acao: () => { this.soErros = true; this.filtroEtapa = ''; this.setAba('conversas'); this.aplicarFiltros(); } });
+    return out;
+  });
+
   atualizadoLabel = computed(() => {
     const t = this.atualizadoEm();
     if (!t) return '';
@@ -537,6 +595,22 @@ export class IaComponent implements OnInit, OnDestroy {
   }
   ngOnDestroy(): void {
     if (this.timer) clearInterval(this.timer);
+  }
+
+  async alternarLigado(): Promise<void> {
+    const ligado = this.overview()?.sistema.enabled;
+    const ok = await this.modal.confirm(
+      ligado ? 'Desligar o bot?' : 'Ligar o bot?',
+      ligado
+        ? 'O bot para de responder novos clientes imediatamente (em até 30 segundos). Quem está com atendente humano não é afetado.'
+        : 'O bot passa a responder os clientes pelo WhatsApp. Se o fluxo CMM do n8n ainda estiver ativo, desative-o antes para não duplicar mensagens.',
+      ligado ? 'Desligar' : 'Ligar',
+    );
+    if (!ok) return;
+    this.api.saveConfig({ CHATBOT_ENABLED: !ligado }).subscribe({
+      next: (c) => { this.campos.set(c); this.toast.success(ligado ? 'Bot desligado.' : 'Bot ligado.'); this.carregarOverview(); },
+      error: (e) => void this.modal.error(Array.isArray(e?.error?.message) ? e.error.message.join('\n') : e?.error?.message || 'Não foi possível alterar.', 'Não foi possível alterar'),
+    });
   }
 
   setAba(a: Aba): void {

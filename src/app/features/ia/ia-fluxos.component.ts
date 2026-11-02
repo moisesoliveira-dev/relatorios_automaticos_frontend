@@ -15,7 +15,7 @@ const TIPOS: Array<{ tipo: Tipo; label: string; icone: string; ajuda: string }> 
   { tipo: 'fim', label: 'Encerrar', icone: '🏁', ajuda: 'Termina o fluxo e volta ao menu inicial.' },
 ];
 
-const MODELOS: Record<string, () => IaFlow> = {
+export const MODELOS: Record<string, () => IaFlow> = {
   branco: () => ({ id: '', nome: 'Novo fluxo', ativo: false, menuOpcao: null, nos: [
     { id: 'n1', tipo: 'mensagem', titulo: 'Boas-vindas', texto: 'Olá! Vou te ajudar com isso.', proximo: null },
   ] }),
@@ -33,30 +33,7 @@ const MODELOS: Record<string, () => IaFlow> = {
   standalone: true,
   imports: [FormsModule],
   template: `
-    <div class="grid grid-cols-1 xl:grid-cols-[17rem_1fr] gap-5 items-start">
-      <!-- Lista de fluxos -->
-      <aside class="panel panel-pad space-y-3">
-        <div class="flow-card flow-fixed">
-          <p class="font-semibold text-sm">Fluxo padrão</p>
-          <p class="text-xs" style="color: var(--cmm-muted);">Opções 1 a 5 do menu. Continua como está.</p>
-        </div>
-        @for (f of fluxos(); track f.id + $index; let i = $index) {
-          <button type="button" class="flow-card" [class.flow-on]="sel() === i" (click)="sel.set(i)">
-            <span class="font-semibold text-sm truncate">{{ f.nome || 'Sem nome' }}</span>
-            <span class="flex gap-1.5 flex-wrap mt-1">
-              <span class="badge" [class.badge-success]="f.ativo" [class.badge-neutral]="!f.ativo">{{ f.ativo ? 'Ativo' : 'Desativado' }}</span>
-              @if (f.menuOpcao) { <span class="badge badge-accent">Opção {{ f.menuOpcao }}</span> }
-            </span>
-          </button>
-        } @empty {
-          <p class="text-sm" style="color: var(--cmm-muted);">Nenhum fluxo seu ainda.</p>
-        }
-        <div class="grid gap-2 pt-1">
-          <button type="button" class="btn btn-primary btn-sm" (click)="novo('coleta')" [disabled]="fluxos().length >= 10">+ Novo (coleta com Drive)</button>
-          <button type="button" class="btn btn-secondary btn-sm" (click)="novo('branco')" [disabled]="fluxos().length >= 10">+ Novo em branco</button>
-        </div>
-      </aside>
-
+    <div>
       @if (atual(); as f) {
         <div class="space-y-4 min-w-0">
           <!-- Dados do fluxo -->
@@ -196,8 +173,6 @@ const MODELOS: Record<string, () => IaFlow> = {
             </aside>
           </div>
         </div>
-      } @else {
-        <div class="panel panel-pad"><div class="empty-state">Crie um fluxo para começar — o <b>modelo de coleta com Drive</b> já vem montado.</div></div>
       }
     </div>
   `,
@@ -248,7 +223,8 @@ export class IaFluxosComponent {
   mudou = output<IaFlow[]>();
 
   tipos = TIPOS;
-  sel = signal(0);
+  indice = input.required<number>();
+  sel = computed(() => this.indice());
   atual = computed(() => this.fluxos()[this.sel()] ?? this.fluxos()[0] ?? null);
 
   // teste
@@ -274,18 +250,11 @@ export class IaFluxosComponent {
   editar(fn: (f: IaFlow) => void): void { const i = this.sel(); this.emit((fs) => fn(fs[i])); this.zerarTeste(); }
   editarNo(idx: number, fn: (n: IaNode) => void): void { this.editar((f) => fn(f.nos[idx])); }
 
-  novo(modelo: 'branco' | 'coleta'): void {
-    const f = MODELOS[modelo]();
-    this.emit((fs) => fs.push(f));
-    this.sel.set(this.fluxos().length); // o novo entra no fim
-    this.zerarTeste();
-  }
   async excluir(): Promise<void> {
     const f = this.atual();
     if (!f || !(await this.modal.confirm('Excluir este fluxo?', `“${f.nome}” sai do menu dos clientes quando você publicar. Quem estiver nele volta ao menu.`, 'Excluir'))) return;
     const i = this.sel();
     this.emit((fs) => fs.splice(i, 1));
-    this.sel.set(Math.max(0, i - 1));
     this.zerarTeste();
   }
 

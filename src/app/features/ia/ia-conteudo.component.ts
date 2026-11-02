@@ -2,10 +2,9 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../core/ui/toast.service';
 import { ModalService } from '../../shared/services/modal.service';
-import { IaFluxosComponent } from './ia-fluxos.component';
+import { IaFluxosComponent, MODELOS } from './ia-fluxos.component';
 import { IaApiService, IaContent, IaContentDoc, IaFlow, IaKb } from './ia-api.service';
 
-type Secao = 'mensagens' | 'fluxos' | 'base' | 'ambientes' | 'guia';
 
 /** Mensagens agrupadas pela etapa do atendimento em que o cliente as lê. */
 const GRUPOS: Array<{ id: string; titulo: string; texto: string; icone: string; chaves: Array<[string, string]> }> = [
@@ -36,186 +35,208 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
   template: `
     @if (conteudo(); as c) {
       <div class="space-y-5 pb-24">
-        <div class="panel panel-pad flex flex-wrap items-center gap-3 justify-between">
-          <div class="text-sm">
-            <p><b>Como funciona:</b> você edita aqui, <b>salva como rascunho</b> (nada muda para o cliente) e só então <b>publica</b>. Dá para voltar à versão anterior.</p>
-            <p class="mt-1" style="color: var(--cmm-muted);">
-              {{ c.publishedAt ? 'Publicado em ' + data(c.publishedAt) + (c.publishedBy ? ' por ' + c.publishedBy : '') : 'Nada personalizado ainda — o bot usa os textos originais.' }}
-            </p>
+        <!-- Estado da publicação e como funciona, numa linha -->
+        <div class="panel panel-pad status">
+          <div class="steps" aria-label="Como funciona">
+            <span class="step"><b>1</b> Edite</span><span class="step-sep">→</span>
+            <span class="step"><b>2</b> Salve o rascunho <small>(nada muda para o cliente)</small></span><span class="step-sep">→</span>
+            <span class="step"><b>3</b> Publique</span>
           </div>
-          @if (c.hasPrevious) { <button type="button" class="btn btn-secondary btn-sm" (click)="reverter()">Voltar à versão anterior</button> }
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="text-sm" style="color: var(--cmm-muted);">{{ c.publishedAt ? 'Publicado em ' + data(c.publishedAt) + (c.publishedBy ? ' por ' + c.publishedBy : '') : 'Ainda usando os textos originais' }}</span>
+            @if (c.hasPrevious) { <button type="button" class="btn btn-ghost btn-sm" (click)="reverter()">Voltar à versão anterior</button> }
+          </div>
         </div>
 
-        <div class="seg" role="tablist" aria-label="Conteúdo da IA">
-          @for (s of secoes; track s.key) {
-            <button type="button" role="tab" class="seg-btn" [class.seg-on]="secao() === s.key" [attr.aria-selected]="secao() === s.key" (click)="secao.set(s.key)">{{ s.label }}</button>
-          }
-        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-[15.5rem_1fr] gap-5 items-start">
+          <!-- Navegação única -->
+          <nav class="nav panel" aria-label="Seções do atendimento">
+            <p class="nav-title">O que o cliente vê</p>
+            <button type="button" class="nav-item" [class.nav-on]="pagina() === 'padrao'" (click)="pagina.set('padrao')">
+              <span class="nav-ico">⭐</span><span class="nav-txt"><b>Fluxo padrão</b><small>Menu com 5 opções</small></span>
+              @if (editadasPadrao() > 0) { <span class="nav-badge" title="Itens alterados">{{ editadasPadrao() }}</span> }
+            </button>
+            @for (f of doc().fluxos; track $index; let i = $index) {
+              <button type="button" class="nav-item" [class.nav-on]="pagina() === 'f' + i" (click)="pagina.set('f' + i)">
+                <span class="nav-ico">🧭</span><span class="nav-txt"><b>{{ f.nome || 'Sem nome' }}</b><small>{{ f.ativo ? (f.menuOpcao ? 'Ativo · opção ' + f.menuOpcao : 'Ativo sem opção') : 'Desativado' }}</small></span>
+                <span class="dot" [class.dot-on]="f.ativo"></span>
+              </button>
+            }
+            @if (!novoAberto()) {
+              <button type="button" class="nav-add" (click)="novoAberto.set(true)" [disabled]="doc().fluxos.length >= 10">+ Criar novo fluxo</button>
+            } @else {
+              <div class="nav-new">
+                <p class="text-xs mb-2" style="color: var(--cmm-muted);">Como começar?</p>
+                <button type="button" class="btn btn-primary btn-sm w-full mb-2" (click)="novoFluxo('coleta')">Coleta de dados + Drive</button>
+                <button type="button" class="btn btn-secondary btn-sm w-full mb-2" (click)="novoFluxo('branco')">Em branco</button>
+                <button type="button" class="btn btn-ghost btn-sm w-full" (click)="novoAberto.set(false)">Cancelar</button>
+              </div>
+            }
 
-        @switch (secao()) {
-          <!-- ═════ MENSAGENS ═════ -->
-          @case ('mensagens') {
-            <div class="grid grid-cols-1 lg:grid-cols-[16rem_1fr] gap-5 items-start">
-              <nav class="rail panel" aria-label="Etapas do atendimento">
-                <p class="rail-title">Fluxo do atendimento</p>
+            <p class="nav-title mt-4">Como a IA fala e responde</p>
+            <button type="button" class="nav-item" [class.nav-on]="pagina() === 'jeito'" (click)="pagina.set('jeito')">
+              <span class="nav-ico">🗣️</span><span class="nav-txt"><b>Jeito de falar</b><small>Tom e instruções</small></span>
+            </button>
+            <button type="button" class="nav-item" [class.nav-on]="pagina() === 'saber'" (click)="pagina.set('saber')">
+              <span class="nav-ico">📚</span><span class="nav-txt"><b>O que ela sabe</b><small>{{ kb().length }} assunto(s) liberado(s)</small></span>
+            </button>
+          </nav>
+
+          <div class="min-w-0 space-y-4">
+            @switch (pagina().startsWith('f') ? 'flow' : pagina()) {
+              <!-- ═════ FLUXO PADRÃO ═════ -->
+              @case ('padrao') {
+                <header>
+                  <h2 class="sec-title">⭐ Fluxo padrão</h2>
+                  <p class="text-sm mt-1" style="color: var(--cmm-muted);">É o atendimento que a Vera já faz: o cliente escolhe uma das 5 opções do menu e é conduzido etapa por etapa até um atendente. Abaixo estão as etapas na ordem em que o cliente passa por elas — abra uma para editar os textos.</p>
+                </header>
+
                 @for (g of grupos; track g.id; let i = $index) {
-                  <button type="button" class="rail-item" [class.rail-on]="grupoAtivo() === g.id" (click)="grupoAtivo.set(g.id)">
-                    <span class="rail-num">{{ i + 1 }}</span>
-                    <span class="min-w-0 flex-1 text-left"><span class="block font-semibold text-sm truncate">{{ g.icone }} {{ g.titulo }}</span></span>
-                    @if (editadasNoGrupo(g.id) > 0) { <span class="rail-badge" title="Mensagens alteradas">{{ editadasNoGrupo(g.id) }}</span> }
-                  </button>
-                }
-              </nav>
+                  <section class="acc panel" [class.acc-open]="grupoAberto() === g.id">
+                    <button type="button" class="acc-head" (click)="alternarGrupo(g.id)" [attr.aria-expanded]="grupoAberto() === g.id">
+                      <span class="acc-num">{{ i + 1 }}</span>
+                      <span class="min-w-0 flex-1 text-left"><b class="block">{{ g.icone }} {{ g.titulo }}</b><small class="block" style="color: var(--cmm-muted);">{{ g.texto }}</small></span>
+                      @if (editadasNoGrupo(g.id) > 0) { <span class="badge badge-accent">{{ editadasNoGrupo(g.id) }} editada(s)</span> }
+                      <span class="acc-chev" aria-hidden="true">▾</span>
+                    </button>
 
-              <div class="space-y-4 min-w-0">
-                @if (grupoAtual(); as g) {
-                  <div><h2 class="sec-title">{{ g.icone }} {{ g.titulo }}</h2><p class="text-sm" style="color: var(--cmm-muted);">{{ g.texto }}</p></div>
+                    @if (grupoAberto() === g.id) {
+                      <div class="acc-body">
+                        @if (g.id === 'inicio') {
+                          <div class="sub-box">
+                            <h3 class="font-semibold text-sm">Opções do menu</h3>
+                            <p class="text-xs mb-2" style="color: var(--cmm-muted);">Desative uma opção para o bot deixar de aceitá-la. Depois, tire a linha dela do texto do menu logo abaixo.</p>
+                            <div class="grid sm:grid-cols-2 gap-x-6">
+                              @for (o of opcoesMenu; track o.n) {
+                                <label class="switch-row"><span>{{ o.n }} — {{ o.label }}</span>
+                                  <button type="button" role="switch" class="switch" [class.switch-on]="!menuDesativada(o.n)" [attr.aria-checked]="!menuDesativada(o.n)" (click)="alternarMenu(o.n)"><span class="switch-knob"></span></button></label>
+                              }
+                            </div>
+                          </div>
+                        }
+                        @if (g.id === 'imovel') {
+                          <div class="sub-box">
+                            <h3 class="font-semibold text-sm">Nomes dos ambientes</h3>
+                            <p class="text-xs mb-2" style="color: var(--cmm-muted);">São as opções 1 a 8 da escolha de ambientes (vão para a pasta do cliente no Drive). Troque o nome e use o botão para refletir na mensagem.</p>
+                            <div class="grid sm:grid-cols-2 gap-2">
+                              @for (n of numerosAmbiente; track n) {
+                                <div class="flex gap-2 items-center"><span class="opt-n">{{ n }}</span>
+                                  <input class="form-input" [attr.aria-label]="'Nome do ambiente ' + n" maxlength="40" [ngModel]="nomeAmbiente(n)" (ngModelChange)="setAmbiente(n, $event)" />
+                                  @if (doc().categorias[n]) { <button type="button" class="btn btn-ghost btn-sm !px-2" (click)="setAmbiente(n, null)" title="Restaurar nome original">↺</button> }</div>
+                              }
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm mt-3" (click)="sincronizarAmbientes()">Atualizar a lista na mensagem “Escolha dos ambientes”</button>
+                          </div>
+                        }
 
-                  @if (g.id === 'inicio') {
-                    <div class="panel panel-pad">
-                      <h3 class="font-semibold text-sm mb-1">Opções do menu inicial</h3>
-                      <p class="text-xs mb-3" style="color: var(--cmm-muted);">Desative uma opção para o bot deixar de aceitá-la. Depois, tire a linha dela do texto do menu abaixo.</p>
-                      <div class="grid sm:grid-cols-2 gap-2">
-                        @for (o of opcoesMenu; track o.n) {
-                          <label class="switch-row"><span>{{ o.n }} — {{ o.label }}</span>
-                            <button type="button" role="switch" class="switch" [class.switch-on]="!menuDesativada(o.n)" [attr.aria-checked]="!menuDesativada(o.n)" (click)="alternarMenu(o.n)"><span class="switch-knob"></span></button></label>
+                        @for (m of g.chaves; track m[0]) {
+                          <article class="msg" [class.msg-edit]="editada(m[0])">
+                            <button type="button" class="msg-head" (click)="alternarMsg(m[0])" [attr.aria-expanded]="aberta() === m[0]">
+                              <span class="min-w-0 flex-1 text-left"><b class="block text-sm">{{ m[1] }}</b><span class="msg-prev">{{ resumo(m[0]) }}</span></span>
+                              @if (problema(m[0])) { <span class="badge badge-danger">Corrigir</span> }
+                              @if (editada(m[0])) { <span class="badge badge-accent">Editada</span> }
+                              <span class="acc-chev" aria-hidden="true">▾</span>
+                            </button>
+                            @if (aberta() === m[0]) {
+                              <div class="msg-body">
+                                <div>
+                                  <textarea class="form-input msg-text" rows="7" [attr.aria-label]="'Texto de ' + m[1]" [ngModel]="textoMsg(m[0])" (ngModelChange)="setMsg(m[0], $event)"></textarea>
+                                  <p class="text-xs mt-1" style="color: var(--cmm-muted);">{{ textoMsg(m[0]).length }} caracteres · *negrito* e quebras de linha como no WhatsApp</p>
+                                  @if (problema(m[0]); as p) { <p class="msg-erro" role="alert">{{ p }}</p> }
+                                  @if (spec(m[0]); as sp) {
+                                    @if (sp.placeholders.length) { <p class="text-xs mt-2">Variáveis que o sistema preenche (mantenha): @for (v of sp.placeholders; track v) { <code class="chip">{{ '{' + v + '}' }}</code> }</p> }
+                                    @if (sp.objetivo) { <p class="text-xs mt-2" style="color: var(--cmm-muted);"><b>O que a IA precisa comunicar aqui:</b> {{ sp.objetivo }}</p> }
+                                  }
+                                  @if (editada(m[0])) { <button type="button" class="btn btn-ghost btn-sm mt-2" (click)="restaurarMsg(m[0])">Restaurar texto original</button> }
+                                </div>
+                                <div>
+                                  <p class="text-xs font-semibold mb-1" style="color: var(--cmm-muted);">Como o cliente vê</p>
+                                  <div class="wa"><div class="wa-bubble">{{ previa(m[0]) }}</div></div>
+                                </div>
+                              </div>
+                            }
+                          </article>
                         }
                       </div>
-                    </div>
-                  }
-
-                  @for (m of g.chaves; track m[0]) {
-                    <article class="panel panel-pad msg" [class.msg-edit]="editada(m[0])">
-                      <div class="flex items-start justify-between gap-3 flex-wrap">
-                        <div class="min-w-0">
-                          <h3 class="font-semibold">{{ m[1] }}</h3>
-                          <code class="text-xs" style="color: var(--cmm-muted);">{{ m[0] }}</code>
-                        </div>
-                        <div class="flex items-center gap-2">
-                          <span class="badge" [class.badge-accent]="editada(m[0])" [class.badge-neutral]="!editada(m[0])">{{ editada(m[0]) ? 'Editada' : 'Original' }}</span>
-                          @if (editada(m[0])) { <button type="button" class="btn btn-ghost btn-sm" (click)="restaurarMsg(m[0])">Restaurar original</button> }
-                        </div>
-                      </div>
-                      <div class="grid xl:grid-cols-2 gap-4 mt-3">
-                        <div>
-                          <textarea class="form-input msg-text" rows="7" [attr.aria-label]="'Texto de ' + m[1]" [ngModel]="textoMsg(m[0])" (ngModelChange)="setMsg(m[0], $event)"></textarea>
-                          <div class="flex justify-between gap-2 mt-1 text-xs" style="color: var(--cmm-muted);">
-                            <span>{{ textoMsg(m[0]).length }} caracteres · use *negrito* e quebras de linha como no WhatsApp</span>
-                          </div>
-                          @if (problema(m[0]); as p) { <p class="msg-erro" role="alert">{{ p }}</p> }
-                          @if (spec(m[0]); as sp) {
-                            @if (sp.placeholders.length) {
-                              <p class="text-xs mt-2">Variáveis preenchidas pelo sistema (mantenha): @for (v of sp.placeholders; track v) { <code class="chip">{{ '{' + v + '}' }}</code> }</p>
-                            }
-                            @if (sp.objetivo) {
-                              <p class="text-xs mt-2" style="color: var(--cmm-muted);"><b>Objetivo para a IA:</b> {{ sp.objetivo }}</p>
-                            }
-                          }
-                        </div>
-                        <div>
-                          <p class="text-xs font-semibold mb-1" style="color: var(--cmm-muted);">Como o cliente vê</p>
-                          <div class="wa"><div class="wa-bubble">{{ previa(m[0]) }}</div></div>
-                        </div>
-                      </div>
-                    </article>
-                  }
+                    }
+                  </section>
                 }
-              </div>
-            </div>
-          }
+              }
 
-          <!-- ═════ FLUXOS ═════ -->
-          @case ('fluxos') {
-            <div class="panel panel-pad">
-              <h2 class="sec-title">Fluxos de atendimento</h2>
-              <p class="text-sm mt-1" style="color: var(--cmm-muted);">Monte seus próprios caminhos de conversa, além do fluxo padrão. Cada fluxo ativo ganha uma opção (6 a 9) no menu inicial. Dá para usar as ferramentas do sistema — hoje, o <b>Google Drive</b> (criar a pasta do cliente, guardar arquivos e respostas) — e encaminhar a um atendente.</p>
-              @if (c.problemas.length) {
-                <div class="mt-3 p-3 rounded-lg text-sm" style="background: color-mix(in srgb, var(--cmm-warning) 10%, var(--cmm-panel));">
-                  <p class="font-semibold mb-1">Para publicar, corrija:</p>
-                  <ul class="list-disc pl-5 space-y-0.5">@for (p of c.problemas; track p) { <li>{{ p }}</li> }</ul>
+              <!-- ═════ MEUS FLUXOS ═════ -->
+              @case ('flow') {
+                @if (c.problemas.length) {
+                  <div class="panel panel-pad text-sm" style="background: color-mix(in srgb, var(--cmm-warning) 10%, var(--cmm-panel));">
+                    <p class="font-semibold mb-1">Para publicar, corrija:</p>
+                    <ul class="list-disc pl-5 space-y-0.5">@for (p of c.problemas; track p) { <li>{{ p }}</li> }</ul>
+                  </div>
+                }
+                @if (fluxoIdx() >= 0 && doc().fluxos[fluxoIdx()]) {
+                  <app-ia-fluxos [fluxos]="doc().fluxos" [indice]="fluxoIdx()" [ferramentas]="c.ferramentas" (mudou)="setFluxos($event)" />
+                }
+              }
+
+              <!-- ═════ JEITO DE FALAR ═════ -->
+              @case ('jeito') {
+                <header>
+                  <h2 class="sec-title">🗣️ Jeito de falar</h2>
+                  <p class="text-sm mt-1" style="color: var(--cmm-muted);">Escolha o tom da Vera e, se quiser, dê instruções suas. A IA continua obrigada a comunicar tudo que cada mensagem precisa, nunca inventa preço, prazo ou promessa e só responde dúvidas pela base de conhecimento.</p>
+                </header>
+                <div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                  @for (t of c.tones; track t.key) {
+                    <button type="button" class="tone" [class.tone-on]="doc().guidance.tone === t.key" (click)="setTom(t.key)">
+                      <span class="font-semibold text-sm">{{ t.label }}</span>
+                      <span class="text-xs" style="color: var(--cmm-muted);">{{ exemploTom(t.key) }}</span>
+                    </button>
+                  }
+                </div>
+                <div class="panel panel-pad">
+                  <label class="form-label" for="guia-instr">Instruções extras (opcional)</label>
+                  <textarea id="guia-instr" class="form-input" rows="6" maxlength="1500" [ngModel]="doc().guidance.instructions" (ngModelChange)="setInstrucoes($event)" placeholder="Ex.: Trate o cliente por 'você'. Quando falar de visita, convide para conhecer o showroom."></textarea>
+                  <p class="text-xs mt-1" style="color: var(--cmm-muted);">{{ doc().guidance.instructions.length }}/1500 · vale para as mensagens escritas pela IA e para respostas de dúvidas.</p>
+                  <p class="text-xs font-semibold mt-3 mb-1" style="color: var(--cmm-muted);">Sugestões (clique para adicionar)</p>
+                  <div class="flex gap-2 flex-wrap">
+                    @for (ex of sugestoes; track ex) { <button type="button" class="chip chip-btn" (click)="addSugestao(ex)">+ {{ ex }}</button> }
+                  </div>
                 </div>
               }
-            </div>
-            <app-ia-fluxos [fluxos]="doc().fluxos" [ferramentas]="c.ferramentas" (mudou)="setFluxos($event)" />
-          }
 
-          <!-- ═════ BASE DE CONHECIMENTO ═════ -->
-          @case ('base') {
-            <div class="panel panel-pad">
-              <h2 class="sec-title">Base de conhecimento</h2>
-              <p class="text-sm mt-1" style="color: var(--cmm-muted);">Quando o cliente faz uma pergunta livre, a IA só pode responder com o que está escrito aqui — nada além. O que não estiver aqui vai para um atendente. Preços, prazos e links nunca são repetidos pela IA, mesmo que estejam escritos.</p>
-            </div>
-            @for (e of kb(); track $index; let i = $index) {
-              <article class="panel panel-pad space-y-3">
-                <div class="flex items-center justify-between gap-2">
-                  <h3 class="font-semibold text-sm">Entrada {{ i + 1 }} <span class="text-xs" style="color: var(--cmm-muted);">({{ e.id }})</span></h3>
-                  <button type="button" class="btn btn-ghost btn-sm" style="color: var(--cmm-danger);" (click)="removerKb(i)">Excluir</button>
+              <!-- ═════ O QUE ELA SABE ═════ -->
+              @case ('saber') {
+                <header>
+                  <h2 class="sec-title">📚 O que ela sabe</h2>
+                  <p class="text-sm mt-1" style="color: var(--cmm-muted);">Quando o cliente faz uma pergunta livre, a IA só responde com o que estiver escrito aqui. O que não estiver vai para um atendente. Preços, prazos e links nunca são repetidos pela IA, mesmo que estejam escritos.</p>
+                </header>
+                @for (e of kb(); track $index; let i = $index) {
+                  <article class="panel panel-pad space-y-3">
+                    <div class="flex items-center justify-between gap-2">
+                      <h3 class="font-semibold text-sm">Assunto {{ i + 1 }}</h3>
+                      <button type="button" class="btn btn-ghost btn-sm" style="color: var(--cmm-danger);" (click)="removerKb(i)">Excluir</button>
+                    </div>
+                    <div><label class="form-label" [attr.for]="'kb-t-' + i">O que a IA pode afirmar</label>
+                      <textarea class="form-input" rows="3" [id]="'kb-t-' + i" maxlength="600" [ngModel]="e.text" (ngModelChange)="editarKb(i, { text: $event })" placeholder="Ex.: A loja abre de segunda a sábado, das 9h às 18h."></textarea>
+                      <p class="text-xs mt-1" style="color: var(--cmm-muted);">{{ e.text.length }}/600</p></div>
+                    <div><label class="form-label" [attr.for]="'kb-k-' + i">Quando o cliente falar disto (palavras separadas por vírgula)</label>
+                      <input class="form-input" [id]="'kb-k-' + i" [value]="e.keywords.join(', ')" (change)="editarKb(i, { keywords: lista($any($event.target).value) })" placeholder="horário, abre, funciona" />
+                      <p class="text-xs mt-1" style="color: var(--cmm-muted);">Se deixar vazio, o sistema escolhe pelas palavras do texto.</p></div>
+                  </article>
+                } @empty {
+                  <div class="panel panel-pad"><div class="empty-state">Nada liberado: toda pergunta livre será encaminhada a um atendente.</div></div>
+                }
+                <div class="flex gap-2 flex-wrap">
+                  <button type="button" class="btn btn-primary" (click)="adicionarKb()" [disabled]="kb().length >= 50">Adicionar assunto</button>
+                  <button type="button" class="btn btn-secondary" (click)="restaurarKb()">Restaurar lista original</button>
                 </div>
-                <div><label class="form-label" [attr.for]="'kb-t-' + i">O que a IA pode afirmar</label>
-                  <textarea class="form-input" rows="3" [id]="'kb-t-' + i" maxlength="600" [ngModel]="e.text" (ngModelChange)="editarKb(i, { text: $event })" placeholder="Ex.: A loja abre de segunda a sábado, das 9h às 18h."></textarea>
-                  <p class="text-xs mt-1" style="color: var(--cmm-muted);">{{ e.text.length }}/600</p></div>
-                <div><label class="form-label" [attr.for]="'kb-k-' + i">Palavras que ativam esta entrada (separe por vírgula)</label>
-                  <input class="form-input" [id]="'kb-k-' + i" [value]="e.keywords.join(', ')" (change)="editarKb(i, { keywords: lista($any($event.target).value) })" placeholder="horário, abre, funciona" />
-                  <p class="text-xs mt-1" style="color: var(--cmm-muted);">Se deixar vazio, o sistema escolhe pelas palavras do texto.</p></div>
-              </article>
-            } @empty {
-              <div class="panel panel-pad"><div class="empty-state">A base está vazia: toda pergunta livre será encaminhada a um atendente.</div></div>
+              }
             }
-            <div class="flex gap-2 flex-wrap">
-              <button type="button" class="btn btn-primary" (click)="adicionarKb()" [disabled]="kb().length >= 50">Adicionar entrada</button>
-              <button type="button" class="btn btn-secondary" (click)="restaurarKb()">Restaurar base original</button>
-            </div>
-          }
-
-          <!-- ═════ AMBIENTES ═════ -->
-          @case ('ambientes') {
-            <div class="panel panel-pad">
-              <h2 class="sec-title">Ambientes de interesse</h2>
-              <p class="text-sm mt-1" style="color: var(--cmm-muted);">São as opções que o cliente escolhe (1 a 8) e que vão para a pasta dele no Drive. Aqui você troca o <b>nome</b>; o número é fixo. Depois, atualize a lista na mensagem de escolha dos ambientes.</p>
-            </div>
-            <div class="panel panel-pad grid sm:grid-cols-2 gap-3">
-              @for (n of numerosAmbiente; track n) {
-                <div><label class="form-label" [attr.for]="'amb-' + n">Opção {{ n }}</label>
-                  <div class="flex gap-2"><input class="form-input" [id]="'amb-' + n" maxlength="40" [ngModel]="nomeAmbiente(n)" (ngModelChange)="setAmbiente(n, $event)" />
-                    @if (doc().categorias[n]) { <button type="button" class="btn btn-ghost btn-sm" (click)="setAmbiente(n, null)" title="Restaurar">↺</button> }</div></div>
-              }
-            </div>
-            <div class="flex gap-2 flex-wrap items-center">
-              <button type="button" class="btn btn-secondary" (click)="sincronizarAmbientes()">Atualizar a lista na mensagem de ambientes</button>
-              <span class="text-xs" style="color: var(--cmm-muted);">Reescreve as linhas “*1* - emoji Nome” da mensagem “Escolha dos ambientes”.</span>
-            </div>
-          }
-
-          <!-- ═════ GUIA DA IA ═════ -->
-          @case ('guia') {
-            <div class="panel panel-pad">
-              <h2 class="sec-title">Guia da IA</h2>
-              <p class="text-sm mt-1" style="color: var(--cmm-muted);">Define o <b>jeito de falar</b> da Vera. A IA continua obrigada a comunicar tudo que cada mensagem precisa, nunca inventa preço, prazo ou promessa e só responde dúvidas pela base de conhecimento.</p>
-            </div>
-            <div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-3">
-              @for (t of c.tones; track t.key) {
-                <button type="button" class="tone" [class.tone-on]="doc().guidance.tone === t.key" (click)="setTom(t.key)">
-                  <span class="font-semibold text-sm">{{ t.label }}</span>
-                  <span class="text-xs" style="color: var(--cmm-muted);">{{ exemploTom(t.key) }}</span>
-                </button>
-              }
-            </div>
-            <div class="panel panel-pad">
-              <label class="form-label" for="guia-instr">Instruções extras (opcional)</label>
-              <textarea id="guia-instr" class="form-input" rows="6" maxlength="1500" [ngModel]="doc().guidance.instructions" (ngModelChange)="setInstrucoes($event)" placeholder="Ex.: Trate o cliente por 'você'. Quando falar de visita, convide para conhecer o showroom. Nunca use gírias."></textarea>
-              <p class="text-xs mt-1" style="color: var(--cmm-muted);">{{ doc().guidance.instructions.length }}/1500 · vale para as mensagens escritas pela IA e para as respostas de dúvidas.</p>
-              <div class="flex gap-2 flex-wrap mt-3">
-                @for (ex of sugestoes; track ex) { <button type="button" class="chip chip-btn" (click)="addSugestao(ex)">+ {{ ex }}</button> }
-              </div>
-            </div>
-          }
-        }
+          </div>
+        </div>
       </div>
 
       @if (alteracoes() > 0 || c.draft) {
         <div class="savebar" role="region" aria-label="Rascunho do conteúdo">
           <span>
-            @if (alteracoes() > 0) { <b>{{ alteracoes() }}</b> alteração(ões) em relação ao publicado }
+            @if (alteracoes() > 0) { <b>{{ alteracoes() }}</b> alteração(ões) ainda não publicada(s) }
             @else { Rascunho igual ao publicado }
             @if (sujo()) { · <i>não salvo</i> } @else if (c.draftAt) { · rascunho salvo }
           </span>
@@ -232,21 +253,39 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
   `,
   styles: [`
     :host { display: block; }
-    .sec-title { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; }
-    .seg { display: inline-flex; gap: .25rem; padding: .3rem; border-radius: 999px; background: color-mix(in srgb, var(--cmm-border) 45%, var(--cmm-panel)); max-width: 100%; overflow-x: auto; }
-    .seg-btn { padding: .5rem 1.1rem; border-radius: 999px; border: none; background: transparent; color: var(--cmm-muted); font-weight: 600; font-size: .875rem; cursor: pointer; white-space: nowrap; transition: color 200ms, background-color 250ms, box-shadow 250ms; }
-    .seg-btn:hover { color: var(--cmm-ink); }
-    .seg-on, .seg-on:hover { color: var(--cmm-accent-ink); background: linear-gradient(120deg, var(--cmm-accent), var(--cmm-accent-2)); box-shadow: 0 8px 20px -10px var(--cmm-accent); }
-    .rail { padding: .75rem; position: sticky; top: 5rem; }
-    .rail-title { font-size: .6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--cmm-muted); padding: .25rem .5rem .6rem; }
-    .rail-item { display: flex; align-items: center; gap: .65rem; width: 100%; padding: .55rem .6rem; border: none; border-radius: .75rem; background: transparent; cursor: pointer; color: var(--cmm-ink); transition: background-color 200ms; }
-    .rail-item:hover { background: color-mix(in srgb, var(--cmm-accent) 8%, transparent); }
-    .rail-on { background: var(--cmm-accent-soft); }
-    .rail-num { flex-shrink: 0; width: 1.5rem; height: 1.5rem; border-radius: 99px; display: grid; place-items: center; font-size: .72rem; font-weight: 800; background: color-mix(in srgb, var(--cmm-border) 70%, var(--cmm-panel)); }
-    .rail-on .rail-num { background: var(--cmm-accent); color: var(--cmm-accent-ink); }
-    .rail-badge { font-size: .68rem; font-weight: 800; padding: .05rem .45rem; border-radius: 99px; background: var(--cmm-accent); color: var(--cmm-accent-ink); }
-    .msg { border-left: 3px solid transparent; transition: border-color 250ms; }
+    .sec-title { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; letter-spacing: -0.01em; }
+    .status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem 1.5rem; }
+    .steps { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; font-size: .8125rem; }
+    .step { display: inline-flex; align-items: center; gap: .35rem; } .step small { color: var(--cmm-muted); }
+    .step b { width: 1.35rem; height: 1.35rem; border-radius: 99px; display: grid; place-items: center; font-size: .7rem; background: var(--cmm-accent-soft); color: var(--cmm-accent); }
+    .step-sep { color: var(--cmm-muted); }
+    .nav { padding: .75rem; position: sticky; top: 5rem; }
+    .nav-title { font-size: .6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--cmm-muted); padding: .25rem .5rem .5rem; }
+    .nav-item { display: flex; align-items: center; gap: .65rem; width: 100%; padding: .55rem .6rem; border: none; border-radius: .75rem; background: transparent; cursor: pointer; color: var(--cmm-ink); text-align: left; transition: background-color 200ms; }
+    .nav-item:hover { background: color-mix(in srgb, var(--cmm-accent) 8%, transparent); }
+    .nav-on { background: var(--cmm-accent-soft); }
+    .nav-ico { font-size: 1.1rem; flex-shrink: 0; }
+    .nav-txt { display: flex; flex-direction: column; min-width: 0; flex: 1; } .nav-txt b { font-size: .875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .nav-txt small { font-size: .72rem; color: var(--cmm-muted); }
+    .nav-badge { font-size: .68rem; font-weight: 800; padding: .05rem .45rem; border-radius: 99px; background: var(--cmm-accent); color: var(--cmm-accent-ink); }
+    .dot { width: .55rem; height: .55rem; border-radius: 99px; background: var(--cmm-border); flex-shrink: 0; } .dot-on { background: var(--cmm-success); }
+    .nav-add { width: 100%; margin-top: .25rem; padding: .5rem; border: 1.5px dashed var(--cmm-border); border-radius: .75rem; background: transparent; color: var(--cmm-accent); font-weight: 600; font-size: .8125rem; cursor: pointer; }
+    .nav-add:hover { border-color: var(--cmm-accent); background: var(--cmm-accent-soft); }
+    .nav-new { padding: .6rem; border: 1px solid var(--cmm-border); border-radius: .75rem; margin-top: .25rem; }
+    .acc { overflow: hidden; }
+    .acc-head { display: flex; align-items: center; gap: .85rem; width: 100%; padding: 1rem 1.25rem; border: none; background: transparent; cursor: pointer; color: var(--cmm-ink); }
+    .acc-head:hover { background: color-mix(in srgb, var(--cmm-accent) 5%, transparent); }
+    .acc-num { flex-shrink: 0; width: 1.8rem; height: 1.8rem; border-radius: 99px; display: grid; place-items: center; font-weight: 800; font-size: .8rem; background: color-mix(in srgb, var(--cmm-border) 70%, var(--cmm-panel)); }
+    .acc-open .acc-num { background: var(--cmm-accent); color: var(--cmm-accent-ink); }
+    .acc-chev { color: var(--cmm-muted); transition: transform 300ms var(--ease-out-expo); flex-shrink: 0; }
+    .acc-open > .acc-head .acc-chev, .msg-head[aria-expanded='true'] .acc-chev { transform: rotate(180deg); }
+    .acc-body { padding: 0 1.25rem 1.25rem; display: flex; flex-direction: column; gap: .6rem; border-top: 1px solid var(--cmm-border); padding-top: 1rem; }
+    .sub-box { padding: .9rem 1rem; border-radius: .9rem; background: color-mix(in srgb, var(--cmm-border) 28%, var(--cmm-panel)); }
+    .msg { border: 1px solid var(--cmm-border); border-radius: .9rem; background: var(--cmm-panel); border-left: 3px solid transparent; }
     .msg-edit { border-left-color: var(--cmm-accent); }
+    .msg-head { display: flex; align-items: center; gap: .6rem; width: 100%; padding: .7rem .9rem; border: none; background: transparent; cursor: pointer; color: var(--cmm-ink); }
+    .msg-prev { display: block; font-size: .78rem; color: var(--cmm-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+    .msg-body { display: grid; grid-template-columns: 1fr; gap: 1rem; padding: .25rem .9rem 1rem; }
+    @media (min-width: 1280px) { .msg-body { grid-template-columns: 1fr 1fr; } }
     .msg-text { font-size: .875rem; line-height: 1.5; resize: vertical; min-height: 8rem; }
     .msg-erro { margin-top: .5rem; font-size: .8125rem; font-weight: 600; color: var(--cmm-danger); }
     .wa { padding: 1rem; border-radius: 1rem; background: color-mix(in srgb, var(--cmm-success) 8%, var(--cmm-bg, var(--cmm-panel))); border: 1px solid var(--cmm-border); }
@@ -254,6 +293,7 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
     .chip { display: inline-flex; align-items: center; padding: .1rem .55rem; margin: 0 .2rem; border-radius: 99px; font-size: .75rem; background: var(--cmm-accent-soft); color: var(--cmm-accent); font-weight: 600; }
     .chip-btn { border: 1px dashed color-mix(in srgb, var(--cmm-accent) 45%, transparent); cursor: pointer; margin: 0; }
     .chip-btn:hover { background: var(--cmm-accent); color: var(--cmm-accent-ink); }
+    .opt-n { flex-shrink: 0; width: 1.6rem; height: 1.6rem; border-radius: 99px; display: grid; place-items: center; font-weight: 800; font-size: .75rem; background: var(--cmm-accent-soft); color: var(--cmm-accent); }
     .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: .875rem; font-weight: 600; padding: .4rem 0; }
     .switch { flex-shrink: 0; width: 2.9rem; height: 1.6rem; border-radius: 99px; border: none; background: var(--cmm-border); position: relative; cursor: pointer; transition: background-color 300ms; }
     .switch-on { background: var(--cmm-accent); }
@@ -272,9 +312,6 @@ export class IaConteudoComponent implements OnInit {
   private readonly modal = inject(ModalService);
 
   grupos = GRUPOS;
-  secoes: Array<{ key: Secao; label: string }> = [
-    { key: 'mensagens', label: 'Mensagens' }, { key: 'fluxos', label: 'Fluxos' }, { key: 'base', label: 'Base de conhecimento' }, { key: 'ambientes', label: 'Ambientes' }, { key: 'guia', label: 'Guia da IA' },
-  ];
   opcoesMenu = [{ n: 4, label: 'Pagamento por boleto' }, { n: 5, label: 'Endereço da loja' }];
   numerosAmbiente = [1, 2, 3, 4, 5, 6, 7, 8];
   sugestoes = [
@@ -285,11 +322,18 @@ export class IaConteudoComponent implements OnInit {
   doc = signal<IaContentDoc>(this.vazio());
   /** Cópia do último estado salvo no servidor (rascunho ou publicado), para saber se há algo não salvo. */
   private salvo = signal('');
-  secao = signal<Secao>('mensagens');
-  grupoAtivo = signal('inicio');
+  /** Uma única navegação: 'padrao' | 'f<n>' (fluxo próprio) | 'jeito' | 'saber'. */
+  pagina = signal('padrao');
+  novoAberto = signal(false);
+  grupoAberto = signal<string | null>('inicio');
+  aberta = signal<string | null>(null);
   ocupado = signal(false);
 
-  grupoAtual = computed(() => GRUPOS.find((g) => g.id === this.grupoAtivo()));
+  fluxoIdx = computed(() => (this.pagina().startsWith('f') ? Number(this.pagina().slice(1)) : -1));
+  editadasPadrao = computed(() => {
+    const d = this.doc();
+    return Object.keys(d.messages).length + Object.keys(d.categorias).length + d.menuDesativado.length;
+  });
   kb = computed(() => this.doc().kb ?? this.conteudo()?.defaults.kb ?? []);
   sujo = computed(() => JSON.stringify(this.doc()) !== this.salvo());
   alteracoes = computed(() => {
@@ -329,7 +373,10 @@ export class IaConteudoComponent implements OnInit {
   data(iso: string): string { return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }); }
   private mudar(fn: (d: IaContentDoc) => void): void { this.doc.update((d) => { const n = this.clone(d); fn(n); return n; }); }
 
-  // ───── mensagens
+  // ───── fluxo padrão (mensagens)
+  alternarGrupo(id: string): void { this.grupoAberto.set(this.grupoAberto() === id ? null : id); this.aberta.set(null); }
+  alternarMsg(k: string): void { this.aberta.set(this.aberta() === k ? null : k); }
+  resumo(k: string): string { return this.textoMsg(k).replace(/\*/g, '').replace(/\s+/g, ' ').trim().slice(0, 110); }
   spec(k: string) { return this.conteudo()?.specs[k]; }
   textoMsg(k: string): string { return this.doc().messages[k] ?? this.conteudo()?.defaults.messages[k] ?? ''; }
   editada(k: string): boolean { return k in this.doc().messages; }
@@ -391,7 +438,16 @@ export class IaConteudoComponent implements OnInit {
   }
 
   // ───── fluxos
-  setFluxos(f: IaFlow[]): void { this.mudar((d) => { d.fluxos = f; }); }
+  setFluxos(f: IaFlow[]): void {
+    this.mudar((d) => { d.fluxos = f; });
+    if (this.fluxoIdx() >= f.length) this.pagina.set('padrao'); // o fluxo aberto foi excluído
+  }
+  novoFluxo(modelo: 'branco' | 'coleta'): void {
+    const novo = MODELOS[modelo]();
+    this.mudar((d) => { d.fluxos = [...d.fluxos, novo]; });
+    this.pagina.set('f' + (this.doc().fluxos.length - 1));
+    this.novoAberto.set(false);
+  }
 
   // ───── guia
   setTom(k: string): void { this.mudar((d) => { d.guidance.tone = k; }); }
