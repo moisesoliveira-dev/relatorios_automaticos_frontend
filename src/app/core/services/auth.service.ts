@@ -5,6 +5,7 @@ import { Observable, tap, catchError, of, map } from 'rxjs';
 import { User, AuthResponse, LoginRequest } from '../models/user.model';
 import { environment } from '../../../environments/environment';
 import { AccessService } from './access.service';
+import { ToastService } from '../ui/toast.service';
 
 export interface CheckMasterResponse {
     hasMaster: boolean;
@@ -255,16 +256,40 @@ export class AuthService {
         }
     }
 
-    // Método público para verificar inatividade (pode ser chamado pelo app component)
+    private inactivityWarned = false;
+    private readonly WARNING_BEFORE_MS = 60 * 1000;
+
+    // Método público para verificar inatividade (chamado pelo app component)
     checkInactivity(): void {
         if (!this.isAuthenticated()) return;
 
         const lastActivity = localStorage.getItem(this.LAST_ACTIVITY_KEY);
-        if (lastActivity) {
-            const timePassed = Date.now() - parseInt(lastActivity, 10);
-            if (timePassed > this.INACTIVITY_TIMEOUT) {
-                this.expireSession();
-            }
+        if (!lastActivity) return;
+
+        const timePassed = Date.now() - parseInt(lastActivity, 10);
+        if (timePassed > this.INACTIVITY_TIMEOUT) {
+            this.inactivityWarned = false;
+            this.expireSession();
+            return;
+        }
+
+        // Avisa 1 minuto antes de encerrar, com a opção de continuar conectado (antes caía de repente).
+        if (timePassed > this.INACTIVITY_TIMEOUT - this.WARNING_BEFORE_MS && !this.inactivityWarned) {
+            this.inactivityWarned = true;
+            this.injector.get(ToastService).show('Sua sessão será encerrada em 1 minuto por inatividade.', {
+                type: 'warning',
+                title: 'Você ainda está aí?',
+                duration: this.WARNING_BEFORE_MS,
+                action: {
+                    label: 'Continuar conectado',
+                    run: () => {
+                        this.updateLastActivity();
+                        this.inactivityWarned = false;
+                    },
+                },
+            });
+        } else if (timePassed < this.INACTIVITY_TIMEOUT - this.WARNING_BEFORE_MS) {
+            this.inactivityWarned = false;
         }
     }
 

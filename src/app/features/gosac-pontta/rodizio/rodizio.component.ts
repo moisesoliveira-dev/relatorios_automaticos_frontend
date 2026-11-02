@@ -208,7 +208,7 @@ interface ConfirmState {
                             class="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
                             [style.background]="form().id === p.id ? 'var(--cmm-accent)' : 'transparent'"
                             [style.border]="form().id === p.id ? 'none' : '2px solid var(--cmm-border)'"
-                            [style.color]="form().id === p.id ? '#042f2e' : 'transparent'"
+                            [style.color]="form().id === p.id ? 'var(--cmm-accent-ink)' : 'transparent'"
                           >
                             @if (form().id === p.id) {
                               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -239,7 +239,7 @@ interface ConfirmState {
                   >
                     <span
                       class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold"
-                      style="background: var(--cmm-accent); color: #042f2e;"
+                      style="background: var(--cmm-accent); color: var(--cmm-accent-ink);"
                     >
                       {{ (selectedPonttaName || form().name || '?').slice(0, 1).toUpperCase() }}
                     </span>

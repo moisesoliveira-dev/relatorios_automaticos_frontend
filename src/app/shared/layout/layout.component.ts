@@ -1,9 +1,13 @@
-import { Component, signal, computed, OnInit, OnDestroy, inject, HostListener } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
-import { AuthService } from '../../core/services/auth.service';
-import { AccessService } from '../../core/services/access.service';
-import { ModalComponent } from '../components/modal.component';
+import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, computed, effect, inject, signal } from '@angular/core';
+import { Title } from '@angular/platform-browser';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs/operators';
+import { animate } from 'motion';
+import { AccessService } from '../../core/services/access.service';
+import { AuthService } from '../../core/services/auth.service';
+import { MotionService } from '../../core/motion/motion.service';
+import { ModalComponent } from '../components/modal.component';
+import { ToastHostComponent } from '../components/toast-host.component';
 
 interface MenuItem {
   label: string;
@@ -29,87 +33,75 @@ const TITLE_MAP: Record<string, string> = {
   '/gosac-pontta/webhooks': 'Webhooks',
 };
 
+const SIDEBAR_KEY = 'sidebar_collapsed';
+
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, ModalComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, ModalComponent, ToastHostComponent],
   template: `
-    <div class="min-h-screen flex" style="background: var(--cmm-surface); color: var(--cmm-ink);">
+    <a href="#conteudo" class="skip-link" (click)="focusMain($event)">Pular para o conteúdo</a>
+
+    <div class="min-h-screen flex" style="color: var(--cmm-ink);">
       @if (mobileOpen()) {
-        <div
-          class="fixed inset-0 z-40 bg-black/45 md:hidden animate-fadeIn"
-          (click)="mobileOpen.set(false)"
-          aria-hidden="true"
-        ></div>
+        <div class="fixed inset-0 z-40 md:hidden animate-fadeIn" style="background: rgba(10,8,5,0.6); backdrop-filter: blur(4px);" (click)="mobileOpen.set(false)" aria-hidden="true"></div>
       }
 
       <aside
-        class="fixed inset-y-0 left-0 z-50 flex flex-col transition-transform duration-200 ease-out"
-        style="background: var(--cmm-sidebar); border-right: 1px solid var(--cmm-sidebar-border);"
-        [class.w-60]="!sidebarCollapsed() || mobileOpen()"
-        [class.w-[60px]]="sidebarCollapsed() && !mobileOpen()"
-        [class.-translate-x-full]="!mobileOpen() && isMobile()"
-        [class.translate-x-0]="mobileOpen() || !isMobile()"
+        class="sidebar fixed inset-y-0 left-0 z-50 flex flex-col"
+        [class.sidebar-collapsed]="sidebarCollapsed() && !mobileOpen()"
+        [class.sidebar-hidden]="!mobileOpen() && isMobile()"
+        aria-label="Menu principal"
       >
-        <div
-          class="h-14 flex items-center px-4 gap-3 overflow-hidden"
-          style="border-bottom: 1px solid var(--cmm-sidebar-border);"
-        >
-          <div
-            class="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 text-xs font-semibold"
-            style="background: var(--cmm-accent); color: #042f2e;"
-          >
-            CM
-          </div>
+        <div class="sidebar-brand">
+          <div class="brand-mark" aria-hidden="true"><span>CM</span></div>
           @if (!sidebarCollapsed() || mobileOpen()) {
-            <div class="min-w-0">
-              <div class="text-sm font-semibold text-white tracking-wide truncate">CMM System</div>
-              <div class="text-[10px] uppercase tracking-[0.14em]" style="color: var(--cmm-sidebar-muted);">Ops console</div>
+            <div class="min-w-0 brand-text">
+              <div class="font-display text-[15px] font-bold tracking-tight text-white truncate">CMM System</div>
+              <div class="text-[10px] uppercase tracking-[0.22em]" style="color: var(--cmm-sidebar-muted);">Ops console</div>
             </div>
           }
         </div>
 
-        <nav class="flex-1 py-3 overflow-y-auto">
-          <ul class="space-y-0.5 px-2">
-            @for (item of menuItems(); track item.route) {
-              <li>
+        <nav class="sidebar-nav flex-1 overflow-y-auto" #nav aria-label="Seções">
+          <div class="nav-pill" #pill aria-hidden="true"></div>
+          <ul class="space-y-1 px-3 relative">
+            @for (item of menuItems(); track item.route; let i = $index) {
+              <li class="nav-enter" [style.--i]="i">
                 @if (item.children && item.children.length > 0) {
                   <button
                     type="button"
                     (click)="toggleGroup(item.route)"
-                    class="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors"
+                    class="nav-link w-full"
+                    [class.nav-group-active]="isGroupActive(item)"
                     [class.justify-center]="sidebarCollapsed() && !mobileOpen()"
-                    [style.background]="isGroupActive(item) ? 'rgba(45,212,191,0.12)' : 'transparent'"
-                    [style.color]="isGroupActive(item) ? '#e7eef6' : 'var(--cmm-sidebar-muted)'"
+                    [attr.aria-expanded]="expandedGroups().has(item.route)"
+                    [attr.aria-label]="item.label"
                     [title]="sidebarCollapsed() && !mobileOpen() ? item.label : ''"
                   >
-                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" [attr.d]="item.icon"/>
                     </svg>
                     @if (!sidebarCollapsed() || mobileOpen()) {
                       <span class="flex-1 text-left">{{ item.label }}</span>
-                      <svg
-                        class="w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200"
-                        [class.rotate-180]="expandedGroups().has(item.route)"
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                      >
+                      <svg class="w-3.5 h-3.5 flex-shrink-0 chev" [class.chev-open]="expandedGroups().has(item.route)" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                       </svg>
                     }
                   </button>
                   @if (expandedGroups().has(item.route) && (!sidebarCollapsed() || mobileOpen())) {
-                    <ul class="mt-0.5 space-y-0.5 pl-3">
-                      @for (child of item.children; track child.route) {
-                        <li>
+                    <ul class="mt-1 space-y-0.5 ml-4 pl-3 sub-list">
+                      @for (child of item.children; track child.route; let c = $index) {
+                        <li class="nav-enter" [style.--i]="c">
                           <a
                             [routerLink]="child.route"
                             routerLinkActive="nav-active"
                             [routerLinkActiveOptions]="{ exact: true }"
+                            (isActiveChange)="schedulePill()"
                             (click)="closeMobile()"
-                            class="flex items-center gap-2.5 pl-3 pr-3 py-2 rounded-md text-sm transition-colors"
-                            style="color: var(--cmm-sidebar-muted);"
+                            class="nav-link nav-child"
                           >
-                            <span class="w-1 h-1 rounded-full bg-current flex-shrink-0"></span>
+                            <span class="nav-dot"></span>
                             {{ child.label }}
                           </a>
                         </li>
@@ -121,13 +113,14 @@ const TITLE_MAP: Record<string, string> = {
                     [routerLink]="item.route"
                     routerLinkActive="nav-active"
                     [routerLinkActiveOptions]="{ exact: item.route === '/dashboard' }"
+                    (isActiveChange)="schedulePill()"
                     (click)="closeMobile()"
-                    class="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors"
-                    style="color: var(--cmm-sidebar-muted);"
+                    class="nav-link"
                     [class.justify-center]="sidebarCollapsed() && !mobileOpen()"
+                    [attr.aria-label]="item.label"
                     [title]="sidebarCollapsed() && !mobileOpen() ? item.label : ''"
                   >
-                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" [attr.d]="item.icon"/>
                     </svg>
                     @if (!sidebarCollapsed() || mobileOpen()) {
@@ -143,62 +136,48 @@ const TITLE_MAP: Record<string, string> = {
         <button
           type="button"
           (click)="toggleSidebar()"
-          class="hidden md:flex h-11 items-center justify-center transition-colors"
-          style="border-top: 1px solid var(--cmm-sidebar-border); color: var(--cmm-sidebar-muted);"
+          class="sidebar-toggle hidden md:flex"
           [attr.aria-label]="sidebarCollapsed() ? 'Expandir menu' : 'Recolher menu'"
+          [attr.aria-pressed]="sidebarCollapsed()"
         >
-          @if (sidebarCollapsed()) {
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/>
-            </svg>
-          } @else {
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
-            </svg>
-          }
+          <svg class="w-4 h-4 toggle-arrow" [class.toggle-arrow-flip]="sidebarCollapsed()" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
+          </svg>
+          @if (!sidebarCollapsed()) { <span class="text-xs font-medium">Recolher</span> }
         </button>
       </aside>
 
-      <div
-        class="flex-1 flex flex-col min-w-0 transition-[margin] duration-200 ease-out"
-        [class.md:ml-60]="!sidebarCollapsed()"
-        [class.md:ml-[60px]]="sidebarCollapsed()"
-      >
-        <header
-          class="h-14 flex items-center justify-between gap-3 px-4 sm:px-6 sticky top-0 z-30"
-          style="background: color-mix(in srgb, var(--cmm-panel) 92%, transparent); border-bottom: 1px solid var(--cmm-border); backdrop-filter: blur(8px);"
-        >
+      <div class="flex-1 flex flex-col min-w-0 main-shell" [class.main-shell-collapsed]="sidebarCollapsed()">
+        <header class="topbar sticky top-0 z-30">
           <div class="flex items-center gap-3 min-w-0">
-            <button
-              type="button"
-              class="btn btn-ghost btn-sm md:hidden px-2"
-              (click)="mobileOpen.set(true)"
-              aria-label="Abrir menu"
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button type="button" class="btn btn-ghost btn-sm md:hidden !px-2" (click)="mobileOpen.set(true)" aria-label="Abrir menu" [attr.aria-expanded]="mobileOpen()">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
               </svg>
             </button>
-            <div class="min-w-0">
-              <p class="text-[10px] uppercase tracking-[0.16em] truncate" style="color: var(--cmm-muted);">CMM</p>
-              <h1 class="text-sm font-semibold truncate" style="color: var(--cmm-ink);">{{ pageTitle() }}</h1>
+            <div class="min-w-0 overflow-hidden">
+              <p class="text-[10px] uppercase tracking-[0.2em] truncate" style="color: var(--cmm-accent); font-weight: 700;">CMM System</p>
+              @for (t of [pageTitle()]; track t) {
+                <h1 class="topbar-title font-display text-lg font-bold tracking-tight truncate" style="color: var(--cmm-ink);">{{ t }}</h1>
+              }
             </div>
           </div>
 
           <div class="flex items-center gap-2">
             <button
               type="button"
-              (click)="toggleDarkMode()"
-              class="btn btn-secondary btn-sm"
-              [attr.aria-label]="isDarkMode() ? 'Desativar modo noturno' : 'Ativar modo noturno'"
-              [title]="isDarkMode() ? 'Modo noturno ativo' : 'Ativar modo noturno'"
+              (click)="toggleDarkMode($event)"
+              class="btn btn-secondary btn-sm !px-2.5 theme-btn"
+              [attr.aria-label]="isDarkMode() ? 'Mudar para o tema claro' : 'Mudar para o tema escuro'"
+              [attr.aria-pressed]="isDarkMode()"
+              [title]="isDarkMode() ? 'Tema escuro ativo' : 'Tema claro ativo'"
             >
               @if (isDarkMode()) {
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4 theme-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M12 3v1m0 16v1m8.66-9H19.5m-15 0H3.34m14.02 6.36l-.7-.7m-9.32 0l-.7.7m10.02-10.02l-.7.7m-9.32 0l-.7-.7M12 7a5 5 0 100 10 5 5 0 000-10z"/>
                 </svg>
               } @else {
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4 theme-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M20.354 15.354A9 9 0 118.646 3.646 7 7 0 1020.354 15.354z"/>
                 </svg>
               }
@@ -208,84 +187,198 @@ const TITLE_MAP: Record<string, string> = {
               <button
                 type="button"
                 (click)="userMenuOpen.set(!userMenuOpen())"
-                class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg transition-colors"
-                style="color: var(--cmm-ink);"
+                class="user-btn"
                 [attr.aria-expanded]="userMenuOpen()"
+                aria-haspopup="menu"
+                aria-label="Menu do usuário"
               >
-                <div
-                  class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold"
-                  style="background: var(--cmm-ink); color: var(--cmm-panel);"
-                >
-                  {{ authService.userInitials() }}
-                </div>
-                <span class="text-sm font-medium hidden sm:block">{{ authService.user()?.name }}</span>
-                <svg class="w-3.5 h-3.5 hidden sm:block" style="color: var(--cmm-muted);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <span class="avatar" aria-hidden="true">{{ authService.userInitials() }}</span>
+                <span class="text-sm font-semibold hidden sm:block">{{ authService.user()?.name }}</span>
+                <svg class="w-3.5 h-3.5 hidden sm:block chev" [class.chev-open]="userMenuOpen()" style="color: var(--cmm-muted);" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
               </button>
 
               @if (userMenuOpen()) {
-                <div
-                  class="absolute right-0 mt-1 w-52 rounded-lg py-1 z-50 animate-slideUp"
-                  style="background: var(--cmm-panel); border: 1px solid var(--cmm-border); box-shadow: 0 12px 32px rgba(15, 26, 39, 0.14);"
-                >
-                  <a
-                    routerLink="/perfil"
-                    (click)="userMenuOpen.set(false)"
-                    class="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors"
-                    style="color: var(--cmm-ink);"
-                  >
-                    Meu perfil
-                  </a>
+                <div class="user-menu" role="menu">
+                  <a routerLink="/perfil" role="menuitem" (click)="userMenuOpen.set(false)" class="user-item">Meu perfil</a>
                   @if (hasTab('configuracoes')) {
-                    <a
-                      routerLink="/configuracoes"
-                      (click)="userMenuOpen.set(false)"
-                      class="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors"
-                      style="color: var(--cmm-ink);"
-                    >
-                      Configurações
-                    </a>
+                    <a routerLink="/configuracoes" role="menuitem" (click)="userMenuOpen.set(false)" class="user-item">Configurações</a>
                   }
                   <div class="my-1" style="border-top: 1px solid var(--cmm-border);"></div>
-                  <button
-                    type="button"
-                    (click)="logout()"
-                    class="flex items-center gap-2.5 px-4 py-2.5 text-sm w-full text-left"
-                    style="color: var(--cmm-danger);"
-                  >
-                    Sair
+                  <button type="button" role="menuitemcheckbox" [attr.aria-checked]="!motionOn()" (click)="toggleMotion()" class="user-item w-full justify-between">
+                    <span>Reduzir animações</span>
+                    <span class="switch" [class.switch-on]="!motionOn()" aria-hidden="true"><span class="switch-knob"></span></span>
                   </button>
+                  <div class="my-1" style="border-top: 1px solid var(--cmm-border);"></div>
+                  <button type="button" role="menuitem" (click)="logout()" class="user-item w-full" style="color: var(--cmm-danger);">Sair</button>
                 </div>
               }
             </div>
           </div>
         </header>
 
-        <main class="flex-1 p-4 sm:p-6">
+        <main id="conteudo" class="flex-1 p-4 sm:p-8" tabindex="-1" #main>
           <router-outlet></router-outlet>
         </main>
       </div>
     </div>
 
     <app-modal></app-modal>
+    <app-toast-host></app-toast-host>
   `,
   styles: [`
-    a.nav-active {
-      background: rgba(45, 212, 191, 0.14) !important;
-      color: #e7eef6 !important;
+    :host { display: block; }
+
+    /* ——— Menu lateral ——— */
+    .sidebar {
+      width: 16.5rem;
+      background: var(--cmm-sidebar);
+      border-right: 1px solid var(--cmm-sidebar-border);
+      transition: width 520ms var(--ease-out-expo), transform 520ms var(--ease-out-expo);
+      overflow: hidden;
     }
-    a:hover:not(.nav-active) {
-      background: rgba(255, 255, 255, 0.04);
-      color: #e7eef6;
+    .sidebar::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background:
+        radial-gradient(220px 220px at 0% 0%, color-mix(in srgb, var(--cmm-accent) 22%, transparent), transparent 70%),
+        radial-gradient(240px 240px at 100% 100%, color-mix(in srgb, var(--cmm-accent-2) 10%, transparent), transparent 70%);
     }
+    .sidebar > * { position: relative; }
+    .sidebar-collapsed { width: 4.75rem; }
+    .sidebar-hidden { transform: translateX(-100%); }
+
+    .sidebar-brand {
+      height: 4.25rem; display: flex; align-items: center; gap: 0.85rem; padding: 0 1.1rem;
+      border-bottom: 1px solid var(--cmm-sidebar-border); overflow: hidden; flex-shrink: 0;
+    }
+    .brand-mark {
+      position: relative; flex-shrink: 0; width: 2.25rem; height: 2.25rem; border-radius: 0.7rem;
+      display: grid; place-items: center; font-weight: 800; font-size: 0.8rem; letter-spacing: -0.02em;
+      color: var(--cmm-accent-ink);
+      background: linear-gradient(135deg, var(--cmm-accent), var(--cmm-accent-2));
+      box-shadow: 0 8px 24px -8px var(--cmm-accent);
+      transition: transform 600ms var(--ease-out-expo);
+    }
+    .brand-mark::after {
+      content: ""; position: absolute; inset: -4px; border-radius: 0.95rem;
+      border: 1.5px solid transparent;
+      background: conic-gradient(from 0deg, var(--cmm-accent), transparent 40%, var(--cmm-accent-2), transparent 80%, var(--cmm-accent)) border-box;
+      -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude;
+      animation: spin 6s linear infinite;
+    }
+    .sidebar-brand:hover .brand-mark { transform: rotate(-12deg) scale(1.1); }
+    .brand-text { animation: cmm-fade-in 500ms var(--ease-out-expo) both; }
+
+    .sidebar-nav { position: relative; padding: 1rem 0; }
+    .nav-pill {
+      position: absolute; left: 0.75rem; right: 0.75rem; top: 0; height: 0; opacity: 0; pointer-events: none;
+      border-radius: 0.8rem;
+      background: linear-gradient(100deg, color-mix(in srgb, var(--cmm-accent) 30%, transparent), color-mix(in srgb, var(--cmm-accent-2) 10%, transparent));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cmm-accent) 45%, transparent), 0 10px 30px -12px var(--cmm-accent);
+    }
+    .nav-pill::before {
+      content: ""; position: absolute; left: -0.75rem; top: 22%; bottom: 22%; width: 4px; border-radius: 0 4px 4px 0;
+      background: var(--cmm-accent); box-shadow: 0 0 14px var(--cmm-accent);
+    }
+
+    .nav-enter { animation: nav-in 700ms var(--ease-out-expo) both; animation-delay: calc(var(--i, 0) * 70ms + 120ms); }
+    @keyframes nav-in { from { opacity: 0; transform: translateX(-28px); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+
+    .nav-link {
+      position: relative; display: flex; align-items: center; gap: 0.8rem; padding: 0.7rem 0.85rem;
+      border-radius: 0.8rem; font-size: 0.875rem; font-weight: 500; color: var(--cmm-sidebar-muted);
+      background: transparent; border: none; cursor: pointer; text-decoration: none; white-space: nowrap;
+      transition: color 250ms ease-out, background-color 250ms ease-out, transform 400ms var(--ease-out-expo);
+    }
+    .nav-link:hover { color: #f6f1e7; background: rgba(255,255,255,0.045); transform: translateX(4px); }
+    .nav-link:hover .nav-icon { transform: scale(1.18) rotate(-6deg); color: var(--cmm-accent); }
+    .nav-icon { width: 1.15rem; height: 1.15rem; flex-shrink: 0; transition: transform 400ms var(--ease-out-expo), color 250ms; }
+    .nav-link.nav-active, .nav-link.nav-group-active { color: #fff; }
+    .nav-link.nav-active .nav-icon, .nav-link.nav-group-active .nav-icon { color: var(--cmm-accent); }
+    .nav-child { padding: 0.5rem 0.75rem; font-size: 0.8125rem; gap: 0.6rem; }
+    .nav-dot { width: 5px; height: 5px; border-radius: 99px; background: currentColor; opacity: 0.5; transition: transform 300ms var(--ease-out-expo), opacity 200ms; }
+    .nav-child:hover .nav-dot, .nav-child.nav-active .nav-dot { transform: scale(1.8); opacity: 1; background: var(--cmm-accent); }
+    .sub-list { border-left: 1px solid var(--cmm-sidebar-border); }
+    .chev { transition: transform 400ms var(--ease-out-expo); }
+    .chev-open { transform: rotate(180deg); }
+
+    .sidebar-toggle {
+      height: 3.1rem; align-items: center; justify-content: center; gap: 0.5rem; color: var(--cmm-sidebar-muted);
+      border: none; border-top: 1px solid var(--cmm-sidebar-border); background: transparent; cursor: pointer;
+      transition: color 200ms, background-color 200ms;
+    }
+    .sidebar-toggle:hover { color: #fff; background: rgba(255,255,255,0.04); }
+    .toggle-arrow { transition: transform 500ms var(--ease-out-expo); }
+    .toggle-arrow-flip { transform: rotate(180deg); }
+
+    /* ——— Área principal ——— */
+    .main-shell { transition: margin 520ms var(--ease-out-expo); }
+    @media (min-width: 768px) {
+      .main-shell { margin-left: 16.5rem; }
+      .main-shell-collapsed { margin-left: 4.75rem; }
+    }
+    main:focus { outline: none; }
+
+    .topbar {
+      height: 4.25rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+      padding: 0 1rem;
+      background: color-mix(in srgb, var(--cmm-surface) 72%, transparent);
+      border-bottom: 1px solid color-mix(in srgb, var(--cmm-border) 80%, transparent);
+      backdrop-filter: blur(14px) saturate(1.4);
+    }
+    @media (min-width: 640px) { .topbar { padding: 0 2rem; } }
+    .topbar-title { animation: title-in 700ms var(--ease-out-expo) both; }
+    @keyframes title-in { from { opacity: 0; transform: translateY(100%) rotateX(-70deg); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+
+    .theme-btn:hover .theme-icon { transform: rotate(180deg) scale(1.2); }
+    .theme-icon { transition: transform 700ms var(--ease-out-expo); }
+
+    .user-btn {
+      display: flex; align-items: center; gap: 0.6rem; padding: 0.3rem 0.5rem 0.3rem 0.3rem;
+      border-radius: 999px; border: 1px solid transparent; background: transparent; cursor: pointer; color: var(--cmm-ink);
+      transition: background-color 220ms, border-color 220ms, transform 300ms var(--ease-out-expo);
+    }
+    .user-btn:hover { background: var(--cmm-panel); border-color: var(--cmm-border); }
+    .user-btn:active { transform: scale(0.96); }
+    .avatar {
+      width: 2rem; height: 2rem; border-radius: 99px; display: grid; place-items: center;
+      font-size: 0.75rem; font-weight: 800; color: var(--cmm-accent-ink);
+      background: linear-gradient(135deg, var(--cmm-accent), var(--cmm-accent-2));
+    }
+    .user-menu {
+      position: absolute; right: 0; margin-top: 0.5rem; width: 15rem; padding: 0.35rem; z-index: 50;
+      background: var(--cmm-panel); border: 1px solid var(--cmm-border); border-radius: 1rem;
+      box-shadow: var(--cmm-shadow-lift); transform-origin: top right;
+      animation: menu-in 420ms var(--ease-out-expo) both;
+    }
+    @keyframes menu-in { from { opacity: 0; transform: translateY(-10px) scale(0.92); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+    .user-item {
+      display: flex; align-items: center; padding: 0.65rem 0.8rem; border-radius: 0.65rem; font-size: 0.875rem; font-weight: 500;
+      color: var(--cmm-ink); background: transparent; border: none; cursor: pointer; text-decoration: none; text-align: left;
+      transition: background-color 180ms, transform 300ms var(--ease-out-expo);
+    }
+    .user-item:hover { background: color-mix(in srgb, var(--cmm-accent) 10%, transparent); transform: translateX(3px); }
+    .switch { width: 2.4rem; height: 1.35rem; border-radius: 99px; background: var(--cmm-border); position: relative; transition: background-color 300ms; flex-shrink: 0; }
+    .switch-on { background: var(--cmm-accent); }
+    .switch-knob { position: absolute; top: 2px; left: 2px; width: 1.05rem; height: 1.05rem; border-radius: 99px; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.3); transition: transform 400ms var(--ease-out-expo); }
+    .switch-on .switch-knob { transform: translateX(1.05rem); }
   `]
 })
-export class LayoutComponent implements OnInit, OnDestroy {
+export class LayoutComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly accessService = inject(AccessService);
+  private readonly motion = inject(MotionService);
+  private readonly titleService = inject(Title);
   private readonly THEME_KEY = 'theme_mode';
   private mediaQuery?: MediaQueryList;
   private onMediaChange?: () => void;
+  private pillReady = false;
+  private hasNavigated = false;
+
+  @ViewChild('nav') navRef?: ElementRef<HTMLElement>;
+  @ViewChild('pill') pillRef?: ElementRef<HTMLElement>;
+  @ViewChild('main') mainRef?: ElementRef<HTMLElement>;
 
   sidebarCollapsed = signal(false);
   mobileOpen = signal(false);
@@ -293,6 +386,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
   userMenuOpen = signal(false);
   pageTitle = signal('Dashboard');
   isDarkMode = signal(false);
+  motionOn = signal(true);
   allowedTabs = signal<string[]>([]);
   expandedGroups = signal<Set<string>>(new Set());
 
@@ -367,17 +461,76 @@ export class LayoutComponent implements OnInit, OnDestroy {
   constructor(public authService: AuthService, private router: Router) {
     this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(() => {
       this.syncFromUrl(this.router.url);
+      this.schedulePill();
+      // Acessibilidade: ao navegar, leitor de tela anuncia a nova página e o teclado recomeça do conteúdo.
+      // No primeiro carregamento o foco não é roubado (o "Pular para o conteúdo" precisa ser o 1º Tab).
+      if (this.hasNavigated) setTimeout(() => this.mainRef?.nativeElement.focus({ preventScroll: true }), 0);
+      this.hasNavigated = true;
     });
     this.syncFromUrl(this.router.url);
+
+    // O indicador do menu também precisa se reposicionar quando o menu muda (permissões, grupos, recolher).
+    effect(() => {
+      this.menuItems();
+      this.expandedGroups();
+      this.sidebarCollapsed();
+      this.mobileOpen();
+      this.schedulePill();
+    });
   }
 
   ngOnInit(): void {
     this.initializeTheme();
+    try {
+      this.sidebarCollapsed.set(localStorage.getItem(SIDEBAR_KEY) === '1');
+    } catch { /* sem storage */ }
+    this.motionOn.set(this.motion.enabled);
     this.loadNavigationTabs();
     this.bindViewport();
   }
 
+  ngAfterViewInit(): void {
+    this.schedulePill();
+    window.addEventListener('resize', this.onResize, { passive: true });
+  }
+
+  private readonly onResize = () => this.schedulePill();
+
+  /** Agenda o reposicionamento do indicador depois que o DOM do menu assentar. */
+  schedulePill(): void {
+    setTimeout(() => this.positionPill(), 60);
+  }
+
+  /** Faz o indicador deslizar até o item ativo do menu. */
+  private positionPill(): void {
+    const nav = this.navRef?.nativeElement;
+    const pill = this.pillRef?.nativeElement;
+    if (!nav || !pill) return;
+    const active = nav.querySelector<HTMLElement>('.nav-link.nav-active, .nav-link.nav-group-active');
+    if (!active) {
+      pill.style.opacity = '0';
+      return;
+    }
+    const navTop = nav.getBoundingClientRect().top - nav.scrollTop;
+    const r = active.getBoundingClientRect();
+    const top = r.top - navTop;
+    if (!this.pillReady || !this.motion.enabled) {
+      pill.style.top = `${top}px`;
+      pill.style.height = `${r.height}px`;
+      pill.style.opacity = '1';
+      this.pillReady = true;
+      return;
+    }
+    animate(pill, { top: `${top}px`, height: `${r.height}px`, opacity: 1 }, { duration: 0.75, ease: [0.16, 1, 0.3, 1] });
+  }
+
+  focusMain(event: Event): void {
+    event.preventDefault();
+    this.mainRef?.nativeElement.focus();
+  }
+
   ngOnDestroy(): void {
+    window.removeEventListener('resize', this.onResize);
     if (this.mediaQuery && this.onMediaChange) {
       this.mediaQuery.removeEventListener('change', this.onMediaChange);
     }
@@ -411,7 +564,9 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   private syncFromUrl(url: string): void {
     const path = url.split('?')[0];
-    this.pageTitle.set(this.resolveTitle(path));
+    const title = this.resolveTitle(path);
+    this.pageTitle.set(title);
+    this.titleService.setTitle(`${title} · CMM System`);
 
     for (const item of this.menuItems()) {
       if (item.children?.some(c => path.startsWith(c.route))) {
@@ -445,17 +600,32 @@ export class LayoutComponent implements OnInit, OnDestroy {
     document.documentElement.classList.toggle('dark', shouldUseDark);
   }
 
-  toggleDarkMode(): void {
+  toggleDarkMode(event?: MouseEvent): void {
     if (typeof document === 'undefined') return;
 
     const nextValue = !this.isDarkMode();
-    this.isDarkMode.set(nextValue);
-    localStorage.setItem(this.THEME_KEY, nextValue ? 'dark' : 'light');
-    document.documentElement.classList.toggle('dark', nextValue);
+    const apply = () => {
+      this.isDarkMode.set(nextValue);
+      localStorage.setItem(this.THEME_KEY, nextValue ? 'dark' : 'light');
+      document.documentElement.classList.toggle('dark', nextValue);
+    };
+    // O tema se espalha em círculo a partir do botão clicado.
+    const origin = event ? { x: event.clientX, y: event.clientY } : { x: innerWidth - 60, y: 40 };
+    void this.motion.themeTransition(origin, apply);
+  }
+
+  toggleMotion(): void {
+    const next = !this.motionOn();
+    this.motionOn.set(next);
+    this.motion.setEnabled(next);
   }
 
   toggleSidebar(): void {
-    this.sidebarCollapsed.set(!this.sidebarCollapsed());
+    const next = !this.sidebarCollapsed();
+    this.sidebarCollapsed.set(next);
+    try {
+      localStorage.setItem(SIDEBAR_KEY, next ? '1' : '0');
+    } catch { /* sem storage */ }
   }
 
   closeMobile(): void {

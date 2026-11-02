@@ -1,5 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { AuthArtComponent } from '../../shared/components/auth-art.component';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
@@ -7,42 +8,37 @@ import { environment } from '../../../environments/environment';
 @Component({
   selector: 'app-setup',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, AuthArtComponent],
   template: `
     <div class="auth-shell">
-      <div class="w-full max-w-md">
-        <div class="text-center mb-8">
-          <div class="inline-flex items-center justify-center w-14 h-14 rounded-xl mb-4" style="background: var(--cmm-accent); color: #042f2e;">
-            <span class="text-lg font-semibold">CM</span>
-          </div>
-          <h1 class="text-2xl font-semibold text-white tracking-tight">Configuração inicial</h1>
-          <p class="text-white/55 mt-1 text-sm">Crie a conta master do sistema</p>
-        </div>
+      <app-auth-art></app-auth-art>
+      <main class="auth-main"><div class="w-full max-w-md auth-rise">
+        <div class="mb-8"><span class="auth-chip" aria-hidden="true">CM</span><h1 class="font-display text-4xl font-extrabold tracking-tight mt-4" style="color: var(--cmm-ink);">Configuração inicial</h1><p class="mt-2 text-sm" style="color: var(--cmm-muted);">Crie a conta master do sistema</p></div>
 
         <div class="auth-card">
-          <div class="mb-6 p-4 rounded-lg" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(231,238,246,0.12);">
+          <div class="mb-6 p-4 rounded-lg" style="background: color-mix(in srgb, var(--cmm-border) 35%, var(--cmm-panel)); border: 1px solid var(--cmm-border);">
             <div class="flex gap-3">
-              <div class="text-sm text-white/75">
-                <p class="font-semibold mb-1 text-white">Usuário master</p>
-                <p class="text-white/50">O primeiro usuário será o administrador principal. Esta conta não pode ser removida e convida os demais.</p>
+              <div class="text-sm text-cmm-ink">
+                <p class="font-semibold mb-1 text-cmm-ink">Usuário master</p>
+                <p class="text-cmm-muted">O primeiro usuário será o administrador principal. Esta conta não pode ser removida e convida os demais.</p>
               </div>
             </div>
           </div>
 
           @if (errorMessage()) {
-            <div class="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
+            <div class="mb-6 auth-alert auth-alert-error" role="alert">
               {{ errorMessage() }}
             </div>
           }
 
           <form (ngSubmit)="onSubmit()" class="space-y-5">
             <div>
-              <label class="block text-slate-300 text-sm font-medium mb-2">
+              <label class="auth-label">
                 Nome Completo
               </label>
               <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="h-5 w-5 text-cmm-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                   </svg>
                 </div>
@@ -51,19 +47,19 @@ import { environment } from '../../../environments/environment';
                   [(ngModel)]="name"
                   name="name"
                   required
-                  class="w-full pl-10 pr-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
+                  class="auth-input pl-10 pr-4"
                   placeholder="Seu nome completo"
                 />
               </div>
             </div>
 
             <div>
-              <label class="block text-slate-300 text-sm font-medium mb-2">
+              <label class="auth-label">
                 Email
               </label>
               <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="h-5 w-5 text-cmm-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path>
                   </svg>
                 </div>
@@ -72,14 +68,14 @@ import { environment } from '../../../environments/environment';
                   [(ngModel)]="email"
                   name="email"
                   required
-                  class="w-full pl-10 pr-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
+                  class="auth-input pl-10 pr-4"
                   placeholder="seu@email.com"
                 />
               </div>
             </div>
 
             <div>
-              <label class="block text-slate-300 text-sm font-medium mb-2">
+              <label class="auth-label">
                 Token de configuração (se exigido pelo servidor)
               </label>
               <input
@@ -87,18 +83,18 @@ import { environment } from '../../../environments/environment';
                 [(ngModel)]="setupToken"
                 name="setupToken"
                 autocomplete="off"
-                class="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
+                class="auth-input"
                 placeholder="MASTER_SETUP_TOKEN"
               />
             </div>
 
             <div>
-              <label class="block text-slate-300 text-sm font-medium mb-2">
+              <label class="auth-label">
                 Senha
               </label>
               <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="h-5 w-5 text-cmm-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                   </svg>
                 </div>
@@ -108,13 +104,13 @@ import { environment } from '../../../environments/environment';
                   name="password"
                   required
                   minlength="8"
-                  class="w-full pl-10 pr-12 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
+                  class="auth-input pl-10 pr-12"
                   placeholder="Mínimo 8 caracteres"
                 />
                 <button
                   type="button"
                   (click)="showPassword.set(!showPassword())"
-                  class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-white transition"
+                  class="absolute inset-y-0 right-0 pr-3 flex items-center text-cmm-muted hover:text-cmm-accent transition"
                 >
                   @if (showPassword()) {
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -131,12 +127,12 @@ import { environment } from '../../../environments/environment';
             </div>
 
             <div>
-              <label class="block text-slate-300 text-sm font-medium mb-2">
+              <label class="auth-label">
                 Confirmar Senha
               </label>
               <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="h-5 w-5 text-cmm-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
                 </div>
@@ -145,7 +141,7 @@ import { environment } from '../../../environments/environment';
                   [(ngModel)]="confirmPassword"
                   name="confirmPassword"
                   required
-                  class="w-full pl-10 pr-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
+                  class="auth-input pl-10 pr-4"
                   placeholder="Repita a senha"
                 />
               </div>
@@ -172,10 +168,10 @@ import { environment } from '../../../environments/environment';
           </form>
         </div>
 
-        <p class="text-center text-white/40 text-sm mt-8">
+        <p class="text-center text-cmm-muted text-sm mt-8">
           CMM System © 2026
         </p>
-      </div>
+      </div></main>
     </div>
   `
 })

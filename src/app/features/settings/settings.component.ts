@@ -119,7 +119,7 @@ interface EnvironmentSetting {
 
             @if (getSettingsByCategory('jobs').length > 0) {
               <section style="border-top: 1px solid var(--cmm-border); padding-top: 2rem;">
-                <h3 class="text-sm font-semibold mb-4" style="color: var(--cmm-ink);">Configurações de Jobs</h3>
+                <h3 class="text-sm font-semibold mb-4" style="color: var(--cmm-ink);">Configurações de automações</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   @for (setting of getSettingsByCategory('jobs'); track setting.key) {
                     <div>

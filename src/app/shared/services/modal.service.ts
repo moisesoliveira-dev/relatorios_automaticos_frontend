@@ -1,4 +1,5 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+import { ToastService } from '../../core/ui/toast.service';
 
 export interface ModalConfig {
     title: string;
@@ -14,6 +15,7 @@ export interface ModalConfig {
     providedIn: 'root'
 })
 export class ModalService {
+    private readonly toast = inject(ToastService);
     private modalConfig = signal<ModalConfig | null>(null);
 
     readonly config = this.modalConfig.asReadonly();
@@ -53,8 +55,10 @@ export class ModalService {
         });
     }
 
-    success(message: string, title = 'Sucesso') {
-        return this.alert(title, message, 'success');
+    /** Sucesso não bloqueia o trabalho: vira um aviso (toast) que some sozinho. */
+    success(message: string, title = 'Sucesso'): Promise<void> {
+        this.toast.success(message, title);
+        return Promise.resolve();
     }
 
     error(message: string, title = 'Erro') {

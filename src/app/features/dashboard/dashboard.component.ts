@@ -4,31 +4,32 @@ import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
 import { DashboardService } from '../../services/dashboard.service';
+import { CounterDirective } from '../../core/motion/counter.directive';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, RouterLink, FormsModule, CounterDirective],
   template: `
     <div class="space-y-6">
       <div class="page-header">
         <div>
-          <h1 class="page-title">Olá, {{ authService.user()?.name }}</h1>
+          <h1 class="page-title">Olá, <span class="text-gradient">{{ firstName() }}</span></h1>
           <p class="page-subtitle">Resumo do sistema de relatórios</p>
         </div>
       </div>
 
       <!-- Stats -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         @for (stat of statsDisplay(); track stat.label) {
           <div class="panel panel-pad">
             <div class="flex items-start justify-between gap-3">
               <div>
                 <p class="text-sm" style="color: var(--cmm-muted);">{{ stat.label }}</p>
-                <p class="text-2xl font-semibold mt-1" style="color: var(--cmm-ink);">{{ stat.value }}</p>
+                <p class="stat-value font-display font-extrabold mt-1 tracking-tight" style="color: var(--cmm-ink);" [appCounter]="stat.value" aria-live="off">{{ stat.value }}</p>
               </div>
               <div
-                class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                class="hidden sm:flex w-9 h-9 rounded-lg items-center justify-center flex-shrink-0"
                 style="background: var(--cmm-accent-soft); color: var(--cmm-accent);"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -149,11 +150,17 @@ import { DashboardService } from '../../services/dashboard.service';
         </div>
       </div>
     </div>
-  `
+  `,
+  styles: [`
+    .stat-value { font-size: clamp(2rem, 1.6rem + 1.2vw, 2.9rem); line-height: 1; font-variant-numeric: tabular-nums; }
+  `]
 })
 export class DashboardComponent implements OnInit {
   authService = inject(AuthService);
   dashboardService = inject(DashboardService);
+
+  /** Primeiro nome para a saudação (mais humano que o nome completo). */
+  firstName = computed(() => (this.authService.user()?.name ?? '').trim().split(/\s+/)[0] || 'por aqui');
 
   quickActions = [
     { label: 'Novo Relatório', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', route: '/reports/ocorrencias', description: 'Gerar relatório' },

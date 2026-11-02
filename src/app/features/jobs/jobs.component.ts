@@ -1,3 +1,4 @@
+import { ModalService } from '../../shared/services/modal.service';
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -609,6 +610,7 @@ export class JobsComponent implements OnInit, OnDestroy {
   @ViewChild('logsContainer') private logsContainerRef!: ElementRef<HTMLDivElement>;
 
   private http = inject(HttpClient);
+  private modalService = inject(ModalService);
   private apiUrl = environment.apiUrl;
   private refreshInterval: ReturnType<typeof setInterval> | null = null;
   private processedSearchTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -883,10 +885,13 @@ export class JobsComponent implements OnInit, OnDestroy {
     this.loadProcessedOrders(true);
   }
 
-  removeProcessedOrder(order: ProcessedOrder) {
-    if (!confirm(`Liberar ${order.code} para reprocessar?\n\nNa próxima execução, as tarefas desse pedido poderão ser criadas de novo.`)) {
-      return;
-    }
+  async removeProcessedOrder(order: ProcessedOrder) {
+    const ok = await this.modalService.confirm(
+      `Liberar ${order.code}?`,
+      'Na próxima execução, as tarefas desse pedido poderão ser criadas de novo.',
+      'Liberar para reprocessar',
+    );
+    if (!ok) return;
     this.http.delete(`${this.apiUrl}/jobs/code/auto-tasks/processed-orders/${encodeURIComponent(order.code)}`).subscribe({
       next: () => {
         this.flashOk(`${order.code} liberado para reprocessar.`);

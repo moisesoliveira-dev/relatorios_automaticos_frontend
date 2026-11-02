@@ -1,6 +1,8 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { AuthService } from './core/services/auth.service';
+import { MotionService } from './core/motion/motion.service';
+import { DialogEnhancerService } from './core/ui/dialog-enhancer.service';
 
 @Component({
   selector: 'app-root',
@@ -9,18 +11,24 @@ import { AuthService } from './core/services/auth.service';
   template: `<router-outlet></router-outlet>`
 })
 export class App implements OnInit, OnDestroy {
-  private checkInterval: any;
+  private checkInterval: ReturnType<typeof setInterval> | undefined;
+  private readonly motion = inject(MotionService);
+  private readonly dialogs = inject(DialogEnhancerService);
 
   constructor(private authService: AuthService) { }
 
   ngOnInit() {
-    // Verifica inatividade a cada 30 segundos quando a página está visível
+    // Liga o motor de movimento (revelação em cascata, spotlight, magnetismo, progresso de rolagem...)
+    this.motion.start();
+    // Acessibilidade de todos os diálogos (foco preso, Escape, rótulos)
+    this.dialogs.start();
+
+    // Verifica inatividade a cada 15 segundos quando a página está visível
     this.checkInterval = setInterval(() => {
       if (!document.hidden) {
-        // Só verifica se a página está visível
         this.authService.checkInactivity();
       }
-    }, 30000); // 30 segundos
+    }, 15000);
   }
 
   ngOnDestroy() {
