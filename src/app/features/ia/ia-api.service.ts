@@ -88,6 +88,30 @@ export interface IaCatalog {
   baseConhecimento: Array<{ id: string; texto: string }>;
 }
 
+export interface IaKb {
+  id: string;
+  keywords: string[];
+  text: string;
+}
+export interface IaContentDoc {
+  messages: Record<string, string>;
+  kb: IaKb[] | null;
+  categorias: Record<string, string>;
+  guidance: { tone: string; instructions: string };
+  menuDesativado: number[];
+}
+export interface IaContent {
+  published: IaContentDoc;
+  publishedAt: string | null;
+  publishedBy: string | null;
+  draft: IaContentDoc | null;
+  draftAt: string | null;
+  hasPrevious: boolean;
+  defaults: { messages: Record<string, string>; kb: IaKb[]; categorias: Record<string, string> };
+  specs: Record<string, { objetivo: string | null; pontos: string[]; placeholders: string[] }>;
+  tones: Array<{ key: string; label: string }>;
+}
+
 @Injectable({ providedIn: 'root' })
 export class IaApiService {
   private readonly http = inject(HttpClient);
@@ -121,5 +145,20 @@ export class IaApiService {
   }
   saveConfig(values: Record<string, unknown>) {
     return this.http.put<IaConfigField[]>(`${this.base}/config`, { values });
+  }
+  content() {
+    return this.http.get<IaContent>(`${this.base}/content`);
+  }
+  saveDraft(doc: IaContentDoc) {
+    return this.http.put<IaContent>(`${this.base}/content/draft`, doc);
+  }
+  discardDraft() {
+    return this.http.delete<IaContent>(`${this.base}/content/draft`);
+  }
+  publish() {
+    return this.http.post<IaContent>(`${this.base}/content/publish`, {});
+  }
+  rollback() {
+    return this.http.post<IaContent>(`${this.base}/content/rollback`, {});
   }
 }

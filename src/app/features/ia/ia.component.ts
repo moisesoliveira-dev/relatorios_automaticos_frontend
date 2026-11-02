@@ -3,8 +3,9 @@ import { FormsModule } from '@angular/forms';
 import { CounterDirective } from '../../core/motion/counter.directive';
 import { ToastService } from '../../core/ui/toast.service';
 import { ModalService } from '../../shared/services/modal.service';
+import { IaConteudoComponent } from './ia-conteudo.component';
 import {
-  IaApiService, IaCatalog, IaConfigField, IaConversationDetail, IaConversationSummary, IaList, IaOverview, IaSimulation,
+  IaApiService, IaConfigField, IaConversationDetail, IaConversationSummary, IaList, IaOverview, IaSimulation,
 } from './ia-api.service';
 
 type Aba = 'visao' | 'conversas' | 'simulador' | 'config' | 'mensagens';
@@ -47,7 +48,7 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
 @Component({
   selector: 'app-ia',
   standalone: true,
-  imports: [FormsModule, CounterDirective],
+  imports: [FormsModule, CounterDirective, IaConteudoComponent],
   template: `
     <div class="space-y-6">
       <!-- Cabeçalho com estado ao vivo -->
@@ -328,30 +329,7 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
         }
 
         <!-- ═══════════ MENSAGENS ═══════════ -->
-        @case ('mensagens') {
-          @if (catalogo(); as c) {
-            <div class="panel panel-pad flex items-start gap-3" style="background: color-mix(in srgb, var(--cmm-warning) 8%, var(--cmm-panel));">
-              <p class="text-sm">Aqui você <b>vê</b> o que o bot diz e o que cada mensagem precisa comunicar. A IA escreve com voz natural, mas só envia se todos os pontos essenciais estiverem presentes. Para <b>mudar</b> textos ou a base de conhecimento é preciso alterar o código (<code>chatbot.messages.ts</code> e <code>knowledge-base.ts</code>).</p>
-            </div>
-            <input class="form-input" type="search" placeholder="Filtrar mensagens…" aria-label="Filtrar mensagens" [(ngModel)]="filtroMsg" />
-            <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              @for (m of mensagensFiltradas(); track m.chave) {
-                <article class="panel panel-pad">
-                  <div class="flex items-center justify-between gap-2 mb-2"><code class="text-xs">{{ m.chave }}</code></div>
-                  @if (m.objetivo) { <p class="text-sm mb-2" style="color: var(--cmm-muted);">{{ m.objetivo }}</p> }
-                  @if (m.pontosEssenciais.length) { <div class="flex gap-1.5 flex-wrap mb-3">@for (p of m.pontosEssenciais; track p) { <span class="chip">{{ p }}</span> }</div> }
-                  <div class="bubble bubble-bot whitespace-pre-line">{{ m.texto }}</div>
-                </article>
-              }
-            </div>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div class="panel panel-pad"><h2 class="sec-title mb-3">Base de conhecimento</h2><p class="text-sm mb-3" style="color: var(--cmm-muted);">Só isto pode ser afirmado nas respostas livres.</p>
-                <ul class="space-y-2">@for (k of c.baseConhecimento; track k.id) { <li class="text-sm"><code class="text-xs">{{ k.id }}</code> — {{ k.texto }}</li> }</ul></div>
-              <div class="panel panel-pad"><h2 class="sec-title mb-3">Ambientes</h2>
-                <div class="flex gap-2 flex-wrap">@for (k of categoriasLista(c); track k.n) { <span class="chip">{{ k.n }} · {{ k.nome }}</span> }</div></div>
-            </div>
-          } @else { <div class="panel panel-pad"><div class="skeleton h-4 w-1/2 mb-3"></div><div class="skeleton h-24 w-full"></div></div> }
-        }
+        @case ('mensagens') { <app-ia-conteudo /> }
       }
     </div>
 
@@ -477,7 +455,7 @@ export class IaComponent implements OnInit, OnDestroy {
 
   abas: Array<{ key: Aba; label: string }> = [
     { key: 'visao', label: 'Visão geral' }, { key: 'conversas', label: 'Conversas' }, { key: 'simulador', label: 'Simulador' },
-    { key: 'config', label: 'Configuração' }, { key: 'mensagens', label: 'Mensagens' },
+    { key: 'config', label: 'Configuração' }, { key: 'mensagens', label: 'Mensagens e guia' },
   ];
   etapas = ETAPAS;
   grupos = GRUPOS;
@@ -516,9 +494,6 @@ export class IaComponent implements OnInit, OnDestroy {
   salvando = signal(false);
   alteracoes = computed(() => Object.keys(this.draft()).length);
 
-  // mensagens
-  catalogo = signal<IaCatalog | null>(null);
-  filtroMsg = '';
 
   kpis = computed(() => {
     const t = this.overview()?.totais;
@@ -552,11 +527,6 @@ export class IaComponent implements OnInit, OnDestroy {
     const s = Math.max(0, Math.round((this.agora() - t) / 1000));
     return s < 5 ? 'atualizado agora' : `atualizado há ${s}s`;
   });
-  mensagensFiltradas = computed(() => {
-    const q = this.filtroMsg.trim().toLowerCase();
-    const all = this.catalogo()?.mensagens ?? [];
-    return q ? all.filter((m) => (m.chave + ' ' + m.texto + ' ' + (m.objetivo ?? '')).toLowerCase().includes(q)) : all;
-  });
 
   ngOnInit(): void {
     this.refreshAll();
@@ -573,7 +543,6 @@ export class IaComponent implements OnInit, OnDestroy {
     this.aba.set(a);
     if (a === 'conversas' && !this.lista()) this.carregarLista();
     if (a === 'config' && !this.campos().length) this.carregarConfig();
-    if (a === 'mensagens' && !this.catalogo()) this.api.catalog().subscribe({ next: (c) => this.catalogo.set(c), error: () => this.toast.error('Não foi possível carregar o catálogo.') });
     if (a === 'visao') this.carregarOverview();
   }
 
@@ -677,7 +646,6 @@ export class IaComponent implements OnInit, OnDestroy {
   diaCurto(d: string): string { return d.slice(8, 10); }
   altura(n: number): number { const max = Math.max(1, ...(this.overview()?.serie ?? []).map((x) => x.total)); return n ? Math.max(6, (n / max) * 78) : 0; }
   serieTexto(): string { return (this.overview()?.serie ?? []).map((d) => `${d.dia.slice(8)}: ${d.total}`).join(', '); }
-  categoriasLista(c: IaCatalog) { return Object.entries(c.categorias).map(([n, nome]) => ({ n, nome })); }
   private pares(src: Record<string, number> | undefined, nomes: Record<string, string>) {
     return Object.entries(src ?? {}).filter(([, v]) => v > 0).map(([k, v]) => ({ label: nomes[k] ?? k, value: v }));
   }
