@@ -5,15 +5,20 @@ import { IaApiService, IaFlow, IaFlowState, IaNode, IaTool } from './ia-api.serv
 
 type Tipo = IaNode['tipo'];
 
-const TIPOS: Array<{ tipo: Tipo; label: string; icone: string; ajuda: string }> = [
-  { tipo: 'mensagem', label: 'Mensagem', icone: '💬', ajuda: 'O bot diz algo e segue sozinho para o próximo bloco.' },
-  { tipo: 'pergunta', label: 'Pergunta', icone: '❓', ajuda: 'Espera uma resposta livre e guarda numa variável (ex.: nome, bairro).' },
-  { tipo: 'opcoes', label: 'Opções', icone: '🔢', ajuda: 'O cliente escolhe um número; cada opção leva a um caminho.' },
-  { tipo: 'arquivos', label: 'Arquivos', icone: '📎', ajuda: 'Pede arquivos e espera o cliente enviar “OK”. Vão para a pasta do Drive.' },
-  { tipo: 'acao', label: 'Ferramenta', icone: '🧰', ajuda: 'Faz algo por conta própria, como criar a pasta no Drive.' },
-  { tipo: 'encaminhar', label: 'Encaminhar', icone: '🤝', ajuda: 'Passa o cliente a um atendente (rodízio) e termina o fluxo.' },
-  { tipo: 'fim', label: 'Encerrar', icone: '🏁', ajuda: 'Termina o fluxo e volta ao menu inicial.' },
+type Grupo = 'Falar' | 'Receber do cliente' | 'Fazer' | 'Terminar';
+
+/** Cada tipo é um modelo: já nasce com o formato certo (o que pergunta, quantas opções, o que faz sozinho). */
+const TIPOS: Array<{ tipo: Tipo; grupo: Grupo; label: string; icone: string; ajuda: string }> = [
+  { tipo: 'mensagem', grupo: 'Falar', label: 'Mensagem', icone: '💬', ajuda: 'O bot informa algo e segue sozinho para o próximo passo.' },
+  { tipo: 'confirmacao', grupo: 'Falar', label: 'Confirmação', icone: '✅', ajuda: 'Pergunta e o cliente responde Sim ou Não. As duas opções já vêm prontas; você só escolhe o caminho de cada uma.' },
+  { tipo: 'opcoes', grupo: 'Receber do cliente', label: 'Escolha', icone: '🔢', ajuda: 'Um menu: o cliente escolhe um número e cada opção leva a um caminho (de 2 a 8).' },
+  { tipo: 'pergunta', grupo: 'Receber do cliente', label: 'Pergunta', icone: '❓', ajuda: 'Espera uma resposta escrita e guarda numa variável (ex.: nome, bairro).' },
+  { tipo: 'arquivos', grupo: 'Receber do cliente', label: 'Solicitação', icone: '📎', ajuda: 'Pede arquivos ou documentos e espera o “OK”. Pode guardar no Drive, criando a pasta ou usando a que já existe.' },
+  { tipo: 'acao', grupo: 'Fazer', label: 'Ferramenta', icone: '🧰', ajuda: 'Executa algo por conta própria, como criar a pasta no Drive ou salvar as respostas.' },
+  { tipo: 'encaminhar', grupo: 'Terminar', label: 'Encaminhar', icone: '🤝', ajuda: 'Passa o cliente a um atendente (rodízio) e termina o fluxo.' },
+  { tipo: 'fim', grupo: 'Terminar', label: 'Encerrar', icone: '🏁', ajuda: 'Termina o fluxo e volta ao menu inicial.' },
 ];
+const GRUPOS: Grupo[] = ['Falar', 'Receber do cliente', 'Fazer', 'Terminar'];
 
 export const MODELOS: Record<string, () => IaFlow> = {
   branco: () => ({ id: '', nome: 'Novo fluxo', ativo: false, menuOpcao: null, guidance: { tone: 'padrao', instructions: '' }, reescrever: false, kb: [], nos: [
@@ -74,11 +79,14 @@ export const MODELOS: Record<string, () => IaFlow> = {
               </button>
             }
             <div class="card-add">
-              <p class="font-semibold text-sm mb-2">＋ Nova etapa</p>
-              <div class="flex flex-wrap gap-1.5">
-                @for (t of tipos; track t.tipo) { <button type="button" class="chip-type" [title]="t.ajuda" (click)="addNo(t.tipo)" [disabled]="f.nos.length >= 40">{{ t.icone }} {{ t.label }}</button> }
+              <p class="font-semibold text-sm mb-2">＋ Nova etapa — escolha o tipo</p>
+              @for (g of grupos; track g) {
+                <p class="add-grupo">{{ g }}</p>
+                <div class="flex flex-wrap gap-1.5">
+                  @for (t of tiposDo(g); track t.tipo) { <button type="button" class="chip-type" [title]="t.ajuda" (click)="addNo(t.tipo)" [disabled]="f.nos.length >= 40">{{ t.icone }} {{ t.label }}</button> }
+                </div>
+              }
               </div>
-            </div>
           </div>
         </div>
       </div>
@@ -115,6 +123,20 @@ export const MODELOS: Record<string, () => IaFlow> = {
             @if (n.tipo === 'arquivos') {
               <div><label class="form-label" for="nm">Mínimo de arquivos antes do “OK”</label>
                 <input class="form-input !w-28" type="number" min="0" max="20" id="nm" [ngModel]="n.minimo ?? 0" (ngModelChange)="editarNo(noAberto()!, (x) => (x.minimo = +$event))" /></div>
+              <div>
+                <label class="form-label" for="nd">Onde guardar o que o cliente enviar</label>
+                <select class="form-input" id="nd" [ngModel]="n.armazenar ?? ''" (ngModelChange)="armazenar($event)">
+                  <option value="">Não guardar (só receber)</option>
+                  <option value="drive">Guardar no Google Drive</option>
+                </select>
+                @if (n.armazenar === 'drive') {
+                  <div class="pasta-seg mt-2" role="radiogroup" aria-label="Pasta do cliente no Drive">
+                    <button type="button" role="radio" [attr.aria-checked]="(n.pasta ?? 'criar') === 'criar'" [class.on]="(n.pasta ?? 'criar') === 'criar'" (click)="editarNo(noAberto()!, (x) => (x.pasta = 'criar'))">Criar a pasta se faltar</button>
+                    <button type="button" role="radio" [attr.aria-checked]="n.pasta === 'existente'" [class.on]="n.pasta === 'existente'" (click)="editarNo(noAberto()!, (x) => (x.pasta = 'existente'))">Só usar se já existir</button>
+                  </div>
+                  <p class="text-xs mt-2" style="color: var(--cmm-muted);">{{ n.pasta === 'existente' ? 'Procura a pasta do cliente. Se não existir, nada é criado e os arquivos não são guardados.' : 'Procura a pasta do cliente; se não existir, cria (ano/mês/ANDAMENTO). Precisa do nome do cliente, perguntado antes com a variável “nome”.' }}</p>
+                }
+              </div>
             }
 
             @if (n.tipo === 'acao') {
@@ -127,6 +149,22 @@ export const MODELOS: Record<string, () => IaFlow> = {
                 @if (ferramenta(n.acao); as t) {
                   <p class="text-xs mt-2" style="color: var(--cmm-muted);">{{ t.descricao }}</p>
                   @if (!t.disponivel) { <p class="text-xs mt-1" style="color: var(--cmm-warning);">O Drive não está configurado (pasta raiz): a ferramenta não fará nada até configurar na aba Ajustes.</p> }
+                }
+              </div>
+            }
+
+            @if (n.tipo === 'confirmacao') {
+              <div class="space-y-2">
+                <p class="form-label !mb-0">Caminho de cada resposta</p>
+                @for (o of n.opcoes ?? []; track $index; let j = $index) {
+                  <div class="opt">
+                    <span class="opt-n">{{ j + 1 }}</span>
+                    <span class="opt-fix">{{ o.rotulo }}</span>
+                    <select class="form-input" [attr.aria-label]="'Destino de ' + o.rotulo" [ngModel]="o.proximo" (ngModelChange)="editarNo(noAberto()!, (x) => (x.opcoes![j].proximo = $event))">
+                      <option [ngValue]="null">→ escolha o destino</option>
+                      @for (d of destinos(n.id); track d.id) { <option [ngValue]="d.id">→ {{ d.rotulo }}</option> }
+                    </select>
+                  </div>
                 }
               </div>
             }
@@ -214,6 +252,12 @@ export const MODELOS: Record<string, () => IaFlow> = {
     .board { display: grid; grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr)); gap: .85rem; }
     .card-node { position: relative; display: flex; flex-direction: column; gap: .4rem; text-align: left; padding: .9rem 1rem 1rem; border: 1.5px solid var(--cmm-border); border-top-width: 4px; border-radius: 1rem; background: var(--cmm-panel); color: var(--cmm-ink); cursor: pointer; min-height: 11rem; transition: transform 350ms var(--ease-out-expo), border-color 200ms, box-shadow 350ms var(--ease-out-expo); }
     .card-node:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--cmm-accent) 55%, var(--cmm-border)); box-shadow: var(--cmm-shadow-lift); }
+    .pasta-seg { display: inline-flex; gap: .25rem; padding: .25rem; border-radius: .6rem; background: color-mix(in srgb, var(--cmm-border) 45%, var(--cmm-panel)); max-width: 100%; flex-wrap: wrap; }
+    .pasta-seg button { padding: .4rem .8rem; border: none; border-radius: .45rem; background: transparent; color: var(--cmm-muted); font-weight: 600; font-size: .8rem; cursor: pointer; }
+    .pasta-seg button.on { background: var(--cmm-panel); color: var(--cmm-ink); box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+    .add-grupo { font-size: .7rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--cmm-muted); margin: .6rem 0 .25rem; }
+    .opt-fix { padding: .5rem .75rem; border-radius: .5rem; background: var(--cmm-surface-2, rgba(128,128,128,.1)); font-weight: 600; min-width: 4rem; }
+    .card-node[data-tipo='confirmacao'] { border-top-color: #10b981; }
     .card-node[data-tipo='pergunta'] { border-top-color: #3b82f6; } .card-node[data-tipo='opcoes'] { border-top-color: #8b5cf6; }
     .card-node[data-tipo='arquivos'] { border-top-color: #f59e0b; } .card-node[data-tipo='acao'] { border-top-color: #10b981; }
     .card-node[data-tipo='encaminhar'] { border-top-color: var(--cmm-accent); } .card-node[data-tipo='fim'] { border-top-color: var(--cmm-muted); } .card-node[data-tipo='mensagem'] { border-top-color: #64748b; }
@@ -258,6 +302,8 @@ export class IaFluxosComponent {
   mudou = output<IaFlow[]>();
 
   tipos = TIPOS;
+  grupos = GRUPOS;
+  tiposDo(g: Grupo) { return TIPOS.filter((t) => t.grupo === g); }
   noAberto = signal<number | null>(null);
   testando = signal(false);
   atual = computed(() => this.fluxos()[this.indice()] ?? null);
@@ -286,7 +332,7 @@ export class IaFluxosComponent {
   destinosDe(n: IaNode, f: IaFlow): string[] {
     if (n.tipo === 'encaminhar') return ['🤝 Passa a um atendente'];
     if (n.tipo === 'fim') return ['🏁 Volta ao menu'];
-    if (n.tipo === 'opcoes') {
+    if (n.tipo === 'opcoes' || n.tipo === 'confirmacao') {
       const o = n.opcoes ?? [];
       return [...o.slice(0, 3).map((x, j) => `${j + 1} ${x.rotulo || '…'} ${this.nomeDe(f, x.proximo)}`), ...(o.length > 3 ? [`+ ${o.length - 3} opção(ões)`] : [])];
     }
@@ -294,17 +340,17 @@ export class IaFluxosComponent {
   }
   resumo(n: IaNode): string {
     if (n.tipo === 'acao') return this.ferramenta(n.acao)?.label ?? 'Escolha a ferramenta';
-    if (n.tipo === 'arquivos') return (n.texto || 'Recebe arquivos') + ((n.minimo ?? 0) > 0 ? ` (mín. ${n.minimo})` : '');
+    if (n.tipo === 'arquivos') return (n.texto || 'Recebe arquivos') + ((n.minimo ?? 0) > 0 ? ` (mín. ${n.minimo})` : '') + (n.armazenar === 'drive' ? (n.pasta === 'existente' ? '  📁 Drive: só se a pasta existir' : '  📁 Drive: cria a pasta se faltar') : '');
     if (n.tipo === 'pergunta') return (n.texto || 'Sem texto') + (n.variavel ? `  → {${n.variavel}}` : '');
     return n.texto || (n.tipo === 'encaminhar' ? 'Usa a mensagem padrão de encaminhamento.' : n.tipo === 'fim' ? 'Sem mensagem final.' : 'Sem texto');
   }
   incompleto(n: IaNode): boolean {
-    const precisaTexto = ['mensagem', 'opcoes', 'pergunta', 'arquivos'].includes(n.tipo);
+    const precisaTexto = ['mensagem', 'opcoes', 'confirmacao', 'pergunta', 'arquivos'].includes(n.tipo);
     if (precisaTexto && !(n.texto ?? '').trim()) return true;
     if (['mensagem', 'pergunta', 'arquivos', 'acao'].includes(n.tipo) && !n.proximo) return true;
     if (n.tipo === 'acao' && !n.acao) return true;
     if (n.tipo === 'pergunta' && !n.variavel) return true;
-    if (n.tipo === 'opcoes' && (n.opcoes ?? []).some((o) => !o.rotulo.trim() || !o.proximo)) return true;
+    if ((n.tipo === 'opcoes' || n.tipo === 'confirmacao') && (n.opcoes ?? []).some((o) => !o.rotulo.trim() || !o.proximo)) return true;
     return false;
   }
 
@@ -331,11 +377,15 @@ export class IaFluxosComponent {
       if (tipo === 'mensagem' || tipo === 'pergunta' || tipo === 'arquivos') base.texto = '';
       if (tipo === 'pergunta') { base.variavel = ''; base.validacao = 'texto'; }
       if (tipo === 'arquivos') base.minimo = 1;
+      if (tipo === 'confirmacao') { base.texto = ''; base.opcoes = [{ rotulo: 'Sim', proximo: null }, { rotulo: 'Não', proximo: null }]; }
       if (tipo === 'opcoes') { base.texto = ''; base.opcoes = [{ rotulo: '', proximo: null }, { rotulo: '', proximo: null }]; }
       if (tipo === 'acao') base.acao = '';
       f.nos.push(base);
     });
     this.noAberto.set(novoIndice);
+  }
+  armazenar(v: string): void {
+    this.editarNo(this.noAberto()!, (x) => { x.armazenar = v === 'drive' ? 'drive' : undefined; x.pasta = v === 'drive' ? (x.pasta ?? 'criar') : undefined; });
   }
   mover(i: number, d: number): void {
     this.editar((f) => { const j = i + d; if (j < 0 || j >= f.nos.length) return; [f.nos[i], f.nos[j]] = [f.nos[j], f.nos[i]]; });

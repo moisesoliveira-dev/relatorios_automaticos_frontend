@@ -97,7 +97,7 @@ export interface IaKb {
 }
 export interface IaNode {
   id: string;
-  tipo: 'mensagem' | 'opcoes' | 'pergunta' | 'arquivos' | 'acao' | 'encaminhar' | 'fim';
+  tipo: 'mensagem' | 'opcoes' | 'confirmacao' | 'pergunta' | 'arquivos' | 'acao' | 'encaminhar' | 'fim';
   titulo: string;
   texto?: string;
   proximo?: string | null;
@@ -106,6 +106,8 @@ export interface IaNode {
   validacao?: 'nome' | 'texto';
   minimo?: number;
   acao?: string;
+  armazenar?: 'drive';
+  pasta?: 'criar' | 'existente';
 }
 export interface IaFlow {
   id: string;
