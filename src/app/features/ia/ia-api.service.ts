@@ -112,6 +112,9 @@ export interface IaFlow {
   ativo: boolean;
   menuOpcao: number | null;
   nos: IaNode[];
+  guidance?: { tone: string; instructions: string };
+  reescrever?: boolean;
+  kb?: IaKb[];
 }
 export interface IaFlowState {
   flowId: string;
