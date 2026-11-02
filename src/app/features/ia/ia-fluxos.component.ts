@@ -36,6 +36,7 @@ const DICAS = {
   opcoes: 'De 2 a 8 opções. O número é automático e o bot também aceita 0 (voltar) e 10 (recomeçar).',
   proximo: 'Para onde o cliente vai quando esta etapa termina. Se for a etapa logo abaixo na lista, o fluxo anda sozinho.',
   ferramenta: 'Criar a pasta precisa do nome do cliente perguntado antes. Salvar as respostas precisa da pasta criada antes.',
+  variaveis: 'Cada Pergunta (ou Escolha com “Guardar como”) cria uma variável. Dentro de qualquer texto, escreva-a entre chaves para o bot trocar pelo que o cliente respondeu.',
   picker: 'Cada tipo já vem pronto. Algumas etapas dependem de outras: o aviso em âmbar mostra o que ainda falta antes deste ponto.',
 } as const;
 
@@ -53,6 +54,7 @@ export const MODELOS: Record<string, () => IaFlow> = {
 };
 
 interface Ctx { vars: Set<string>; pasta: boolean }
+interface Variavel { nome: string; origem: string; usavel: boolean }
 const criaPasta = (n: IaNode): boolean => (n.tipo === 'acao' && n.acao === 'drive_criar_pasta') || (n.tipo === 'arquivos' && n.armazenar === 'drive');
 const guardaVar = (n: IaNode): string | null => ((n.tipo === 'pergunta' || n.tipo === 'opcoes' || n.tipo === 'confirmacao') && n.variavel ? n.variavel : null);
 const sucessores = (n: IaNode): Array<string | null | undefined> =>
@@ -99,6 +101,7 @@ function contextos(f: IaFlow | null): Map<string, Ctx> {
               @for (n of [6, 7, 8, 9]; track n) { <option [ngValue]="n" [disabled]="opcaoUsada(n)">{{ n }}{{ opcaoUsada(n) ? ' (em uso)' : '' }}</option> }
             </select></label>
           <span class="flex-1"></span>
+          <button type="button" class="btn btn-ghost btn-sm inline-flex items-center gap-1.5" (click)="varDialogo.set(true)" title="Ver as respostas do cliente que o fluxo vai guardando"><app-icon name="variavel" [size]="15" />Variáveis</button>
           <button type="button" class="icon-btn" aria-label="Nome, descrição e excluir o fluxo" title="Nome, descrição e excluir" (click)="config.set(true)"><app-icon name="ajustes" /></button>
           <button type="button" class="btn btn-accent btn-sm inline-flex items-center gap-1.5" (click)="abrirTeste()"><app-icon name="play" [size]="13" />Testar</button>
         </section>
@@ -153,6 +156,28 @@ function contextos(f: IaFlow | null): Map<string, Ctx> {
         </div>
       }
 
+      <!-- Variáveis do fluxo -->
+      @if (varDialogo()) {
+        <div class="dlg-backdrop" (click)="varDialogo.set(false)" aria-hidden="true"></div>
+        <div class="dlg dlg-wide" role="dialog" aria-modal="true" aria-label="Variáveis do fluxo">
+          <header class="dlg-head"><h3>Respostas que o fluxo guarda <app-hint [texto]="dicas.variaveis" /></h3><button type="button" class="icon-btn icon-btn-sm" (click)="varDialogo.set(false)" aria-label="Fechar"><app-icon name="fechar" /></button></header>
+          @if (resumoVariaveis().length) {
+            <ul class="vlist">
+              @for (v of resumoVariaveis(); track v.nome) {
+                <li>
+                  <code>{{ '{' + v.nome + '}' }}</code>
+                  <span class="vl-main"><b>{{ v.origem }}</b>
+                    <small>{{ v.usos.length ? 'Usada em: ' + v.usos.join(', ') : 'Ainda não usada em nenhum texto' }}</small>
+                    @if (v.cedo.length) { <small class="vl-bad">Citada antes de ser respondida em: {{ v.cedo.join(', ') }}</small> }
+                  </span>
+                </li>
+              }
+            </ul>
+          } @else { <p class="text-sm" style="color: var(--cmm-muted);">Ainda não há respostas guardadas. Adicione uma Pergunta ou uma Escolha com “Guardar como” para criar variáveis.</p> }
+          <p class="text-xs mt-3" style="color: var(--cmm-muted);">A ordem das etapas decide o que existe em cada ponto: uma variável só pode ser citada depois de respondida.</p>
+        </div>
+      }
+
       <!-- Nome, descrição e excluir -->
       @if (config()) {
         <div class="dlg-backdrop" (click)="config.set(false)" aria-hidden="true"></div>
@@ -187,8 +212,36 @@ function contextos(f: IaFlow | null): Map<string, Ctx> {
             }
                         @if (n.tipo !== 'acao') {
               <div>
-                <label class="form-label" for="nt">{{ n.tipo === 'encaminhar' ? 'Mensagem ao encaminhar' : n.tipo === 'fim' ? 'Mensagem final' : 'O que o bot diz' }} <app-hint [texto]="n.tipo === 'encaminhar' || n.tipo === 'fim' ? dicas.textoFinal : dicas.texto" /></label>
-                <textarea id="nt" class="form-input" rows="5" maxlength="1000" [ngModel]="n.texto ?? ''" (ngModelChange)="editarNo(noAberto()!, (x) => (x.texto = $event))" placeholder="Use {nome} ou {sua_variavel} para citar respostas."></textarea>
+                <div class="flex items-center justify-between gap-2 mb-1"><label class="form-label !mb-0" for="nt">{{ n.tipo === 'encaminhar' ? 'Mensagem ao encaminhar' : n.tipo === 'fim' ? 'Mensagem final' : 'O que o bot diz' }} <app-hint [texto]="n.tipo === 'encaminhar' || n.tipo === 'fim' ? dicas.textoFinal : dicas.texto" /></label>
+                  <button type="button" class="var-btn" [class.var-btn-on]="varPainel()" (click)="varPainel.update(v => !v)" [attr.aria-expanded]="varPainel()"><app-icon name="variavel" [size]="14" />Variáveis</button></div>
+                <div class="ta-wrap">
+                  <textarea #nta id="nt" class="form-input" rows="5" maxlength="1000" [ngModel]="n.texto ?? ''" (ngModelChange)="editarNo(noAberto()!, (x) => (x.texto = $event))"
+                    (input)="sugerir(nta, n)" (click)="sugerir(nta, n)" (keyup.arrowleft)="sugerir(nta, n)" (keyup.arrowright)="sugerir(nta, n)" (keydown)="tecla($event, nta)" (blur)="fecharSug()"
+                    placeholder="Escreva a mensagem. Digite { para inserir uma resposta do cliente."></textarea>
+                  @if (sug(); as sg) {
+                    <ul class="sug" role="listbox" aria-label="Respostas disponíveis">
+                      @for (v of sg.lista; track v.nome; let k = $index) {
+                        <li role="option" [attr.aria-selected]="k === sg.idx" [class.sug-on]="k === sg.idx" (mousedown)="$event.preventDefault(); escolherSug(nta, v.nome)">
+                          <code>{{ '{' + v.nome + '}' }}</code><small>{{ v.origem }}</small>
+                        </li>
+                      }
+                    </ul>
+                  }
+                </div>
+                @if (varPainel()) {
+                  <div class="vars-panel">
+                    <p class="vars-t">Respostas que você já tem neste ponto. Clique para inserir no texto.</p>
+                    <div class="vars-chips">
+                      @for (v of variaveisEm(n); track v.nome) {
+                        @if (v.usavel) { <button type="button" class="var-chip" (click)="inserirVar(nta, v.nome)"><code>{{ '{' + v.nome + '}' }}</code><small>{{ v.origem }}</small></button> }
+                      }
+                    </div>
+                    @if (naoUsaveis(n).length) {
+                      <p class="vars-t vars-muted">Ainda não respondidas aqui (coloque a pergunta antes para usar):</p>
+                      <div class="vars-chips">@for (v of naoUsaveis(n); track v.nome) { <span class="var-chip var-off"><code>{{ '{' + v.nome + '}' }}</code><small>{{ v.origem }}</small></span> }</div>
+                    }
+                  </div>
+                }
               </div>
             }
 
@@ -385,6 +438,22 @@ function contextos(f: IaFlow | null): Map<string, Ctx> {
     .faltas { padding: .7rem .9rem; border-radius: .9rem; background: color-mix(in srgb, var(--cmm-warning) 11%, var(--cmm-panel)); border: 1px solid color-mix(in srgb, var(--cmm-warning) 35%, var(--cmm-border)); font-size: .8125rem; }
     .faltas b { display: inline-flex; align-items: center; gap: .4rem; color: var(--cmm-warning); margin-bottom: .25rem; }
     .faltas ul { list-style: disc; padding-left: 1.2rem; display: grid; gap: .15rem; }
+    .ta-wrap { position: relative; }
+    .sug { position: absolute; left: 0; right: 0; top: calc(100% + .3rem); z-index: 30; list-style: none; margin: 0; padding: .3rem; max-height: 14rem; overflow: auto; border-radius: .9rem; background: var(--cmm-panel); border: 1px solid var(--cmm-border); box-shadow: var(--cmm-shadow-lift); }
+    .sug li { display: flex; align-items: baseline; gap: .6rem; padding: .45rem .6rem; border-radius: .6rem; cursor: pointer; }
+    .sug li small, .var-chip small, .vl-main small { font-size: .72rem; color: var(--cmm-muted); }
+    .sug-on { background: var(--cmm-accent-soft); }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8rem; font-weight: 700; color: var(--cmm-accent); }
+    .var-btn { display: inline-flex; align-items: center; gap: .35rem; padding: .25rem .6rem; border-radius: 99px; border: 1px solid var(--cmm-border); background: var(--cmm-panel); color: var(--cmm-muted); font-size: .75rem; font-weight: 600; cursor: pointer; transition: border-color 160ms, color 160ms, background-color 160ms; }
+    .var-btn:hover, .var-btn-on { border-color: var(--cmm-accent); color: var(--cmm-accent); background: var(--cmm-accent-soft); }
+    .vars-panel { margin-top: .6rem; padding: .75rem .85rem; border-radius: .9rem; background: color-mix(in srgb, var(--cmm-border) 28%, var(--cmm-panel)); }
+    .vars-t { font-size: .75rem; font-weight: 600; margin-bottom: .45rem; } .vars-muted { margin-top: .7rem; color: var(--cmm-muted); }
+    .vars-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .var-chip { display: inline-flex; flex-direction: column; align-items: flex-start; gap: .05rem; padding: .35rem .65rem; border-radius: .7rem; border: 1px solid var(--cmm-border); background: var(--cmm-panel); cursor: pointer; text-align: left; }
+    button.var-chip:hover { border-color: var(--cmm-accent); } .var-off { opacity: .55; cursor: default; }
+    .vlist { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+    .vlist li { display: flex; gap: .75rem; align-items: flex-start; padding: .65rem .8rem; border: 1px solid var(--cmm-border); border-radius: .9rem; }
+    .vl-main { display: flex; flex-direction: column; gap: .1rem; font-size: .85rem; } .vl-bad { color: var(--cmm-warning) !important; font-weight: 600; }
     details.adv { border-top: 1px solid var(--cmm-border); padding-top: .75rem; } details.adv > summary { cursor: pointer; font-size: .8125rem; font-weight: 600; color: var(--cmm-muted); list-style: none; display: flex; align-items: center; gap: .35rem; } details.adv > summary::-webkit-details-marker { display: none; } details.adv[open] > summary { margin-bottom: .75rem; }
     .pasta-seg { display: inline-flex; gap: .25rem; padding: .25rem; border-radius: .6rem; background: color-mix(in srgb, var(--cmm-border) 45%, var(--cmm-panel)); max-width: 100%; flex-wrap: wrap; }
     .pasta-seg button { padding: .4rem .8rem; border: none; border-radius: .45rem; background: transparent; color: var(--cmm-muted); font-weight: 600; font-size: .8rem; cursor: pointer; }
@@ -423,6 +492,9 @@ export class IaFluxosComponent {
   tipos = TIPOS;
   grupos = GRUPOS;
   picker = signal<number | null>(null);
+  varDialogo = signal(false);
+  varPainel = signal(false);
+  sug = signal<{ lista: Variavel[]; idx: number; inicio: number } | null>(null);
   config = signal(false);
   tiposDo(g: Grupo) { return TIPOS.filter((t) => t.grupo === g); }
   noAberto = signal<number | null>(null);
@@ -491,6 +563,85 @@ export class IaFluxosComponent {
     if (tipo === 'acao' && !c.pasta && !c.vars.has('nome')) return 'Antes, pergunte o nome do cliente: criar a pasta precisa dele.';
     if ((tipo === 'encaminhar' || tipo === 'fim') && pos < (this.atual()?.nos.length ?? 0)) return 'As etapas abaixo só serão alcançadas por outros caminhos.';
     return null;
+  }
+  /** Todas as variáveis do fluxo, de onde vêm e se dá para usar no ponto dado. */
+  variaveisEm(n: IaNode): Variavel[] {
+    const f = this.atual();
+    if (!f) return [];
+    const ctx = this.analise().get(n.id);
+    const out: Variavel[] = [];
+    f.nos.forEach((x, i) => {
+      const v = guardaVar(x);
+      if (!v || out.some((o) => o.nome === v)) return;
+      out.push({ nome: v, origem: `Etapa ${i + 1} · ${x.titulo || this.info(x.tipo).label}`, usavel: x.id !== n.id && !!ctx?.vars.has(v) });
+    });
+    if (!out.some((o) => o.nome === 'nome')) out.unshift({ nome: 'nome', origem: 'Cadastro do cliente (quando já é conhecido)', usavel: true });
+    else { const k = out.findIndex((o) => o.nome === 'nome'); const [nm] = out.splice(k, 1); out.unshift(nm); }
+    return out;
+  }
+  naoUsaveis(n: IaNode): Variavel[] { return this.variaveisEm(n).filter((v) => !v.usavel); }
+  /** Visão do fluxo inteiro: onde cada variável nasce, onde é usada e se alguma é citada cedo demais. */
+  resumoVariaveis = computed(() => {
+    const f = this.atual();
+    if (!f) return [] as Array<{ nome: string; origem: string; usos: string[]; cedo: string[] }>;
+    const ana = this.analise();
+    const vistos = new Set<string>();
+    const out: Array<{ nome: string; origem: string; usos: string[]; cedo: string[] }> = [];
+    f.nos.forEach((x, i) => {
+      const v = guardaVar(x);
+      if (!v || vistos.has(v)) return;
+      vistos.add(v);
+      const usos: string[] = []; const cedo: string[] = [];
+      f.nos.forEach((y, k) => {
+        if (![...(y.texto ?? '').matchAll(/\{(\w+)\}/g)].some((m) => m[1] === v)) return;
+        const rot = `etapa ${k + 1}`;
+        usos.push(rot);
+        if (v !== 'nome' && !ana.get(y.id)?.vars.has(v)) cedo.push(rot);
+      });
+      out.push({ nome: v, origem: `Etapa ${i + 1} · ${x.titulo || this.info(x.tipo).label}`, usos, cedo });
+    });
+    return out;
+  });
+  // ── escolher a variável ao digitar { (ou pelo botão Variáveis)
+  sugerir(el: HTMLTextAreaElement, n: IaNode): void {
+    const antes = el.value.slice(0, el.selectionStart ?? 0);
+    const m = /\{(\w*)$/.exec(antes);
+    if (!m) { this.sug.set(null); return; }
+    const lista = this.variaveisEm(n).filter((v) => v.usavel && v.nome.startsWith(m[1].toLowerCase()));
+    this.sug.set(lista.length ? { lista, idx: 0, inicio: antes.length - m[0].length } : null);
+  }
+  fecharSug(): void { this.sug.set(null); }
+  tecla(ev: KeyboardEvent, el: HTMLTextAreaElement): void {
+    const sg = this.sug();
+    if (!sg) return;
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      const d = ev.key === 'ArrowDown' ? 1 : -1;
+      this.sug.set({ ...sg, idx: (sg.idx + d + sg.lista.length) % sg.lista.length });
+    } else if (ev.key === 'Enter' || ev.key === 'Tab') {
+      ev.preventDefault();
+      this.escolherSug(el, sg.lista[sg.idx].nome);
+    } else if (ev.key === 'Escape') {
+      ev.preventDefault(); ev.stopPropagation();
+      this.sug.set(null);
+    }
+  }
+  escolherSug(el: HTMLTextAreaElement, nome: string): void {
+    const sg = this.sug();
+    const fim = el.selectionStart ?? el.value.length;
+    const inicio = sg?.inicio ?? fim;
+    const resto = el.value.slice(fim).replace(/^\}/, '');
+    this.aplicarTexto(el, el.value.slice(0, inicio) + `{${nome}}` + resto, inicio + nome.length + 2);
+    this.sug.set(null);
+  }
+  inserirVar(el: HTMLTextAreaElement, nome: string): void {
+    const a = el.selectionStart ?? el.value.length;
+    const b = el.selectionEnd ?? a;
+    this.aplicarTexto(el, el.value.slice(0, a) + `{${nome}}` + el.value.slice(b), a + nome.length + 2);
+  }
+  private aplicarTexto(el: HTMLTextAreaElement, texto: string, cursor: number): void {
+    this.editarNo(this.noAberto()!, (x) => (x.texto = texto.slice(0, 1000)));
+    setTimeout(() => { el.focus(); el.setSelectionRange(cursor, cursor); });
   }
   /** Tudo que falta numa etapa para ela funcionar (em frases curtas). */
   faltas(n: IaNode): string[] {
