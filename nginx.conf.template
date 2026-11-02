@@ -23,6 +23,13 @@ http {
         root /usr/share/nginx/html;
         index index.html;
 
+        # Cabeçalhos de segurança
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+        server_tokens off;
+
         # Handle Angular routing - redirect all requests to index.html
         location / {
             try_files $uri $uri/ /index.html;
@@ -33,7 +40,8 @@ http {
             proxy_pass BACKEND_URL_PLACEHOLDER/;
             proxy_http_version 1.1;
             proxy_ssl_server_name on;
-            proxy_ssl_verify off;
+            proxy_ssl_verify on;
+            proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection 'upgrade';
             proxy_set_header Host BACKEND_HOST_PLACEHOLDER;
@@ -50,6 +58,7 @@ http {
         location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
             expires 1y;
             add_header Cache-Control "public, immutable";
+            add_header X-Content-Type-Options "nosniff" always;
         }
     }
 }

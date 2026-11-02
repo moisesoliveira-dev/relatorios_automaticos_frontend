@@ -189,8 +189,8 @@ export class UsersFacade {
       this.createError.set('Informe o email');
       return;
     }
-    if (!password || password.length < 6) {
-      this.createError.set('A senha deve ter no mínimo 6 caracteres');
+    if (!password || password.length < 8) {
+      this.createError.set('A senha deve ter no mínimo 8 caracteres');
       return;
     }
     if (password !== confirmPassword) {
@@ -330,8 +330,8 @@ export class UsersFacade {
     const confirmPassword = this.editData.confirmPassword.trim();
 
     if (this.isMaster() && (password || confirmPassword)) {
-      if (password.length < 6) {
-        this.editError.set('A senha deve ter no mínimo 6 caracteres');
+      if (password.length < 8) {
+        this.editError.set('A senha deve ter no mínimo 8 caracteres');
         return;
       }
       if (password !== confirmPassword) {

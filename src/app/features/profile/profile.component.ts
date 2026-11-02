@@ -122,9 +122,9 @@ import { ModalService } from '../../shared/services/modal.service';
               [(ngModel)]="newPassword"
               name="newPassword"
               required
-              minlength="6"
+              minlength="8"
               class="form-input"
-              placeholder="Mínimo 6 caracteres"
+              placeholder="Mínimo 8 caracteres"
             />
           </div>
 
@@ -242,8 +242,8 @@ export class ProfileComponent {
       return;
     }
 
-    if (this.newPassword.length < 6) {
-      this.passwordErrorMessage.set('Nova senha deve ter no mínimo 6 caracteres');
+    if (this.newPassword.length < 8) {
+      this.passwordErrorMessage.set('Nova senha deve ter no mínimo 8 caracteres');
       setTimeout(() => this.passwordErrorMessage.set(''), 3000);
       return;
     }

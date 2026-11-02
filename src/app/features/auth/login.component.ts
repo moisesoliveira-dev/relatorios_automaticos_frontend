@@ -200,9 +200,9 @@ import { environment } from '../../../environments/environment';
                       [(ngModel)]="registerPassword"
                       name="registerPassword"
                       required
-                      minlength="6"
+                      minlength="8"
                       class="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
-                      placeholder="Mínimo 6 caracteres"
+                      placeholder="Mínimo 8 caracteres"
                     />
                   </div>
                   <button
@@ -318,8 +318,8 @@ export class LoginComponent implements OnInit {
       this.registerError.set('Por favor, preencha todos os campos');
       return;
     }
-    if (this.registerPassword.length < 6) {
-      this.registerError.set('A senha deve ter pelo menos 6 caracteres');
+    if (this.registerPassword.length < 8) {
+      this.registerError.set('A senha deve ter pelo menos 8 caracteres');
       return;
     }
 

@@ -80,6 +80,20 @@ import { environment } from '../../../environments/environment';
 
             <div>
               <label class="block text-slate-300 text-sm font-medium mb-2">
+                Token de configuração (se exigido pelo servidor)
+              </label>
+              <input
+                type="password"
+                [(ngModel)]="setupToken"
+                name="setupToken"
+                autocomplete="off"
+                class="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
+                placeholder="MASTER_SETUP_TOKEN"
+              />
+            </div>
+
+            <div>
+              <label class="block text-slate-300 text-sm font-medium mb-2">
                 Senha
               </label>
               <div class="relative">
@@ -93,9 +107,9 @@ import { environment } from '../../../environments/environment';
                   [(ngModel)]="password"
                   name="password"
                   required
-                  minlength="6"
+                  minlength="8"
                   class="w-full pl-10 pr-12 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition"
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Mínimo 8 caracteres"
                 />
                 <button
                   type="button"
@@ -169,6 +183,7 @@ export class SetupComponent implements OnInit {
   name = '';
   email = '';
   password = '';
+  setupToken = '';
   confirmPassword = '';
   showPassword = signal(false);
   isLoading = signal(false);
@@ -199,8 +214,8 @@ export class SetupComponent implements OnInit {
       return;
     }
 
-    if (this.password.length < 6) {
-      this.errorMessage.set('A senha deve ter no mínimo 6 caracteres');
+    if (this.password.length < 8) {
+      this.errorMessage.set('A senha deve ter no mínimo 8 caracteres');
       return;
     }
 
@@ -215,7 +230,8 @@ export class SetupComponent implements OnInit {
     this.http.post<any>(`${this.apiUrl}/auth/register-master`, {
       name: this.name,
       email: this.email,
-      password: this.password
+      password: this.password,
+      ...(this.setupToken ? { setupToken: this.setupToken } : {})
     }).subscribe({
       next: (response) => {
         localStorage.setItem('access_token', response.access_token);

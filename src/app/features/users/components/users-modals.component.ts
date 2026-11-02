@@ -31,11 +31,11 @@ import { UserTabPickerComponent } from './user-tab-picker.component';
             </div>
             <div>
               <label class="form-label">Senha</label>
-              <input type="password" [(ngModel)]="facade.createData.password" name="createPassword" required minlength="6" class="form-input" autocomplete="new-password" />
+              <input type="password" [(ngModel)]="facade.createData.password" name="createPassword" required minlength="8" class="form-input" autocomplete="new-password" />
             </div>
             <div>
               <label class="form-label">Confirmar senha</label>
-              <input type="password" [(ngModel)]="facade.createData.confirmPassword" name="createConfirmPassword" required minlength="6" class="form-input" autocomplete="new-password" />
+              <input type="password" [(ngModel)]="facade.createData.confirmPassword" name="createConfirmPassword" required minlength="8" class="form-input" autocomplete="new-password" />
             </div>
             <app-user-tab-picker />
             <div class="flex gap-3 pt-2">
@@ -120,8 +120,8 @@ import { UserTabPickerComponent } from './user-tab-picker.component';
             @if (facade.isMaster()) {
               <div class="rounded-lg p-3 space-y-3" style="background: var(--cmm-surface); border: 1px solid var(--cmm-border);">
                 <p class="text-sm font-medium">Alterar senha (opcional)</p>
-                <input type="password" [(ngModel)]="facade.editData.password" name="password" class="form-input" minlength="6" autocomplete="new-password" placeholder="Nova senha" />
-                <input type="password" [(ngModel)]="facade.editData.confirmPassword" name="confirmPassword" class="form-input" minlength="6" autocomplete="new-password" placeholder="Confirmar senha" />
+                <input type="password" [(ngModel)]="facade.editData.password" name="password" class="form-input" minlength="8" autocomplete="new-password" placeholder="Nova senha" />
+                <input type="password" [(ngModel)]="facade.editData.confirmPassword" name="confirmPassword" class="form-input" minlength="8" autocomplete="new-password" placeholder="Confirmar senha" />
               </div>
             }
             <app-user-tab-picker />
