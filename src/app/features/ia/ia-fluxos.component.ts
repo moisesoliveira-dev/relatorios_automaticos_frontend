@@ -35,32 +35,31 @@ export const MODELOS: Record<string, () => IaFlow> = {
   template: `
     @if (atual(); as f) {
       <div class="space-y-4">
-        <!-- Dados do fluxo -->
-        <section class="panel panel-pad meta">
-          <div class="meta-grid">
-            <div><label class="form-label" for="fl-nome">Nome (aparece no menu do cliente)</label>
-              <input id="fl-nome" class="form-input" maxlength="40" [ngModel]="f.nome" (ngModelChange)="editar((x) => (x.nome = $event))" /></div>
-            <div><label class="form-label" for="fl-op">Opção no menu</label>
-              <select id="fl-op" class="form-input" [ngModel]="f.menuOpcao" (ngModelChange)="editar((x) => (x.menuOpcao = $event === null ? null : +$event))">
-                <option [ngValue]="null">— nenhuma —</option>
-                @for (n of [6, 7, 8, 9]; track n) { <option [ngValue]="n" [disabled]="opcaoUsada(n)">{{ n }}{{ opcaoUsada(n) ? ' (em uso)' : '' }}</option> }
-              </select></div>
-            <label class="switch-row"><span>Ativo <small>aparece no menu ao publicar</small></span>
-              <button type="button" role="switch" class="switch" [class.switch-on]="f.ativo" [attr.aria-checked]="f.ativo" (click)="editar((x) => (x.ativo = !x.ativo))"><span class="switch-knob"></span></button></label>
-          </div>
-          <div class="meta-grid2">
-            <div><label class="form-label" for="fl-desc">Descrição (só para você)</label>
-              <input id="fl-desc" class="form-input" maxlength="200" [ngModel]="f.descricao ?? ''" (ngModelChange)="editar((x) => (x.descricao = $event))" /></div>
-            <div class="flex gap-2 items-end flex-wrap">
-              <button type="button" class="btn btn-accent btn-sm" (click)="abrirTeste()">▶ Testar este fluxo</button>
-              <button type="button" class="btn btn-ghost btn-sm" style="color: var(--cmm-danger);" (click)="excluir()">Excluir fluxo</button>
+        <!-- Configurações do fluxo, numa linha -->
+        <section class="flowbar">
+          <span class="flow-sp"></span>
+          <label class="bar-item">Opção no menu
+            <select class="form-input bar-sel" aria-label="Opção no menu" [ngModel]="f.menuOpcao" (ngModelChange)="editar((x) => (x.menuOpcao = $event === null ? null : +$event))">
+              <option [ngValue]="null">—</option>
+              @for (n of [6, 7, 8, 9]; track n) { <option [ngValue]="n" [disabled]="opcaoUsada(n)">{{ n }}{{ opcaoUsada(n) ? ' (em uso)' : '' }}</option> }
+            </select></label>
+          <label class="bar-item">Ativo
+            <button type="button" role="switch" class="switch" [class.switch-on]="f.ativo" [attr.aria-checked]="f.ativo" (click)="editar((x) => (x.ativo = !x.ativo))"><span class="switch-knob"></span></button></label>
+          <button type="button" class="btn btn-accent btn-sm" (click)="abrirTeste()">▶ Testar</button>
+          <details class="more">
+            <summary class="btn btn-ghost btn-sm" aria-label="Mais opções do fluxo">⋯</summary>
+            <div class="more-pop">
+              <label class="form-label" for="fl-nome">Nome (aparece no menu do cliente)</label>
+              <input id="fl-nome" class="form-input mb-3" maxlength="40" [ngModel]="f.nome" (ngModelChange)="editar((x) => (x.nome = $event))" />
+              <label class="form-label" for="fl-desc">Descrição (só para você)</label>
+              <input id="fl-desc" class="form-input" maxlength="200" [ngModel]="f.descricao ?? ''" (ngModelChange)="editar((x) => (x.descricao = $event))" />
+              <button type="button" class="btn btn-ghost btn-sm mt-3" style="color: var(--cmm-danger);" (click)="excluir()">Excluir fluxo</button>
             </div>
-          </div>
+          </details>
         </section>
 
         <!-- Quadro de etapas -->
         <div>
-          <h3 class="font-semibold mb-1">Etapas do fluxo</h3>
           <p class="text-sm mb-3" style="color: var(--cmm-muted);">O cliente começa na etapa 1 e segue o caminho que você definir. Clique numa etapa para editar.</p>
           <div class="board">
             @for (n of f.nos; track n.id; let i = $index) {
@@ -186,11 +185,11 @@ export const MODELOS: Record<string, () => IaFlow> = {
             @if (!log().length) { <p class="text-sm" style="color: var(--cmm-muted);">Clique em “Começar” para ver a primeira mensagem.</p> }
             @if (erros().length) { <ul class="test-err" role="alert">@for (e of erros(); track e) { <li>{{ e }}</li> }</ul> }
           </div>
-          <form class="sheet-foot" (ngSubmit)="enviar()">
+          <form class="sheet-foot" (ngSubmit)="enviar($event)">
             @if (!estado() && !terminou()) { <button type="button" class="btn btn-primary btn-sm w-full" (click)="comecar()" [disabled]="carregando()">Começar</button> }
             @else if (terminou()) { <button type="button" class="btn btn-secondary btn-sm w-full" (click)="comecar()">Testar de novo</button> }
             @else {
-              <input class="form-input flex-1" name="tx" [ngModel]="texto()" (ngModelChange)="texto.set($event)" placeholder="Resposta do cliente…" autocomplete="off" aria-label="Resposta do cliente" />
+              <input class="form-input flex-1" name="tx" [value]="texto()" (input)="texto.set($any($event.target).value)" placeholder="Resposta do cliente…" autocomplete="off" aria-label="Resposta do cliente" />
               <button type="submit" class="btn btn-primary btn-sm" [disabled]="carregando()">Enviar</button>
             }
           </form>
@@ -200,6 +199,15 @@ export const MODELOS: Record<string, () => IaFlow> = {
   `,
   styles: [`
     :host { display: block; }
+    .flowbar { display: flex; align-items: center; gap: .75rem 1.25rem; flex-wrap: wrap; padding: .6rem .75rem .6rem 1rem; border: 1px solid var(--cmm-border); border-radius: 1rem; background: var(--cmm-panel); }
+    .flow-sp { flex: 1 1 0; }
+    .flowbar { justify-content: flex-end; }
+    .flow-name { flex: 1 1 12rem; min-width: 0; border: 1px solid transparent; background: transparent; font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; padding: .3rem .5rem; border-radius: .6rem; color: var(--cmm-ink); }
+    .flow-name:hover, .flow-name:focus { border-color: var(--cmm-border); outline: none; background: var(--cmm-bg, var(--cmm-panel)); }
+    .bar-item { display: inline-flex; align-items: center; gap: .5rem; font-size: .8125rem; font-weight: 600; color: var(--cmm-muted); }
+    .bar-sel { width: 5.2rem; min-height: 0; padding-block: .3rem; }
+    .more { position: relative; } .more > summary { list-style: none; cursor: pointer; } .more > summary::-webkit-details-marker { display: none; }
+    .more-pop { position: absolute; right: 0; top: calc(100% + .4rem); z-index: 20; width: 18rem; padding: 1rem; border: 1px solid var(--cmm-border); border-radius: 1rem; background: var(--cmm-panel); box-shadow: var(--cmm-shadow-lift); }
     .meta-grid { display: grid; grid-template-columns: 1fr; gap: .75rem 1rem; align-items: end; }
     .meta-grid2 { display: grid; grid-template-columns: 1fr; gap: .75rem 1rem; margin-top: .75rem; align-items: end; }
     @media (min-width: 900px) { .meta-grid { grid-template-columns: 1fr 12rem auto; } .meta-grid2 { grid-template-columns: 1fr auto; } }
@@ -350,9 +358,11 @@ export class IaFluxosComponent {
   abrirTeste(): void { this.testando.set(true); if (!this.log().length) this.comecar(); }
   private zerarTeste(): void { this.estado.set(null); this.log.set([]); this.erros.set([]); this.terminou.set(false); }
   comecar(): void { this.zerarTeste(); this.rodar(null, ''); }
-  enviar(): void {
+  enviar(ev?: Event): void {
     const t = this.texto().trim();
     if (!t) return;
+    const campo = (ev?.target as HTMLElement | null)?.querySelector?.('input[name=tx]') as HTMLInputElement | null;
+    if (campo) campo.value = '';
     this.log.update((l) => [...l, { de: 'cliente', texto: t }]);
     this.texto.set('');
     this.rodar(this.estado(), t);

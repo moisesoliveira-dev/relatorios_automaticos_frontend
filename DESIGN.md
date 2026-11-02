@@ -78,3 +78,11 @@ Motor central em `core/motion/motion.service.ts` (biblioteca `motion`) + CSS em 
 - **Modais/gavetas:** `main#conteudo:has(.drawer, .fixed.inset-0, [role=dialog])` sobe acima da barra superior (a transição de página cria um contexto de empilhamento).
 - **IA > Atendimento:** a navegação lateral vira um seletor abaixo de 1024px; a barra de rascunho ocupa a largura toda no celular.
 - Verificação: `resp.js` abre todas as rotas em 320/360/768/1024 e acusa elementos que passam da largura.
+
+## Menos é mais (regras de limpeza)
+- **Uma camada de cabeçalho:** título + um estado + uma frase. Sem botões de "Atualizar" nem carimbos de hora (a tela se atualiza sozinha).
+- **Uma barra de abas** (sublinhada) por tela. Abas internas, quando existirem, usam o estilo neutro (`.seg`), nunca duas barras coloridas empilhadas.
+- **O conteúdo começa logo abaixo das abas.** Explicações longas viram uma linha discreta ou um `<details>`; passo a passo só aparece quando há algo a fazer (ex.: barra de rascunho).
+- **Selos só quando mudam uma decisão.** Estados repetidos viram texto/ponto (`● Ativo · opção 6`), não chips.
+- **Listas de configuração planas:** um painel, títulos de seção em caixa-alta, uma linha por ajuste; avisos como ⚠ e "↺ padrão" só quando aplicável.
+- Estado de ligado/desligado é o próprio selo do cabeçalho (clicável), não um botão extra.

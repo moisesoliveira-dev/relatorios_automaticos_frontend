@@ -51,38 +51,22 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
   imports: [FormsModule, CounterDirective, IaConteudoComponent],
   template: `
     <div class="space-y-6">
-      <!-- Cabeçalho com estado ao vivo -->
-      <div class="page-header">
-        <div>
-          <div class="flex items-center gap-3 flex-wrap">
-            <h1 class="page-title">IA <span class="text-gradient">Vera D'Or</span></h1>
-            @if (overview(); as o) {
-              <span class="live-pill" [class.live-on]="o.sistema.enabled" [class.live-off]="!o.sistema.enabled">
-                <span class="live-dot"></span>{{ o.sistema.enabled ? 'No ar' : 'Desligada' }}
-              </span>
-              @if (o.sistema.enabled && o.sistema.aiBreakerOpen) {
-                <span class="badge badge-warning">IA pausada (falhas seguidas)</span>
-              }
-              @if (o.sistema.enabled && !o.sistema.aiEnabled) {
-                <span class="badge badge-neutral">Só regras fixas</span>
-              }
-            }
-          </div>
-          <p class="page-subtitle">{{ propositos[aba()] }}</p>
-        </div>
-        <div class="flex items-center gap-2 flex-wrap justify-end">
+      <!-- Cabeçalho: nome, estado (clique para ligar/desligar) e o propósito da tela -->
+      <header class="ia-head">
+        <div class="flex items-center gap-3 flex-wrap">
+          <h1 class="page-title">Vera <span class="text-gradient">D'Or</span></h1>
           @if (overview(); as o) {
-            <button type="button" class="btn btn-sm" [class.btn-danger]="o.sistema.enabled" [class.btn-accent]="!o.sistema.enabled" (click)="alternarLigado()" [disabled]="loading()">{{ o.sistema.enabled ? 'Desligar o bot' : 'Ligar o bot' }}</button>
+            <button type="button" class="live-pill live-btn" [class.live-on]="o.sistema.enabled" [class.live-off]="!o.sistema.enabled" (click)="alternarLigado()" [disabled]="loading()" [title]="o.sistema.enabled ? 'No ar — clique para desligar' : 'Desligada — clique para ligar'">
+              <span class="live-dot"></span>{{ o.sistema.enabled ? 'No ar' : 'Desligada' }}<span class="live-hint">{{ o.sistema.enabled ? 'desligar' : 'ligar' }}</span>
+            </button>
           }
-          <span class="text-xs" style="color: var(--cmm-muted);" aria-live="off">{{ atualizadoLabel() }}</span>
-          <button type="button" class="btn btn-secondary btn-sm" (click)="refreshAll()" [disabled]="loading()">Atualizar</button>
         </div>
-      </div>
+        <p class="page-subtitle">{{ propositos[aba()] }}</p>
+      </header>
 
-      <!-- Abas -->
-      <div class="seg" role="tablist" aria-label="Seções da IA">
+      <div class="tabs" role="tablist" aria-label="Seções da IA">
         @for (t of abas; track t.key) {
-          <button type="button" role="tab" class="seg-btn" [class.seg-on]="aba() === t.key" [attr.aria-selected]="aba() === t.key" (click)="setAba(t.key)">
+          <button type="button" role="tab" class="tab" [class.tab-on]="aba() === t.key" [attr.aria-selected]="aba() === t.key" (click)="setAba(t.key)">
             {{ t.label }}
             @if (t.key === 'conversas' && overview()?.totais?.comErro) { <span class="seg-count">{{ overview()!.totais.comErro }}</span> }
           </button>
@@ -108,7 +92,7 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
               }
             </section>
 
-            <div class="grid grid-cols-2 lg:grid-cols-6 gap-3">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
               @for (k of kpis(); track k.label) {
                 <div class="panel panel-pad kpi">
                   <p class="kpi-label">{{ k.label }}</p>
@@ -247,22 +231,21 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
 
         <!-- ═══════════ TESTAR ═══════════ -->
         @case ('simulador') {
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-            <div class="panel lg:col-span-2 flex flex-col" style="min-height: 30rem;">
-              <div class="sim-pick">
-                <label class="form-label !mb-0" for="sim-fluxo">O que testar</label>
-                <select id="sim-fluxo" class="form-input" [ngModel]="simFluxo()" (ngModelChange)="simEscolherFluxo($event)">
-                  <option value="">Jornada completa — começa no menu inicial</option>
-                  @for (f of simFluxos(); track f.id) { <option [value]="f.id">🧭 {{ f.nome }}{{ f.ativo ? '' : ' (desativado)' }} — direto no fluxo</option> }
-                </select>
-              </div>
-              <div class="sim-bar">
-                <span class="sim-where" aria-live="polite">
-                  <span class="text-xs" style="color: var(--cmm-muted);">O cliente está em</span>
-                  <b>{{ simOnde() }}</b>
-                </span>
-                <button type="button" class="btn btn-secondary btn-sm" (click)="simComecar()" [disabled]="simCarregando()">↻ Recomeçar</button>
-              </div>
+          <div class="max-w-3xl space-y-3">
+            <div class="sim-controls">
+              <select id="sim-fluxo" class="form-input" aria-label="O que testar" [ngModel]="simFluxo()" (ngModelChange)="simEscolherFluxo($event)">
+                <option value="">Jornada completa (começa no menu)</option>
+                @for (f of simFluxos(); track f.id) { <option [value]="f.id">🧭 {{ f.nome }}{{ f.ativo ? '' : ' (desativado)' }}</option> }
+              </select>
+              <label class="ia-toggle" title="Interpreta texto livre, responde dúvidas e escreve no tom de cada fluxo (conta no uso)">
+                <span>IA</span>
+                <button type="button" role="switch" class="switch" [class.switch-on]="simUsarIA()" [attr.aria-checked]="simUsarIA()" aria-label="Usar a IA no teste" (click)="simUsarIA.set(!simUsarIA())"><span class="switch-knob"></span></button>
+              </label>
+              <button type="button" class="btn btn-secondary btn-sm" (click)="simComecar()" [disabled]="simCarregando()">↻ Recomeçar</button>
+            </div>
+
+            <div class="panel flex flex-col" style="min-height: 28rem;">
+              <div class="sim-bar"><span class="text-xs" style="color: var(--cmm-muted);">Cliente em</span> <b>{{ simOnde() }}</b></div>
               <div class="chat" aria-live="polite">
                 @for (m of simLog(); track $index) {
                   <div class="bubble" [class.bubble-user]="m.de === 'cliente'" [class.bubble-bot]="m.de === 'bot'" [class.bubble-none]="m.de === 'sistema'" [class.bubble-fx]="m.de === 'efeito'">{{ m.texto }}</div>
@@ -270,87 +253,70 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
                 @if (simCarregando()) { <div class="bubble bubble-bot bubble-typing" aria-label="Digitando">•••</div> }
               </div>
               @if (simAviso()) { <p class="sim-aviso" role="status">{{ simAviso() }}</p> }
-              <form class="chat-input" (ngSubmit)="simEnviar()">
+              <form class="chat-input" (ngSubmit)="simEnviar($event)">
                 @if (simTerminou()) {
                   <button type="button" class="btn btn-primary w-full" (click)="simComecar()">Testar de novo</button>
                 } @else {
-                  <input class="form-input" name="simTexto" [ngModel]="simTexto()" (ngModelChange)="simTexto.set($event)" placeholder="Responda como o cliente…" aria-label="Mensagem do cliente" maxlength="600" autocomplete="off" />
+                  <input class="form-input" name="simTexto" [value]="simTexto()" (input)="simTexto.set($any($event.target).value)" placeholder="Responda como o cliente…" aria-label="Mensagem do cliente" maxlength="600" autocomplete="off" />
                   <button type="submit" class="btn btn-primary" [disabled]="simCarregando()">Enviar</button>
                 }
               </form>
             </div>
 
-            <aside class="space-y-4">
-              <div class="panel panel-pad space-y-3">
-                <h2 class="sec-title">Como funciona</h2>
-                <p class="text-sm" style="color: var(--cmm-muted);">Você é o cliente. Escolha em <b>O que testar</b> a jornada completa (começa no menu) ou entre <b>direto num dos seus fluxos já publicados</b>. Nada é enviado, gravado, criado no Drive nem encaminhado.</p>
-                <p class="text-sm" style="color: var(--cmm-muted);">Para testar um fluxo ainda <b>não publicado</b>, abra-o em <b>Atendimento</b> e use “▶ Testar este fluxo”.</p>
-                <div class="flex gap-1.5 flex-wrap">
-                  <span class="text-xs w-full" style="color: var(--cmm-muted);">Atalhos:</span>
-                  @for (ex of exemplos; track ex) { <button type="button" class="chip chip-btn" (click)="simTexto.set(ex)" [disabled]="simTerminou()">{{ ex }}</button> }
-                </div>
-                <label class="switch-row"><span>Usar a IA no teste <small>interpreta texto livre, responde dúvidas e escreve no tom de cada fluxo (conta no uso)</small></span>
-                  <button type="button" role="switch" class="switch" [class.switch-on]="simUsarIA()" [attr.aria-checked]="simUsarIA()" (click)="simUsarIA.set(!simUsarIA())"><span class="switch-knob"></span></button></label>
+            <p class="text-xs" style="color: var(--cmm-muted);">Testa o que está <b>publicado</b>; nada é enviado, gravado nem encaminhado. Fluxo em rascunho: teste-o dentro do próprio fluxo, em Atendimento.</p>
+            <div class="flex gap-1.5 flex-wrap items-center">
+              <span class="text-xs" style="color: var(--cmm-muted);">Atalhos:</span>
+              @for (ex of exemplos; track ex) { <button type="button" class="chip chip-btn" (click)="simTexto.set(ex)" [disabled]="simTerminou()">{{ ex }}</button> }
+            </div>
+            <details class="tech">
+              <summary class="text-sm font-semibold cursor-pointer" style="color: var(--cmm-muted);">Avançado: começar numa etapa do fluxo padrão</summary>
+              <div class="grid sm:grid-cols-3 gap-3 mt-3 items-end">
+                <div><label class="form-label" for="sim-etapa">Etapa</label>
+                  <select id="sim-etapa" class="form-input" [(ngModel)]="simEtapa">@for (e of etapasTeste; track e.key) { <option [value]="e.key">{{ e.label }}</option> }</select></div>
+                <div><label class="form-label" for="sim-trilha">O cliente escolheu</label>
+                  <select id="sim-trilha" class="form-input" [(ngModel)]="simTrilha"><option value="">(automático)</option>@for (t of trilhaOpcoes; track t.key) { <option [value]="t.key">{{ t.label }}</option> }</select></div>
+                <div><label class="form-label" for="sim-nome">Nome</label><input id="sim-nome" class="form-input" [(ngModel)]="simNome" placeholder="Ana Paula" /></div>
               </div>
-              <details class="panel panel-pad tech">
-                <summary class="font-semibold text-sm cursor-pointer">Avançado: começar numa etapa do fluxo padrão</summary>
-                <div class="space-y-3 mt-3">
-                  <div><label class="form-label" for="sim-etapa">Etapa</label>
-                    <select id="sim-etapa" class="form-input" [(ngModel)]="simEtapa">@for (e of etapasTeste; track e.key) { <option [value]="e.key">{{ e.label }}</option> }</select></div>
-                  <div><label class="form-label" for="sim-trilha">O cliente escolheu</label>
-                    <select id="sim-trilha" class="form-input" [(ngModel)]="simTrilha"><option value="">(automático)</option>@for (t of trilhaOpcoes; track t.key) { <option [value]="t.key">{{ t.label }}</option> }</select></div>
-                  <div><label class="form-label" for="sim-nome">Nome do cliente</label><input id="sim-nome" class="form-input" [(ngModel)]="simNome" placeholder="Ana Paula" /></div>
-                  <button type="button" class="btn btn-secondary btn-sm" (click)="simComecar(true)">Começar nesta etapa</button>
-                </div>
-              </details>
-            </aside>
+              <button type="button" class="btn btn-secondary btn-sm mt-3" (click)="simComecar(true)">Começar nesta etapa</button>
+            </details>
           </div>
         }
 
-        <!-- ═══════════ CONFIGURAÇÃO ═══════════ -->
+        <!-- ═══════════ AJUSTES ═══════════ -->
         @case ('config') {
-          <div class="space-y-5 pb-24">
-            @for (g of grupos; track g.key) {
-              <section class="panel">
-                <div class="panel-pad" style="border-bottom: 1px solid var(--cmm-border);">
-                  <h2 class="sec-title">{{ g.titulo }}</h2>
-                  <p class="text-sm" style="color: var(--cmm-muted);">{{ g.texto }}</p>
+          <div class="panel pb-2 mb-24">
+            @for (g of grupos; track g.key; let first = $first) {
+              <h2 class="cfg-h" [class.cfg-h-first]="first">{{ g.titulo }}</h2>
+              @for (f of camposDo(g.key); track f.key) {
+                <div class="cfg-row">
+                  <div class="min-w-0">
+                    <label class="font-semibold text-sm" [attr.for]="'cfg-' + f.key">{{ f.label }}@if (f.sensitive) { <span class="cfg-warn" title="Afeta o atendimento aos clientes na hora"> ⚠</span> }</label>
+                    <p class="text-xs mt-0.5" style="color: var(--cmm-muted);">{{ f.description }}</p>
+                  </div>
+                  <div class="cfg-ctl">
+                    @if (f.source === 'tela' && f.type !== 'secret') {
+                      <button type="button" class="cfg-reset" (click)="restaurar(f)" title="Alterado aqui — voltar ao padrão" [attr.aria-label]="'Voltar ao padrão de ' + f.label">↺ padrão</button>
+                    }
+                    @switch (f.type) {
+                      @case ('boolean') {
+                        <button type="button" role="switch" [id]="'cfg-' + f.key" class="switch" [class.switch-on]="valorBool(f)" [attr.aria-checked]="valorBool(f)" (click)="setCampo(f, !valorBool(f))"><span class="switch-knob"></span></button>
+                      }
+                      @case ('number') {
+                        <input class="form-input cfg-num" type="number" [id]="'cfg-' + f.key" [min]="f.min ?? null" [max]="f.max ?? null" [ngModel]="valorCampo(f)" (ngModelChange)="setCampo(f, $event)" />
+                      }
+                      @case ('secret') {
+                        <div class="cfg-secret">
+                          <input class="form-input" type="password" autocomplete="new-password" [id]="'cfg-' + f.key" [placeholder]="f.configured ? '•••••••• configurada' : f.placeholder || ''" [ngModel]="draft()[f.key] ?? ''" (ngModelChange)="setCampo(f, $event)" />
+                          @if (!f.configured) { <span class="text-xs" style="color: var(--cmm-danger);">Nenhuma chave configurada</span> }
+                        </div>
+                      }
+                      @default {
+                        <input class="form-input" type="text" [id]="'cfg-' + f.key" [placeholder]="f.placeholder || ''" [ngModel]="valorCampo(f) ?? ''" (ngModelChange)="setCampo(f, $event)" />
+                      }
+                    }
+                  </div>
                 </div>
-                <div class="divide-y">
-                  @for (f of camposDo(g.key); track f.key) {
-                    <div class="cfg-row">
-                      <div class="min-w-0">
-                        <label class="font-semibold text-sm" [attr.for]="'cfg-' + f.key">{{ f.label }}</label>
-                        @if (f.sensitive) { <span class="badge badge-warning ml-2">Afeta clientes</span> }
-                        <p class="text-xs mt-1" style="color: var(--cmm-muted);">{{ f.description }}</p>
-                      </div>
-                      <div class="cfg-ctl">
-                        @switch (f.type) {
-                          @case ('boolean') {
-                            <button type="button" role="switch" [id]="'cfg-' + f.key" class="switch" [class.switch-on]="valorBool(f)" [attr.aria-checked]="valorBool(f)" (click)="setCampo(f, !valorBool(f))"><span class="switch-knob"></span></button>
-                          }
-                          @case ('number') {
-                            <input class="form-input cfg-num" type="number" [id]="'cfg-' + f.key" [min]="f.min ?? null" [max]="f.max ?? null" [ngModel]="valorCampo(f)" (ngModelChange)="setCampo(f, $event)" />
-                          }
-                          @case ('secret') {
-                            <div class="flex flex-col gap-1.5 items-end w-full">
-                              <input class="form-input" type="password" autocomplete="new-password" [id]="'cfg-' + f.key" [placeholder]="f.configured ? '•••••••• (já configurada)' : f.placeholder || ''" [ngModel]="draft()[f.key] ?? ''" (ngModelChange)="setCampo(f, $event)" />
-                              <span class="badge" [class.badge-success]="f.configured" [class.badge-danger]="!f.configured">{{ f.configured ? 'Chave configurada' : 'Sem chave' }}</span>
-                            </div>
-                          }
-                          @default {
-                            <input class="form-input" type="text" [id]="'cfg-' + f.key" [placeholder]="f.placeholder || ''" [ngModel]="valorCampo(f) ?? ''" (ngModelChange)="setCampo(f, $event)" />
-                          }
-                        }
-                        <span class="src" [class.src-tela]="f.source === 'tela'" [title]="'Origem do valor atual: ' + f.source">{{ f.source }}</span>
-                        @if (f.source === 'tela' && f.type !== 'secret') {
-                          <button type="button" class="btn btn-ghost btn-sm !px-2" (click)="restaurar(f)" aria-label="Voltar ao padrão de {{ f.label }}" title="Voltar ao padrão">↺</button>
-                        }
-                      </div>
-                    </div>
-                  }
-                </div>
-              </section>
+              }
             }
           </div>
 
@@ -428,6 +394,14 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
     .live-off { color: var(--cmm-muted); background: color-mix(in srgb, var(--cmm-border) 55%, var(--cmm-panel)); }
     .live-dot { width: 8px; height: 8px; border-radius: 99px; background: currentColor; }
     .live-on .live-dot { animation: pulse-dot 1.6s ease-in-out infinite; box-shadow: 0 0 10px currentColor; }
+    .ia-head { margin-bottom: .25rem; }
+    .tabs { display: flex; gap: 1.75rem; border-bottom: 1px solid var(--cmm-border); overflow-x: auto; margin-bottom: .5rem; }
+    .tab { position: relative; padding: .75rem .1rem; border: none; background: none; color: var(--cmm-muted); font-weight: 600; font-size: .9375rem; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 200ms, border-color 250ms; }
+    .tab:hover { color: var(--cmm-ink); }
+    .tab-on { color: var(--cmm-ink); border-bottom-color: var(--cmm-accent); }
+    .live-btn { cursor: pointer; transition: background-color 200ms, border-color 200ms; } .live-btn:hover { border-color: currentColor; }
+    .live-hint { margin-left: .35rem; padding-left: .5rem; border-left: 1px solid color-mix(in srgb, currentColor 30%, transparent); font-weight: 600; opacity: 0; max-width: 0; overflow: hidden; white-space: nowrap; transition: opacity 200ms, max-width 300ms; }
+    .live-btn:hover .live-hint, .live-btn:focus-visible .live-hint { opacity: .8; max-width: 6rem; }
     .seg { display: inline-flex; gap: .25rem; padding: .3rem; border-radius: 999px; background: color-mix(in srgb, var(--cmm-border) 45%, var(--cmm-panel)); max-width: 100%; overflow-x: auto; }
     .seg-btn { position: relative; padding: .5rem 1.1rem; border-radius: 999px; border: none; background: transparent; color: var(--cmm-muted); font-weight: 600; font-size: .875rem; cursor: pointer; white-space: nowrap; transition: color 200ms, background-color 250ms, box-shadow 250ms; }
     .seg-btn:hover { color: var(--cmm-ink); }
@@ -471,6 +445,8 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
     .sim-meta { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin: .15rem 0; }
     .sim-note { font-size: .7rem; color: var(--cmm-muted); margin: 0 0 .75rem; }
     .sim-pick { display: flex; align-items: center; gap: .75rem; padding: .75rem 1.25rem; border-bottom: 1px solid var(--cmm-border); flex-wrap: wrap; } .sim-pick select { flex: 1 1 16rem; min-width: 0; }
+    .sim-controls { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; } .sim-controls select { flex: 1 1 16rem; min-width: 0; }
+    .ia-toggle { display: inline-flex; align-items: center; gap: .5rem; font-size: .8125rem; font-weight: 700; color: var(--cmm-muted); }
     .sim-bar { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem 1.25rem; border-bottom: 1px solid var(--cmm-border); flex-wrap: wrap; }
     .sim-where { display: flex; flex-direction: column; min-width: 0; } .sim-where b { font-size: .9rem; overflow-wrap: anywhere; }
     .sim-aviso { margin: 0 1.25rem .5rem; font-size: .78rem; color: var(--cmm-warning); font-weight: 600; }
@@ -482,6 +458,11 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
     .switch-on { background: var(--cmm-accent); }
     .switch-knob { position: absolute; top: 3px; left: 3px; width: 1.2rem; height: 1.2rem; border-radius: 99px; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.3); transition: transform 400ms var(--ease-out-expo); }
     .switch-on .switch-knob { transform: translateX(1.3rem); }
+    .cfg-h { margin: 0; padding: 1.4rem 1.5rem .5rem; font-size: .6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--cmm-muted); }
+    .cfg-h-first { padding-top: 1.1rem; }
+    .cfg-warn { color: var(--cmm-warning); }
+    .cfg-reset { border: none; background: none; color: var(--cmm-accent); font-size: .75rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .cfg-secret { display: flex; flex-direction: column; gap: .25rem; align-items: flex-end; width: 100%; }
     .cfg-row { display: grid; grid-template-columns: 1fr; gap: .75rem; padding: 1rem 1.5rem; }
     @media (min-width: 900px) { .cfg-row { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: center; } }
     .cfg-ctl { display: flex; align-items: center; justify-content: flex-end; gap: .6rem; }
@@ -575,12 +556,10 @@ export class IaComponent implements OnInit, OnDestroy {
     const o = this.overview();
     if (!t || !o) return [];
     return [
-      { label: 'Conversas hoje', value: t.novosHoje, hint: `${t.total} no total` },
-      { label: 'Entregues a humanos hoje', value: t.entreguesHoje, hint: 'triagem concluída' },
-      { label: 'Com atendente agora', value: t.emHumano, hint: 'bot em silêncio' },
-      { label: 'Falhas de entrega', value: t.comErro, hint: t.comErro ? 'precisam de atenção' : 'tudo certo' },
-      { label: 'Usos da IA hoje', value: o.iaHoje, hint: 'mensagens interpretadas' },
-      { label: 'Fora de escopo (7d)', value: o.foraEscopo7d, hint: 'advertências' },
+      { label: 'Conversas hoje', value: t.novosHoje, hint: '' },
+      { label: 'Com atendente agora', value: t.emHumano, hint: '' },
+      { label: 'Falhas de entrega', value: t.comErro, hint: '' },
+      { label: 'Usos da IA hoje', value: o.iaHoje, hint: '' },
     ];
   });
 
@@ -716,9 +695,12 @@ export class IaComponent implements OnInit, OnDestroy {
       error: () => undefined,
     });
   }
-  simEnviar(): void {
+  simEnviar(ev?: Event): void {
     const texto = this.simTexto().trim();
     if (!texto || this.simCarregando()) return;
+    // Limpa o campo já: se o Enter vier colado na última tecla, o Angular ainda não viu o texto e ignoraria a limpeza
+    const campo = (ev?.target as HTMLElement | null)?.querySelector?.('input[name=simTexto]') as HTMLInputElement | null;
+    if (campo) campo.value = '';
     this.simLog.update((l) => [...l, { de: 'cliente', texto }]);
     this.simTexto.set('');
     this.simPasso(this.simEstado(), texto);

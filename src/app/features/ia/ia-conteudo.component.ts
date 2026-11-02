@@ -37,24 +37,17 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
   template: `
     @if (conteudo(); as c) {
       <div class="space-y-5 pb-24">
-        <!-- Estado da publicação e como funciona, numa linha -->
-        <div class="panel panel-pad status">
-          <div class="steps" aria-label="Como funciona">
-            <span class="step"><b>1</b> Edite</span><span class="step-sep">→</span>
-            <span class="step"><b>2</b> Salve o rascunho <small>(nada muda para o cliente)</small></span><span class="step-sep">→</span>
-            <span class="step"><b>3</b> Publique</span>
-          </div>
-          <div class="flex items-center gap-3 flex-wrap">
-            <span class="text-sm" style="color: var(--cmm-muted);">{{ c.publishedAt ? 'Publicado em ' + data(c.publishedAt) + (c.publishedBy ? ' por ' + c.publishedBy : '') : 'Ainda usando os textos originais' }}</span>
-            @if (c.hasPrevious) { <button type="button" class="btn btn-ghost btn-sm" (click)="reverter()">Voltar à versão anterior</button> }
-          </div>
-        </div>
-
         @if (aberto() === null) {
           <!-- ═════ GALERIA DE FLUXOS ═════ -->
-          <header>
-            <h2 class="sec-title">Fluxos de atendimento</h2>
-            <p class="text-sm mt-1" style="color: var(--cmm-muted);">Cada cartão é um caminho de conversa que o cliente pode seguir. Abra um para editar as etapas, o jeito de falar e o que a IA sabe <b>naquele fluxo</b>.</p>
+          <header class="gal-head">
+            <div>
+              <h2 class="sec-title">Fluxos de atendimento</h2>
+              <p class="text-sm mt-1" style="color: var(--cmm-muted);">Cada cartão é um caminho de conversa. Abra um para editar etapas, jeito de falar e o que a IA sabe.</p>
+            </div>
+            <p class="pub-info">
+              {{ c.publishedAt ? 'Publicado em ' + data(c.publishedAt) : 'Usando os textos originais' }}
+              @if (c.hasPrevious) { · <button type="button" class="link" (click)="reverter()">voltar à versão anterior</button> }
+            </p>
           </header>
           @if (c.problemas.length) {
             <div class="panel panel-pad text-sm" style="background: color-mix(in srgb, var(--cmm-warning) 10%, var(--cmm-panel));">
@@ -67,32 +60,20 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
               <span class="g-ico" aria-hidden="true">⭐</span>
               <b class="g-title">Fluxo padrão</b>
               <span class="g-desc">O atendimento que a Vera já faz: menu com 5 opções, nome, arquivos, ambientes, agendamento e encaminhamento.</span>
-              <span class="g-chips">
-                <span class="badge badge-success">Sempre ativo</span>
-                <span class="badge badge-neutral">Opções 1 a 5</span>
-                <span class="badge badge-neutral">{{ tomLabel(doc().guidance.tone) }}</span>
-                <span class="badge badge-neutral">{{ kb().length }} assunto(s)</span>
-                @if (editadasPadrao() > 0) { <span class="badge badge-accent">{{ editadasPadrao() }} alteração(ões)</span> }
-              </span>
+              <span class="g-meta">Opções 1 a 5 · {{ tomLabel(doc().guidance.tone) }} · {{ kb().length }} assunto(s)@if (editadasPadrao() > 0) { · <b class="g-edit">{{ editadasPadrao() }} alteração(ões)</b> }</span>
             </button>
             @for (f of doc().fluxos; track $index; let i = $index) {
               <button type="button" class="gcard" (click)="abrir('f' + i)">
                 <span class="g-ico" aria-hidden="true">🧭</span>
                 <b class="g-title">{{ f.nome || 'Sem nome' }}</b>
                 <span class="g-desc">{{ f.descricao || 'Sem descrição.' }}</span>
-                <span class="g-chips">
-                  <span class="badge" [class.badge-success]="f.ativo" [class.badge-neutral]="!f.ativo">{{ f.ativo ? 'Ativo' : 'Desativado' }}</span>
-                  @if (f.menuOpcao) { <span class="badge badge-accent">Opção {{ f.menuOpcao }} do menu</span> }
-                  <span class="badge badge-neutral">{{ f.nos.length }} etapa(s)</span>
-                  <span class="badge badge-neutral">{{ tomLabel(f.guidance?.tone) }}</span>
-                  <span class="badge badge-neutral">{{ f.kb?.length ?? 0 }} assunto(s)</span>
-                </span>
+                <span class="g-meta"><span class="g-dot" [class.g-dot-on]="f.ativo"></span>{{ f.ativo ? 'Ativo' : 'Desativado' }}@if (f.menuOpcao) { · opção {{ f.menuOpcao }} }  · {{ f.nos.length }} etapa(s)</span>
               </button>
             }
             <div class="gcard gcard-new">
               <span class="g-ico" aria-hidden="true">＋</span>
               <b class="g-title">Criar novo fluxo</b>
-              <span class="g-desc">Monte seu próprio caminho de conversa, com as ferramentas do sistema (hoje, o Google Drive).</span>
+              <span class="g-desc">Monte seu caminho de conversa, usando o Google Drive se precisar.</span>
               <span class="g-chips">
                 <button type="button" class="btn btn-primary btn-sm" (click)="novoFluxo('coleta')" [disabled]="doc().fluxos.length >= 10">Coleta de dados + Drive</button>
                 <button type="button" class="btn btn-secondary btn-sm" (click)="novoFluxo('branco')" [disabled]="doc().fluxos.length >= 10">Em branco</button>
@@ -104,7 +85,6 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
           <div class="ws-head">
             <button type="button" class="btn btn-ghost btn-sm" (click)="fecharFluxo()">← Todos os fluxos</button>
             <h2 class="sec-title flex-1 min-w-[9rem]">{{ ehPadrao() ? '⭐ Fluxo padrão' : '🧭 ' + (fluxoAtual()!.nome || 'Sem nome') }}</h2>
-            @if (!ehPadrao() && fluxoAtual(); as f) { <span class="badge" [class.badge-success]="f.ativo" [class.badge-neutral]="!f.ativo">{{ f.ativo ? 'Ativo' : 'Desativado' }}</span> }
           </div>
           <div class="seg" role="tablist" aria-label="Áreas do fluxo">
             <button type="button" role="tab" class="seg-btn" [class.seg-on]="aba() === 'etapas'" [attr.aria-selected]="aba() === 'etapas'" (click)="aba.set('etapas')">Etapas</button>
@@ -218,13 +198,13 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
       @if (alteracoes() > 0 || c.draft) {
         <div class="savebar" role="region" aria-label="Rascunho do conteúdo">
           <span>
-            @if (alteracoes() > 0) { <b>{{ alteracoes() }}</b> alteração(ões) ainda não publicada(s) }
+            @if (alteracoes() > 0) { <b>{{ alteracoes() }}</b> alteração(ões) não publicada(s) }
             @else { Rascunho igual ao publicado }
             @if (sujo()) { · <i>não salvo</i> } @else if (c.draftAt) { · rascunho salvo }
           </span>
           <div class="flex gap-2">
             <button type="button" class="btn btn-ghost btn-sm" (click)="descartar()" [disabled]="ocupado()">Descartar</button>
-            <button type="button" class="btn btn-secondary btn-sm" (click)="salvarRascunho()" [disabled]="ocupado() || !sujo()">Salvar rascunho</button>
+            <button type="button" class="btn btn-secondary btn-sm" title="Guarda sem publicar: nada muda para os clientes" (click)="salvarRascunho()" [disabled]="ocupado() || !sujo()">Salvar rascunho</button>
             <button type="button" class="btn btn-accent btn-sm" (click)="publicar()" [disabled]="ocupado() || alteracoes() === 0">Publicar</button>
           </div>
         </div>
@@ -241,20 +221,27 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
     .step { display: inline-flex; align-items: center; gap: .35rem; } .step small { color: var(--cmm-muted); }
     .step b { width: 1.35rem; height: 1.35rem; border-radius: 99px; display: grid; place-items: center; font-size: .7rem; background: var(--cmm-accent-soft); color: var(--cmm-accent); }
     .step-sep { color: var(--cmm-muted); }
+    .gal-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    .pub-info { font-size: .8125rem; color: var(--cmm-muted); }
+    .link { border: none; background: none; color: var(--cmm-accent); font-weight: 600; cursor: pointer; padding: 0; font-size: inherit; }
+    .link:hover { text-decoration: underline; }
+    .g-meta { margin-top: auto; font-size: .78rem; color: var(--cmm-muted); display: inline-flex; align-items: center; gap: .35rem; flex-wrap: wrap; }
+    .g-edit { color: var(--cmm-accent); }
+    .g-dot { width: .5rem; height: .5rem; border-radius: 99px; background: var(--cmm-border); } .g-dot-on { background: var(--cmm-success); }
     .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: 1rem; }
-    .gcard { display: flex; flex-direction: column; align-items: flex-start; gap: .5rem; text-align: left; padding: 1.25rem; min-height: 13rem; border-radius: 1.1rem; border: 1.5px solid var(--cmm-border); background: var(--cmm-panel); color: var(--cmm-ink); cursor: pointer; transition: transform 400ms var(--ease-out-expo), border-color 250ms, box-shadow 400ms var(--ease-out-expo); }
+    .gcard { display: flex; flex-direction: column; align-items: flex-start; gap: .5rem; text-align: left; padding: 1.25rem; min-height: 10.5rem; border-radius: 1.1rem; border: 1.5px solid var(--cmm-border); background: var(--cmm-panel); color: var(--cmm-ink); cursor: pointer; transition: transform 400ms var(--ease-out-expo), border-color 250ms, box-shadow 400ms var(--ease-out-expo); }
     .gcard:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--cmm-accent) 55%, var(--cmm-border)); box-shadow: var(--cmm-shadow-lift); }
     .gcard-std { background: linear-gradient(160deg, var(--cmm-accent-soft), var(--cmm-panel) 60%); }
-    .gcard-new { border-style: dashed; cursor: default; background: transparent; } .gcard-new:hover { transform: none; box-shadow: none; }
+    .gcard-new { border-style: dashed; cursor: default; background: transparent; } .gcard-new .g-chips { margin-top: auto; } .gcard-new:hover { transform: none; box-shadow: none; }
     .g-ico { width: 2.6rem; height: 2.6rem; border-radius: .85rem; display: grid; place-items: center; font-size: 1.3rem; background: var(--cmm-accent-soft); }
     .g-title { font-family: var(--font-display); font-size: 1.1rem; line-height: 1.15; }
     .g-desc { font-size: .8125rem; color: var(--cmm-muted); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .g-chips { margin-top: auto; display: flex; flex-wrap: wrap; gap: .4rem; }
     .ws-head { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
-    .seg { display: inline-flex; gap: .25rem; padding: .3rem; border-radius: 999px; background: color-mix(in srgb, var(--cmm-border) 45%, var(--cmm-panel)); max-width: 100%; overflow-x: auto; }
-    .seg-btn { padding: .5rem 1.1rem; border-radius: 999px; border: none; background: transparent; color: var(--cmm-muted); font-weight: 600; font-size: .875rem; cursor: pointer; white-space: nowrap; transition: color 200ms, background-color 250ms, box-shadow 250ms; }
+    .seg { display: inline-flex; gap: .15rem; padding: .25rem; border-radius: .8rem; background: color-mix(in srgb, var(--cmm-border) 45%, var(--cmm-panel)); max-width: 100%; overflow-x: auto; }
+    .seg-btn { padding: .4rem 1rem; border-radius: .6rem; border: none; background: transparent; color: var(--cmm-muted); font-weight: 600; font-size: .875rem; cursor: pointer; white-space: nowrap; transition: color 200ms, background-color 250ms, box-shadow 250ms; }
     .seg-btn:hover { color: var(--cmm-ink); }
-    .seg-on, .seg-on:hover { color: var(--cmm-accent-ink); background: linear-gradient(120deg, var(--cmm-accent), var(--cmm-accent-2)); box-shadow: 0 8px 20px -10px var(--cmm-accent); }
+    .seg-on, .seg-on:hover { color: var(--cmm-ink); background: var(--cmm-panel); box-shadow: 0 1px 4px rgba(0,0,0,.12); }
     .board { display: grid; grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr)); gap: .85rem; }
     .card-node { display: flex; flex-direction: column; gap: .4rem; text-align: left; padding: .9rem 1rem 1rem; border: 1.5px solid var(--cmm-border); border-top: 4px solid var(--cmm-accent); border-radius: 1rem; background: var(--cmm-panel); color: var(--cmm-ink); cursor: pointer; min-height: 9.5rem; transition: transform 350ms var(--ease-out-expo), border-color 200ms, box-shadow 350ms var(--ease-out-expo); }
     .card-node:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--cmm-accent) 55%, var(--cmm-border)); box-shadow: var(--cmm-shadow-lift); }
