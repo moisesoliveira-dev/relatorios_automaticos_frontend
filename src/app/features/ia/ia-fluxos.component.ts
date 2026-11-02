@@ -1,6 +1,7 @@
 import { Component, HostListener, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ModalService } from '../../shared/services/modal.service';
+import { HintComponent } from '../../shared/components/hint.component';
 import { IconComponent, IconName } from '../../shared/components/icon.component';
 import { IaApiService, IaFlow, IaFlowState, IaNode, IaTool } from './ia-api.service';
 
@@ -9,17 +10,34 @@ type Tipo = IaNode['tipo'];
 type Grupo = 'Falar' | 'Receber do cliente' | 'Fazer' | 'Terminar';
 
 /** Cada tipo é um modelo: já nasce com o formato certo (o que pergunta, quantas opções, o que faz sozinho). */
-const TIPOS: Array<{ tipo: Tipo; grupo: Grupo; label: string; icon: IconName; ajuda: string }> = [
-  { tipo: 'mensagem', grupo: 'Falar', label: 'Mensagem', icon: 'mensagem', ajuda: 'Informa algo e segue sozinho.' },
-  { tipo: 'confirmacao', grupo: 'Falar', label: 'Confirmação', icon: 'confirmacao', ajuda: 'Pergunta com Sim ou Não.' },
-  { tipo: 'opcoes', grupo: 'Receber do cliente', label: 'Escolha', icon: 'escolha', ajuda: 'Menu numerado, cada opção segue um caminho.' },
-  { tipo: 'pergunta', grupo: 'Receber do cliente', label: 'Pergunta', icon: 'pergunta', ajuda: 'Espera uma resposta escrita e guarda.' },
-  { tipo: 'arquivos', grupo: 'Receber do cliente', label: 'Solicitação', icon: 'arquivo', ajuda: 'Pede arquivos; pode guardar no Drive.' },
-  { tipo: 'acao', grupo: 'Fazer', label: 'Ferramenta', icon: 'ferramenta', ajuda: 'Faz algo sozinho, como salvar no Drive.' },
-  { tipo: 'encaminhar', grupo: 'Terminar', label: 'Encaminhar', icon: 'atendente', ajuda: 'Passa a um atendente e termina.' },
-  { tipo: 'fim', grupo: 'Terminar', label: 'Encerrar', icon: 'fim', ajuda: 'Termina e volta ao menu.' },
+const TIPOS: Array<{ tipo: Tipo; grupo: Grupo; label: string; icon: IconName; ajuda: string; regra: string }> = [
+  { tipo: 'mensagem', grupo: 'Falar', label: 'Mensagem', icon: 'mensagem', ajuda: 'Informa algo e segue sozinho.', regra: 'Sem requisitos. Segue sozinha para a próxima etapa.' },
+  { tipo: 'confirmacao', grupo: 'Falar', label: 'Confirmação', icon: 'confirmacao', ajuda: 'Pergunta com Sim ou Não.', regra: 'Sempre duas respostas, Sim e Não, cada uma com o seu caminho.' },
+  { tipo: 'opcoes', grupo: 'Receber do cliente', label: 'Escolha', icon: 'escolha', ajuda: 'Menu numerado, cada opção segue um caminho.', regra: 'De 2 a 8 opções, cada uma com o seu caminho.' },
+  { tipo: 'pergunta', grupo: 'Receber do cliente', label: 'Pergunta', icon: 'pergunta', ajuda: 'Espera uma resposta escrita e guarda.', regra: 'Dê um nome à resposta. Use “nome” para o nome do cliente.' },
+  { tipo: 'arquivos', grupo: 'Receber do cliente', label: 'Solicitação', icon: 'arquivo', ajuda: 'Pede arquivos; pode guardar no Drive.', regra: 'Para guardar no Drive, o nome do cliente precisa ter sido perguntado antes.' },
+  { tipo: 'acao', grupo: 'Fazer', label: 'Ferramenta', icon: 'ferramenta', ajuda: 'Faz algo sozinho, como salvar no Drive.', regra: 'Criar a pasta pede o nome antes. Salvar as respostas pede a pasta criada antes.' },
+  { tipo: 'encaminhar', grupo: 'Terminar', label: 'Encaminhar', icon: 'atendente', ajuda: 'Passa a um atendente e termina.', regra: 'Termina o fluxo: nada pode vir depois.' },
+  { tipo: 'fim', grupo: 'Terminar', label: 'Encerrar', icon: 'fim', ajuda: 'Termina e volta ao menu.', regra: 'Termina o fluxo: nada pode vir depois.' },
 ];
 const GRUPOS: Grupo[] = ['Falar', 'Receber do cliente', 'Fazer', 'Terminar'];
+
+const DICAS = {
+  ativo: 'Desativado, o fluxo some do menu dos clientes, mas continua salvo para você ligar depois.',
+  menu: 'O número que o cliente digita no menu inicial para entrar neste fluxo. Vai de 6 a 9, e cada número serve a um único fluxo ativo.',
+  texto: 'É a mensagem que o cliente recebe no WhatsApp. Escreva {nome} (ou {outra_resposta}) para citar algo que ele já respondeu. Só funciona para respostas dadas ANTES desta etapa.',
+  textoFinal: 'Opcional. Se ficar vazio, o bot usa a mensagem padrão.',
+  variavel: 'O nome interno da resposta: letras minúsculas, números e _. Use “nome” para o nome do cliente. Ele é gravado no cadastro e é exigido para guardar arquivos no Drive.',
+  conferir: 'Nome de pessoa recusa respostas que não parecem um nome e pede de novo.',
+  minimo: 'Quantos arquivos o cliente precisa enviar antes de o “OK” valer.',
+  guardar: 'Os arquivos só são guardados se a pasta do cliente existir. Aqui você cria a pasta (ou reaproveita a que já existe) ou usa a pasta criada em uma etapa anterior. Criar a pasta exige o nome do cliente perguntado antes.',
+  pasta: 'Criar a pasta se faltar: procura a pasta do cliente e cria se não achar. Só usar se já existir: nunca cria nada.',
+  confirmacao: 'Sim e Não são fixos. Escolha para onde cada resposta leva o cliente.',
+  opcoes: 'De 2 a 8 opções. O número é automático e o bot também aceita 0 (voltar) e 10 (recomeçar).',
+  proximo: 'Para onde o cliente vai quando esta etapa termina. Se for a etapa logo abaixo na lista, o fluxo anda sozinho.',
+  ferramenta: 'Criar a pasta precisa do nome do cliente perguntado antes. Salvar as respostas precisa da pasta criada antes.',
+  picker: 'Cada tipo já vem pronto. Algumas etapas dependem de outras: o aviso em âmbar mostra o que ainda falta antes deste ponto.',
+} as const;
 
 export const MODELOS: Record<string, () => IaFlow> = {
   branco: () => ({ id: '', nome: 'Novo fluxo', ativo: false, menuOpcao: null, guidance: { tone: 'padrao', instructions: '' }, reescrever: false, kb: [], nos: [
@@ -34,17 +52,48 @@ export const MODELOS: Record<string, () => IaFlow> = {
   ] }),
 };
 
+interface Ctx { vars: Set<string>; pasta: boolean }
+const criaPasta = (n: IaNode): boolean => (n.tipo === 'acao' && n.acao === 'drive_criar_pasta') || (n.tipo === 'arquivos' && n.armazenar === 'drive');
+const guardaVar = (n: IaNode): string | null => ((n.tipo === 'pergunta' || n.tipo === 'opcoes' || n.tipo === 'confirmacao') && n.variavel ? n.variavel : null);
+const sucessores = (n: IaNode): Array<string | null | undefined> =>
+  n.tipo === 'opcoes' || n.tipo === 'confirmacao' ? (n.opcoes ?? []).map((o) => o.proximo) : n.tipo === 'encaminhar' || n.tipo === 'fim' ? [] : [n.proximo];
+
+/** Mesma análise do servidor: o que já aconteceu, em TODOS os caminhos que chegam a cada etapa. */
+function contextos(f: IaFlow | null): Map<string, Ctx> {
+  const ent = new Map<string, Ctx>();
+  if (!f?.nos.length) return ent;
+  const por = new Map(f.nos.map((n) => [n.id, n]));
+  ent.set(f.nos[0].id, { vars: new Set(), pasta: false });
+  const fila = [f.nos[0].id];
+  for (let g = 0; fila.length && g < 5000; g++) {
+    const n = por.get(fila.shift()!)!;
+    const e = ent.get(n.id)!;
+    const saida: Ctx = { vars: new Set(e.vars), pasta: e.pasta || criaPasta(n) };
+    const v = guardaVar(n);
+    if (v) saida.vars.add(v);
+    for (const s of sucessores(n)) {
+      if (!s || !por.has(s)) continue;
+      const cur = ent.get(s);
+      if (!cur) { ent.set(s, { vars: new Set(saida.vars), pasta: saida.pasta }); fila.push(s); continue; }
+      const vars = new Set([...cur.vars].filter((x) => saida.vars.has(x)));
+      const pasta = cur.pasta && saida.pasta;
+      if (vars.size !== cur.vars.size || pasta !== cur.pasta) { ent.set(s, { vars, pasta }); fila.push(s); }
+    }
+  }
+  return ent;
+}
+
 @Component({
   selector: 'app-ia-fluxos',
   standalone: true,
-  imports: [FormsModule, IconComponent],
+  imports: [FormsModule, IconComponent, HintComponent],
   template: `
     @if (atual(); as f) {
       <div class="fx">
         <section class="fx-bar">
           <button type="button" role="switch" class="switch" [class.switch-on]="f.ativo" [attr.aria-checked]="f.ativo" aria-label="Fluxo ativo no menu" (click)="editar((x) => (x.ativo = !x.ativo))"><span class="switch-knob"></span></button>
-          <span class="fx-state">{{ f.ativo ? 'Ativo' : 'Desativado' }}</span>
-          <label class="fx-opt" title="Número que o cliente digita no menu inicial">no menu como
+          <span class="fx-state">{{ f.ativo ? 'Ativo' : 'Desativado' }}</span><app-hint [texto]="dicas.ativo" />
+          <label class="fx-opt" title="Número que o cliente digita no menu inicial">no menu como <app-hint [texto]="dicas.menu" />
             <select class="form-input bar-sel" aria-label="Opção no menu" [ngModel]="f.menuOpcao" (ngModelChange)="editar((x) => (x.menuOpcao = $event === null ? null : +$event))">
               <option [ngValue]="null">—</option>
               @for (n of [6, 7, 8, 9]; track n) { <option [ngValue]="n" [disabled]="opcaoUsada(n)">{{ n }}{{ opcaoUsada(n) ? ' (em uso)' : '' }}</option> }
@@ -67,7 +116,7 @@ export const MODELOS: Record<string, () => IaFlow> = {
                   <span class="tl-sum">{{ resumo(n) }}</span>
                   @if (ramos(n, f).length) { <span class="tl-ramos">@for (r of ramos(n, f); track $index) { <span class="tl-ramo" [class.tl-ramo-bad]="r.ruim">{{ r.texto }}</span> }</span> }
                 </span>
-                @if (incompleto(n)) { <span class="tl-flag" title="Faltam detalhes nesta etapa"><app-icon name="alerta" [size]="16" /></span> }
+                @if (faltas(n).length) { <span class="tl-flag"><app-hint tom="aviso" rotulo="O que falta nesta etapa" [texto]="'Falta nesta etapa:\n• ' + faltas(n).join('\n• ')" /></span> }
                 <span class="tl-acts">
                   <button type="button" class="icon-btn icon-btn-sm" aria-label="Mover para cima" title="Mover para cima" [disabled]="i === 0" (click)="mover(i, -1, false); $event.stopPropagation()"><app-icon name="cima" [size]="15" /></button>
                   <button type="button" class="icon-btn icon-btn-sm" aria-label="Mover para baixo" title="Mover para baixo" [disabled]="i === f.nos.length - 1" (click)="mover(i, 1, false); $event.stopPropagation()"><app-icon name="baixo" [size]="15" /></button>
@@ -86,15 +135,18 @@ export const MODELOS: Record<string, () => IaFlow> = {
       @if (picker() !== null) {
         <div class="dlg-backdrop" (click)="picker.set(null)" aria-hidden="true"></div>
         <div class="dlg dlg-wide" role="dialog" aria-modal="true" aria-label="Escolha o tipo da etapa">
-          <header class="dlg-head"><h3>O que acontece nesta etapa?</h3><button type="button" class="icon-btn icon-btn-sm" (click)="picker.set(null)" aria-label="Fechar"><app-icon name="fechar" /></button></header>
+          <header class="dlg-head"><h3>O que acontece nesta etapa? <app-hint [texto]="dicas.picker" /></h3><button type="button" class="icon-btn icon-btn-sm" (click)="picker.set(null)" aria-label="Fechar"><app-icon name="fechar" /></button></header>
           <div class="pick-grid">
             @for (g of grupos; track g) {
               <p class="pick-grupo">{{ g }}</p>
               @for (t of tiposDo(g); track t.tipo) {
-                <button type="button" class="pick" [attr.data-tipo]="t.tipo" (click)="addNo(t.tipo, picker()!)">
-                  <span class="tl-ico"><app-icon [name]="t.icon" [size]="18" /></span>
-                  <span><b>{{ t.label }}</b><small>{{ t.ajuda }}</small></span>
-                </button>
+                <div class="pick-wrap">
+                  <button type="button" class="pick" [class.pick-warn]="faltaParaTipo(t.tipo, picker()!)" [attr.data-tipo]="t.tipo" (click)="addNo(t.tipo, picker()!)">
+                    <span class="tl-ico"><app-icon [name]="t.icon" [size]="18" /></span>
+                    <span><b>{{ t.label }}</b><small>{{ t.ajuda }}</small>@if (faltaParaTipo(t.tipo, picker()!); as falta) { <small class="pick-falta">Falta: {{ falta }}</small> }</span>
+                  </button>
+                  <span class="pick-hint"><app-hint [texto]="t.regra" [tom]="faltaParaTipo(t.tipo, picker()!) ? 'aviso' : 'info'" rotulo="Regras deste tipo" /></span>
+                </div>
               }
             }
           </div>
@@ -130,49 +182,52 @@ export const MODELOS: Record<string, () => IaFlow> = {
             <button type="button" class="icon-btn icon-btn-sm" (click)="noAberto.set(null)" aria-label="Fechar"><app-icon name="fechar" /></button>
           </header>
           <div class="sheet-body space-y-4">
+            @if (faltas(n).length) {
+              <div class="faltas" role="status"><b><app-icon name="alerta" [size]="15" />O que falta aqui</b><ul>@for (m of faltas(n); track m) { <li>{{ m }}</li> }</ul></div>
+            }
                         @if (n.tipo !== 'acao') {
               <div>
-                <label class="form-label" for="nt">{{ n.tipo === 'encaminhar' ? 'Mensagem ao encaminhar (opcional — se vazio, usa a padrão)' : n.tipo === 'fim' ? 'Mensagem final (opcional)' : 'O que o bot diz' }}</label>
+                <label class="form-label" for="nt">{{ n.tipo === 'encaminhar' ? 'Mensagem ao encaminhar' : n.tipo === 'fim' ? 'Mensagem final' : 'O que o bot diz' }} <app-hint [texto]="n.tipo === 'encaminhar' || n.tipo === 'fim' ? dicas.textoFinal : dicas.texto" /></label>
                 <textarea id="nt" class="form-input" rows="5" maxlength="1000" [ngModel]="n.texto ?? ''" (ngModelChange)="editarNo(noAberto()!, (x) => (x.texto = $event))" placeholder="Use {nome} ou {sua_variavel} para citar respostas."></textarea>
               </div>
             }
 
             @if (n.tipo === 'pergunta') {
-              <div><label class="form-label" for="nv">Guardar a resposta como</label>
+              <div><label class="form-label" for="nv">Guardar a resposta como <app-hint [texto]="dicas.variavel" /></label>
                 <input class="form-input" id="nv" placeholder="ex.: nome, bairro" [ngModel]="n.variavel ?? ''" (ngModelChange)="editarNo(noAberto()!, (x) => (x.variavel = $event))" />
                 <p class="text-xs mt-1" style="color: var(--cmm-muted);">Depois você pode citar a resposta nos textos escrevendo {{ '{' }}{{ n.variavel || 'nome' }}{{ '}' }}.</p></div>
               <details class="adv">
                 <summary><app-icon name="ajustes" [size]="14" />Avançado</summary>
-                <label class="form-label" for="nval">Conferir a resposta como</label>
+                <label class="form-label" for="nval">Conferir a resposta como <app-hint [texto]="dicas.conferir" /></label>
                 <select class="form-input" id="nval" [ngModel]="n.validacao ?? 'texto'" (ngModelChange)="editarNo(noAberto()!, (x) => (x.validacao = $event))"><option value="texto">Texto livre</option><option value="nome">Nome de pessoa</option></select>
               </details>
             }
 
             @if (n.tipo === 'arquivos') {
               <div>
-                <label class="form-label" for="nd">Onde guardar o que o cliente enviar</label>
+                <label class="form-label" for="nd">Onde guardar o que o cliente enviar <app-hint [texto]="dicas.guardar" /></label>
                 <select class="form-input" id="nd" [ngModel]="n.armazenar ?? ''" (ngModelChange)="armazenar($event)">
-                  <option value="">Não guardar (só receber)</option>
+                  <option value="">Usar a pasta criada numa etapa anterior</option>
                   <option value="drive">Guardar no Google Drive</option>
                 </select>
                 @if (n.armazenar === 'drive') {
-                  <div class="pasta-seg mt-2" role="radiogroup" aria-label="Pasta do cliente no Drive">
+                  <div class="flex items-center gap-2 mt-2"><div class="pasta-seg" role="radiogroup" aria-label="Pasta do cliente no Drive">
                     <button type="button" role="radio" [attr.aria-checked]="(n.pasta ?? 'criar') === 'criar'" [class.on]="(n.pasta ?? 'criar') === 'criar'" (click)="editarNo(noAberto()!, (x) => (x.pasta = 'criar'))">Criar a pasta se faltar</button>
                     <button type="button" role="radio" [attr.aria-checked]="n.pasta === 'existente'" [class.on]="n.pasta === 'existente'" (click)="editarNo(noAberto()!, (x) => (x.pasta = 'existente'))">Só usar se já existir</button>
-                  </div>
+                  </div><app-hint [texto]="dicas.pasta" /></div>
                   <p class="text-xs mt-2" style="color: var(--cmm-muted);">{{ n.pasta === 'existente' ? 'Procura a pasta do cliente. Se não existir, nada é criado e os arquivos não são guardados.' : 'Procura a pasta do cliente; se não existir, cria (ano/mês/ANDAMENTO). Precisa do nome do cliente, perguntado antes com a variável “nome”.' }}</p>
                 }
               </div>
               <details class="adv">
                 <summary><app-icon name="ajustes" [size]="14" />Avançado</summary>
-                <label class="form-label" for="nm">Mínimo de arquivos antes do “OK”</label>
+                <label class="form-label" for="nm">Mínimo de arquivos antes do “OK” <app-hint [texto]="dicas.minimo" /></label>
                 <input class="form-input !w-28" type="number" min="0" max="20" id="nm" [ngModel]="n.minimo ?? 0" (ngModelChange)="editarNo(noAberto()!, (x) => (x.minimo = +$event))" />
               </details>
             }
 
             @if (n.tipo === 'acao') {
               <div>
-                <label class="form-label" for="na">Ferramenta</label>
+                <label class="form-label" for="na">Ferramenta <app-hint [texto]="dicas.ferramenta" /></label>
                 <select class="form-input" id="na" [ngModel]="n.acao ?? ''" (ngModelChange)="editarNo(noAberto()!, (x) => (x.acao = $event))">
                   <option value="">Escolha…</option>
                   @for (t of ferramentas(); track t.key) { <option [value]="t.key">{{ t.label }}{{ t.disponivel ? '' : ' (Drive não configurado)' }}</option> }
@@ -186,7 +241,7 @@ export const MODELOS: Record<string, () => IaFlow> = {
 
             @if (n.tipo === 'confirmacao') {
               <div class="space-y-2">
-                <p class="form-label !mb-0">Caminho de cada resposta</p>
+                <p class="form-label !mb-0">Caminho de cada resposta <app-hint [texto]="dicas.confirmacao" /></p>
                 @for (o of n.opcoes ?? []; track $index; let j = $index) {
                   <div class="opt">
                     <span class="opt-n">{{ j + 1 }}</span>
@@ -202,7 +257,7 @@ export const MODELOS: Record<string, () => IaFlow> = {
 
             @if (n.tipo === 'opcoes') {
               <div class="space-y-2">
-                <p class="form-label !mb-0">Opções (numeradas automaticamente)</p>
+                <p class="form-label !mb-0">Opções <app-hint [texto]="dicas.opcoes" /></p>
                 @for (o of n.opcoes ?? []; track $index; let j = $index) {
                   <div class="opt">
                     <span class="opt-n">{{ j + 1 }}</span>
@@ -223,7 +278,7 @@ export const MODELOS: Record<string, () => IaFlow> = {
 
             @if (n.tipo === 'mensagem' || n.tipo === 'pergunta' || n.tipo === 'arquivos' || n.tipo === 'acao') {
               <div class="next-box">
-                <label class="form-label" for="nn">Depois desta etapa, ir para</label>
+                <label class="form-label" for="nn">Depois desta etapa, ir para <app-hint [texto]="dicas.proximo" /></label>
                 <select class="form-input" id="nn" [ngModel]="n.proximo ?? null" (ngModelChange)="editarNo(noAberto()!, (x) => (x.proximo = $event))">
                   <option [ngValue]="null">escolha a próxima etapa</option>
                   @for (d of destinos(n.id); track d.id) { <option [ngValue]="d.id">{{ d.rotulo }}</option> }
@@ -323,6 +378,13 @@ export const MODELOS: Record<string, () => IaFlow> = {
     .pick:hover { border-color: var(--tc); background: color-mix(in srgb, var(--tc) 7%, var(--cmm-panel)); }
     .pick b { display: block; font-size: .875rem; } .pick small { display: block; font-size: .72rem; line-height: 1.3; color: var(--cmm-muted); }
     @media (max-width: 560px) { .pick-grid { grid-template-columns: 1fr; } .tl-step { padding: .7rem; } }
+    .pick-wrap { position: relative; display: flex; } .pick-wrap .pick { flex: 1; padding-right: 2rem; }
+    .pick-hint { position: absolute; right: .55rem; top: .55rem; }
+    .pick-warn { border-color: color-mix(in srgb, var(--cmm-warning) 55%, var(--cmm-border)); }
+    .pick-falta { color: var(--cmm-warning); font-weight: 600; margin-top: .2rem; }
+    .faltas { padding: .7rem .9rem; border-radius: .9rem; background: color-mix(in srgb, var(--cmm-warning) 11%, var(--cmm-panel)); border: 1px solid color-mix(in srgb, var(--cmm-warning) 35%, var(--cmm-border)); font-size: .8125rem; }
+    .faltas b { display: inline-flex; align-items: center; gap: .4rem; color: var(--cmm-warning); margin-bottom: .25rem; }
+    .faltas ul { list-style: disc; padding-left: 1.2rem; display: grid; gap: .15rem; }
     details.adv { border-top: 1px solid var(--cmm-border); padding-top: .75rem; } details.adv > summary { cursor: pointer; font-size: .8125rem; font-weight: 600; color: var(--cmm-muted); list-style: none; display: flex; align-items: center; gap: .35rem; } details.adv > summary::-webkit-details-marker { display: none; } details.adv[open] > summary { margin-bottom: .75rem; }
     .pasta-seg { display: inline-flex; gap: .25rem; padding: .25rem; border-radius: .6rem; background: color-mix(in srgb, var(--cmm-border) 45%, var(--cmm-panel)); max-width: 100%; flex-wrap: wrap; }
     .pasta-seg button { padding: .4rem .8rem; border: none; border-radius: .45rem; background: transparent; color: var(--cmm-muted); font-weight: 600; font-size: .8rem; cursor: pointer; }
@@ -357,6 +419,7 @@ export class IaFluxosComponent {
   indice = input.required<number>();
   mudou = output<IaFlow[]>();
 
+  dicas = DICAS;
   tipos = TIPOS;
   grupos = GRUPOS;
   picker = signal<number | null>(null);
@@ -411,15 +474,51 @@ export class IaFluxosComponent {
     if (n.tipo === 'pergunta') return (n.texto || 'Sem texto') + (n.variavel ? `  → {${n.variavel}}` : '');
     return n.texto || (n.tipo === 'encaminhar' ? 'Usa a mensagem padrão de encaminhamento.' : n.tipo === 'fim' ? 'Sem mensagem final.' : 'Sem texto');
   }
-  incompleto(n: IaNode): boolean {
-    const precisaTexto = ['mensagem', 'opcoes', 'confirmacao', 'pergunta', 'arquivos'].includes(n.tipo);
-    if (precisaTexto && !(n.texto ?? '').trim()) return true;
-    if (['mensagem', 'pergunta', 'arquivos', 'acao'].includes(n.tipo) && !n.proximo) return true;
-    if (n.tipo === 'acao' && !n.acao) return true;
-    if (n.tipo === 'pergunta' && !n.variavel) return true;
-    if ((n.tipo === 'opcoes' || n.tipo === 'confirmacao') && (n.opcoes ?? []).some((o) => !o.rotulo.trim() || !o.proximo)) return true;
-    return false;
+  /** O que já aconteceu antes de cada etapa (espelha a validação do servidor, que é quem decide ao publicar). */
+  analise = computed(() => contextos(this.atual()));
+  private contextoEm(pos: number): Ctx {
+    const f = this.atual();
+    const ant = f?.nos[pos - 1];
+    if (!f || !ant) return { vars: new Set(), pasta: false };
+    const ent = this.analise().get(ant.id) ?? { vars: new Set<string>(), pasta: false };
+    const v = guardaVar(ant);
+    return { vars: new Set([...ent.vars, ...(v ? [v] : [])]), pasta: ent.pasta || criaPasta(ant) };
   }
+  /** O que ainda falta antes de inserir este tipo naquele ponto da lista. */
+  faltaParaTipo(tipo: Tipo, pos: number): string | null {
+    const c = this.contextoEm(pos);
+    if (tipo === 'arquivos' && !c.vars.has('nome')) return 'Antes, pergunte o nome do cliente (Pergunta guardada como “nome”) para poder guardar no Drive.';
+    if (tipo === 'acao' && !c.pasta && !c.vars.has('nome')) return 'Antes, pergunte o nome do cliente: criar a pasta precisa dele.';
+    if ((tipo === 'encaminhar' || tipo === 'fim') && pos < (this.atual()?.nos.length ?? 0)) return 'As etapas abaixo só serão alcançadas por outros caminhos.';
+    return null;
+  }
+  /** Tudo que falta numa etapa para ela funcionar (em frases curtas). */
+  faltas(n: IaNode): string[] {
+    const f = this.atual();
+    const out: string[] = [];
+    if (!f) return out;
+    const c = this.analise().get(n.id);
+    const precisaTexto = ['mensagem', 'opcoes', 'confirmacao', 'pergunta', 'arquivos'].includes(n.tipo);
+    if (precisaTexto && !(n.texto ?? '').trim()) out.push('Escreva o que o bot diz.');
+    if (['mensagem', 'pergunta', 'arquivos', 'acao'].includes(n.tipo) && !n.proximo) out.push('Escolha a próxima etapa.');
+    if (n.tipo === 'pergunta' && !n.variavel) out.push('Dê um nome à resposta (ex.: nome, bairro).');
+    if (n.tipo === 'acao' && !n.acao) out.push('Escolha a ferramenta.');
+    if (n.tipo === 'opcoes' || n.tipo === 'confirmacao')
+      (n.opcoes ?? []).forEach((o, j) => {
+        if (!o.rotulo.trim()) out.push(`Dê um texto à opção ${j + 1}.`);
+        if (!o.proximo) out.push(`Escolha o destino de “${o.rotulo || 'opção ' + (j + 1)}”.`);
+      });
+    if (!c) { out.push('Nenhum caminho chega até esta etapa: ligue-a a uma anterior.'); return out; }
+    for (const m of (n.texto ?? '').matchAll(/\{(\w+)\}/g)) {
+      const definida = f.nos.some((x) => guardaVar(x) === m[1]);
+      if (m[1] !== 'nome' && definida && !c.vars.has(m[1])) out.push(`{${m[1]}} ainda não foi respondida aqui: coloque a pergunta antes.`);
+    }
+    if (criaPasta(n) && !c.vars.has('nome')) out.push('Pergunte o nome do cliente antes (Pergunta guardada como “nome”).');
+    if (n.tipo === 'acao' && n.acao === 'drive_salvar_respostas' && !c.pasta) out.push('Crie a pasta do cliente antes (Ferramenta ou Solicitação com Drive).');
+    if (n.tipo === 'arquivos' && !criaPasta(n) && !c.pasta) out.push('Marque “Guardar no Drive” ou crie a pasta em uma etapa anterior.');
+    return out;
+  }
+  incompleto(n: IaNode): boolean { return this.faltas(n).length > 0; }
 
   private emit(fn: (fs: IaFlow[]) => void): void {
     const copia: IaFlow[] = JSON.parse(JSON.stringify(this.fluxos()));
@@ -446,7 +545,7 @@ export class IaFluxosComponent {
       const base: IaNode = { id: 'n' + (max + 1), tipo, titulo: this.info(tipo).label, proximo: null };
       if (tipo === 'mensagem' || tipo === 'pergunta' || tipo === 'arquivos') { base.texto = ''; base.proximo = depois; }
       if (tipo === 'pergunta') { base.variavel = ''; base.validacao = 'texto'; }
-      if (tipo === 'arquivos') base.minimo = 1;
+      if (tipo === 'arquivos') { base.minimo = 1; base.armazenar = 'drive'; base.pasta = 'criar'; }
       if (tipo === 'confirmacao') { base.texto = ''; base.opcoes = [{ rotulo: 'Sim', proximo: depois }, { rotulo: 'Não', proximo: null }]; }
       if (tipo === 'opcoes') { base.texto = ''; base.opcoes = [{ rotulo: '', proximo: depois }, { rotulo: '', proximo: null }]; }
       if (tipo === 'acao') { base.acao = ''; base.proximo = depois; }
