@@ -48,9 +48,28 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
           </div>
         </div>
 
+        <!-- Celular/tablet: a navegação lateral vira um seletor -->
+        <div class="lg:hidden">
+          <label class="form-label" for="pg-sel">Seção</label>
+          <select id="pg-sel" class="form-input" [ngModel]="pagina()" (ngModelChange)="pagina.set($event)">
+            <optgroup label="O que o cliente vê">
+              <option value="padrao">⭐ Fluxo padrão</option>
+              @for (f of doc().fluxos; track $index; let i = $index) { <option [value]="'f' + i">🧭 {{ f.nome || 'Sem nome' }}{{ f.ativo ? '' : ' (desativado)' }}</option> }
+            </optgroup>
+            <optgroup label="Como a IA fala e responde">
+              <option value="jeito">🗣️ Jeito de falar</option>
+              <option value="saber">📚 O que ela sabe</option>
+            </optgroup>
+          </select>
+          <div class="flex gap-2 mt-2">
+            <button type="button" class="btn btn-secondary btn-sm flex-1" (click)="novoFluxo('coleta')" [disabled]="doc().fluxos.length >= 10">+ Fluxo (coleta + Drive)</button>
+            <button type="button" class="btn btn-secondary btn-sm flex-1" (click)="novoFluxo('branco')" [disabled]="doc().fluxos.length >= 10">+ Em branco</button>
+          </div>
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-[15.5rem_1fr] gap-5 items-start">
           <!-- Navegação única -->
-          <nav class="nav panel" aria-label="Seções do atendimento">
+          <nav class="nav panel hidden lg:block" aria-label="Seções do atendimento">
             <p class="nav-title">O que o cliente vê</p>
             <button type="button" class="nav-item" [class.nav-on]="pagina() === 'padrao'" (click)="pagina.set('padrao')">
               <span class="nav-ico">⭐</span><span class="nav-txt"><b>Fluxo padrão</b><small>Menu com 5 opções</small></span>
@@ -303,6 +322,14 @@ const EXEMPLO: Record<string, string> = { nome: 'Ana', horario1: 'Seg 09:00', ho
     .tone:hover { transform: translateY(-2px); }
     .tone-on { border-color: var(--cmm-accent); background: var(--cmm-accent-soft); }
     .savebar { position: fixed; left: 50%; bottom: 1.25rem; transform: translateX(-50%); z-index: 90; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .75rem 1.5rem; padding: .7rem 1rem .7rem 1.4rem; border-radius: 1.5rem; background: var(--cmm-ink); color: var(--cmm-panel); box-shadow: 0 24px 60px -16px rgba(0,0,0,.6); font-size: .875rem; animation: bar-up 500ms var(--ease-out-expo) both; max-width: calc(100vw - 2rem); }
+    @media (max-width: 640px) {
+      .steps small { display: none; }
+      .acc-head { padding: .85rem .9rem; gap: .65rem; }
+      .acc-body { padding-inline: .8rem; }
+      .savebar { left: .75rem; right: .75rem; transform: none; bottom: max(.75rem, env(safe-area-inset-bottom)); justify-content: space-between; border-radius: 1.1rem; padding: .65rem .8rem; animation: bar-up-m 500ms var(--ease-out-expo) both; }
+      .savebar > div { width: 100%; } .savebar .btn { flex: 1 1 auto; }
+    }
+    @keyframes bar-up-m { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
     @keyframes bar-up { from { opacity: 0; transform: translate(-50%, 30px); } to { opacity: 1; transform: translate(-50%, 0); } }
   `],
 })

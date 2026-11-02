@@ -470,6 +470,13 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
     .src { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--cmm-muted); padding: .15rem .5rem; border-radius: 99px; border: 1px solid var(--cmm-border); white-space: nowrap; }
     .src-tela { color: var(--cmm-accent); border-color: color-mix(in srgb, var(--cmm-accent) 45%, transparent); background: var(--cmm-accent-soft); }
     .savebar { position: fixed; left: 50%; bottom: 1.25rem; transform: translateX(-50%); z-index: 90; display: flex; align-items: center; gap: 1.5rem; padding: .7rem 1rem .7rem 1.4rem; border-radius: 999px; background: var(--cmm-ink); color: var(--cmm-panel); box-shadow: 0 24px 60px -16px rgba(0,0,0,.6); font-size: .875rem; animation: bar-up 500ms var(--ease-out-expo) both; max-width: calc(100vw - 2rem); }
+    @media (max-width: 640px) {
+      .savebar { left: .75rem; right: .75rem; transform: none; bottom: max(.75rem, env(safe-area-inset-bottom)); justify-content: space-between; border-radius: 1.1rem; padding: .65rem .8rem; animation: bar-up-m 500ms var(--ease-out-expo) both; }
+      .savebar > div { width: 100%; } .savebar .btn { flex: 1 1 auto; }
+      .funnel-label { width: 7.5rem; }
+      .chart { gap: .25rem; } .chart-num { font-size: .6rem; } .chart-day { font-size: .55rem; }
+    }
+    @keyframes bar-up-m { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
     @keyframes bar-up { from { opacity: 0; transform: translate(-50%, 30px); } to { opacity: 1; transform: translate(-50%, 0); } }
     .drawer-backdrop { position: fixed; inset: 0; z-index: 1000; background: color-mix(in srgb, #0c0a07 50%, transparent); animation: cmm-fade-in 250ms both; }
     .drawer { position: fixed; z-index: 1001; top: 0; right: 0; bottom: 0; width: min(30rem, 100vw); display: flex; flex-direction: column; background: var(--cmm-panel); border-left: 1px solid var(--cmm-border); box-shadow: -30px 0 80px -30px rgba(0,0,0,.5); animation: drawer-in 520ms var(--ease-out-expo) both; }

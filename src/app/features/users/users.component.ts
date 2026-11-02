@@ -37,11 +37,11 @@ import { UsersModalsComponent } from './components/users-modals.component';
       <!-- Panorama: quem tem acesso e o que está esperando decisão -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
         @for (k of resumo(); track k.label) {
-          <div class="panel panel-pad flex items-center gap-4" [class.attn]="k.atencao">
+          <div class="panel panel-pad flex items-center gap-3 sm:gap-4 min-w-0" [class.attn]="k.atencao">
             <span class="k-ico" aria-hidden="true">{{ k.icone }}</span>
-            <div>
+            <div class="min-w-0">
               <p class="k-num font-display" [appCounter]="'' + k.valor">{{ k.valor }}</p>
-              <p class="text-sm" style="color: var(--cmm-muted);">{{ k.label }}</p>
+              <p class="text-sm k-lbl" style="color: var(--cmm-muted);">{{ k.label }}</p>
             </div>
           </div>
         }
@@ -97,6 +97,7 @@ import { UsersModalsComponent } from './components/users-modals.component';
   styles: [`
     .k-ico { flex-shrink: 0; width: 2.75rem; height: 2.75rem; border-radius: .9rem; display: grid; place-items: center; font-size: 1.25rem; background: var(--cmm-accent-soft); }
     .k-num { font-size: 1.9rem; font-weight: 800; line-height: 1; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+    @media (max-width: 640px) { .k-ico { width: 2.25rem; height: 2.25rem; font-size: 1rem; } .k-num { font-size: 1.6rem; } .k-lbl { overflow-wrap: anywhere; line-height: 1.2; } }
     .attn { border-color: color-mix(in srgb, var(--cmm-warning) 55%, var(--cmm-border)); background: color-mix(in srgb, var(--cmm-warning) 7%, var(--cmm-panel)); }
   `],
 })

@@ -70,3 +70,11 @@ Motor central em `core/motion/motion.service.ts` (biblioteca `motion`) + CSS em 
 - **Dashboard**: central de comando — selo de saúde geral, blocos por serviço com latência, linha do tempo de relatórios e atalhos.
 - **Usuários**: faixa de panorama (pessoas, ativas, administradores, aguardando decisão).
 - **IA** (`/ia`): cinco abas por objetivo, cada uma com uma frase de propósito sob o título. **Painel** (como está agora + "Precisa de atenção"), **Conversas** (cliente a cliente, gaveta de detalhe), **Atendimento** (tudo que se publica: navegação lateral única — Fluxo padrão com etapas recolhíveis, fluxos próprios, Jeito de falar, O que ela sabe; rascunho → publicar), **Testar** (simulador), **Ajustes** (liga/desliga, chave, limites). Botão Ligar/Desligar o bot sempre no cabeçalho. Regra: no máximo dois níveis de navegação (aba → lista lateral); nada de abas dentro de abas.
+
+## Responsividade
+- **Pontos de corte:** menu lateral fixo só a partir de 1024px (abaixo vira gaveta); tabelas viram cartões até 860px; ajustes de espaçamento/formulário até 640px; alvos de toque de 44px em telas sensíveis ao toque (`pointer: coarse`).
+- **Tabelas:** o `ResponsiveTablesService` copia o texto de cada `<th>` para `data-label` das células e o CSS (`styles.css`, bloco "Responsividade") mostra cada linha como cartão (1ª coluna = cabeçalho do cartão). Tabelas largas de propósito (classe `min-w-*`) continuam com rolagem horizontal.
+- **Campos com 16px** no celular (o iOS não dá zoom ao focar). Nada estoura a largura (`overflow-x: clip` em `html, body`).
+- **Modais/gavetas:** `main#conteudo:has(.drawer, .fixed.inset-0, [role=dialog])` sobe acima da barra superior (a transição de página cria um contexto de empilhamento).
+- **IA > Atendimento:** a navegação lateral vira um seletor abaixo de 1024px; a barra de rascunho ocupa a largura toda no celular.
+- Verificação: `resp.js` abre todas as rotas em 320/360/768/1024 e acusa elementos que passam da largura.

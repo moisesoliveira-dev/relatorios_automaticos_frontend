@@ -45,7 +45,7 @@ const SIDEBAR_KEY = 'sidebar_collapsed';
 
     <div class="min-h-screen flex" style="color: var(--cmm-ink);">
       @if (mobileOpen()) {
-        <div class="fixed inset-0 z-40 md:hidden animate-fadeIn" style="background: rgba(10,8,5,0.6); backdrop-filter: blur(4px);" (click)="mobileOpen.set(false)" aria-hidden="true"></div>
+        <div class="fixed inset-0 z-40 lg:hidden animate-fadeIn" style="background: rgba(10,8,5,0.6); backdrop-filter: blur(4px);" (click)="mobileOpen.set(false)" aria-hidden="true"></div>
       }
 
       <aside
@@ -137,7 +137,7 @@ const SIDEBAR_KEY = 'sidebar_collapsed';
         <button
           type="button"
           (click)="toggleSidebar()"
-          class="sidebar-toggle hidden md:flex"
+          class="sidebar-toggle hidden lg:flex"
           [attr.aria-label]="sidebarCollapsed() ? 'Expandir menu' : 'Recolher menu'"
           [attr.aria-pressed]="sidebarCollapsed()"
         >
@@ -151,7 +151,7 @@ const SIDEBAR_KEY = 'sidebar_collapsed';
       <div class="flex-1 flex flex-col min-w-0 main-shell" [class.main-shell-collapsed]="sidebarCollapsed()">
         <header class="topbar sticky top-0 z-30">
           <div class="flex items-center gap-3 min-w-0">
-            <button type="button" class="btn btn-ghost btn-sm md:hidden !px-2" (click)="mobileOpen.set(true)" aria-label="Abrir menu" [attr.aria-expanded]="mobileOpen()">
+            <button type="button" class="btn btn-ghost btn-sm lg:hidden !px-2" (click)="mobileOpen.set(true)" aria-label="Abrir menu" [attr.aria-expanded]="mobileOpen()">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
               </svg>
@@ -316,7 +316,7 @@ const SIDEBAR_KEY = 'sidebar_collapsed';
 
     /* ——— Área principal ——— */
     .main-shell { transition: margin 520ms var(--ease-out-expo); }
-    @media (min-width: 768px) {
+    @media (min-width: 1024px) {
       .main-shell { margin-left: 16.5rem; }
       .main-shell-collapsed { margin-left: 4.75rem; }
     }
@@ -558,7 +558,7 @@ export class LayoutComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private bindViewport(): void {
     if (typeof window === 'undefined') return;
-    this.mediaQuery = window.matchMedia('(max-width: 767px)');
+    this.mediaQuery = window.matchMedia('(max-width: 1023px)');
     this.onMediaChange = () => {
       const mobile = this.mediaQuery!.matches;
       this.isMobile.set(mobile);

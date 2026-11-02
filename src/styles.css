@@ -1062,4 +1062,98 @@ html[data-motion="off"]::view-transition-new(page) {
 }
 
 /* main#conteudo cria um contexto de empilhamento (view-transition-name); com um painel modal aberto ele sobe acima da barra superior */
-main#conteudo:has(.drawer) { position: relative; z-index: 130; }
+main#conteudo:has(.drawer, .fixed.inset-0, [role="dialog"]) { position: relative; z-index: 130; }
+
+/* ═══════════════════════ Responsividade ═══════════════════════
+   Celular primeiro nos detalhes que o Tailwind não cobre: tabelas em cartões, alvos de toque,
+   campos sem zoom no iOS, painéis mais compactos e áreas seguras (entalhe / barra inferior). */
+
+/* Nada estoura a largura da tela por acidente */
+html, body { max-width: 100%; overflow-x: clip; }
+img, svg, video, canvas { max-width: 100%; }
+.page-title, .page-header h1 { overflow-wrap: anywhere; }
+
+@media (max-width: 860px) {
+  /* Tabelas → uma linha vira um cartão. As células recebem data-label (ResponsiveTablesService). */
+  .table-shell:has(> table:not([class*="min-w-"])) {
+    overflow: visible;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+  }
+  .table-shell > table:not([class*="min-w-"]),
+  .table-shell > table:not([class*="min-w-"]) tbody { display: block; }
+  .table-shell > table:not([class*="min-w-"]) thead { display: none; }
+  .table-shell > table:not([class*="min-w-"]) tbody { display: grid; gap: 0.75rem; }
+  .table-shell > table:not([class*="min-w-"]) tbody tr {
+    display: block;
+    overflow: hidden;
+    border: 1px solid var(--cmm-border);
+    border-radius: 1rem;
+    background: var(--cmm-panel);
+    box-shadow: var(--cmm-shadow);
+  }
+  .table-shell > table:not([class*="min-w-"]) tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px dashed var(--cmm-border);
+    text-align: right;
+    min-width: 0;
+  }
+  .table-shell > table:not([class*="min-w-"]) tbody td::before {
+    content: attr(data-label);
+    flex: 0 0 34%;
+    max-width: 34%;
+    text-align: left;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--cmm-muted);
+  }
+  .table-shell > table:not([class*="min-w-"]) tbody td:not([data-label])::before { content: none; }
+  /* 1ª célula = cabeçalho do cartão; sem rótulo, alinhada à esquerda */
+  .table-shell > table:not([class*="min-w-"]) tbody td:first-child {
+    justify-content: flex-start;
+    text-align: left;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--cmm-border);
+    background: color-mix(in srgb, var(--cmm-border) 22%, var(--cmm-panel));
+  }
+  .table-shell > table:not([class*="min-w-"]) tbody td:first-child::before { content: none; }
+  .table-shell > table:not([class*="min-w-"]) tbody td:last-child { border-bottom: none; }
+  .table-shell > table:not([class*="min-w-"]) tbody td[colspan] { display: block; text-align: center; background: transparent; }
+  .table-shell > table:not([class*="min-w-"]) tbody tr:hover td { background: transparent; }
+  .table-shell > table:not([class*="min-w-"]) tbody tr:hover td:first-child { box-shadow: none; background: color-mix(in srgb, var(--cmm-border) 22%, var(--cmm-panel)); }
+  /* células de ações: botões lado a lado, alinhados à direita */
+  .table-shell > table:not([class*="min-w-"]) tbody td > .flex { justify-content: flex-end; flex-wrap: wrap; }
+}
+
+@media (max-width: 640px) {
+  .page-header { flex-direction: column; align-items: stretch; margin-bottom: 1.25rem; }
+  .page-header > .flex, .page-header > div.flex { width: 100%; }
+  .page-header .btn { flex: 1 1 auto; }
+  .panel-pad { padding: 1rem; }
+  .empty-state { padding: 2rem 1rem; }
+  /* 16px nos campos: o iOS não dá zoom ao focar */
+  .form-input, input, select, textarea { font-size: 16px; }
+  .badge { white-space: nowrap; }
+}
+
+/* Dedo no lugar do mouse: alvos de toque de pelo menos 44px, sem efeitos de passar o mouse */
+@media (pointer: coarse) {
+  .btn { min-height: 44px; }
+  .btn-sm { min-height: 40px; padding-inline: 0.9rem; }
+  .form-input { min-height: 44px; }
+  .panel:hover { transform: none; }
+  .panel::before { display: none; }
+}
+
+/* Áreas seguras (iPhone com entalhe, barra de gestos) */
+@supports (padding: max(0px)) {
+  main#conteudo { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+}
