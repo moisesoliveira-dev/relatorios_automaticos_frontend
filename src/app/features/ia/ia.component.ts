@@ -5,29 +5,13 @@ import { CounterDirective } from '../../core/motion/counter.directive';
 import { ToastService } from '../../core/ui/toast.service';
 import { ModalService } from '../../shared/services/modal.service';
 import { IaConteudoComponent } from './ia-conteudo.component';
+import { SheetComponent } from '../../shared/components/sheet.component';
 import {
   IaApiService, IaConfigField, IaConversationDetail, IaConversationSummary, IaList, IaOverview, IaSimResposta,
 } from './ia-api.service';
 
 type Aba = 'visao' | 'conversas' | 'atendimento' | 'simulador' | 'config';
 
-const ETAPAS: Array<{ key: string; label: string }> = [
-  { key: 'MENU', label: 'Menu inicial' },
-  { key: 'NOME', label: 'Pediu o nome' },
-  { key: 'CONFIRMA_NOME', label: 'Confirmando o nome' },
-  { key: 'ENVIO_ARQUIVOS', label: 'Enviando arquivos' },
-  { key: 'CATEGORIAS', label: 'Escolhendo ambientes' },
-  { key: 'CASA_AP', label: 'Casa ou apartamento' },
-  { key: 'PLANTA_ACHOU', label: 'Planta baixa' },
-  { key: 'AGENDAR', label: 'Quer agendar medição?' },
-  { key: 'HORARIO', label: 'Escolhendo horário' },
-  { key: 'VISITA', label: 'Quer visitar a loja?' },
-  { key: 'RECONHECIMENTO', label: 'Voltou (reconhecimento)' },
-  { key: 'HUMANO', label: 'Com atendente humano' },
-];
-const TRILHAS: Record<string, string> = {
-  projeto: 'Já tem projeto', planta: 'Só planta baixa', semNada: 'Não tem nada', boleto: 'Boleto', loja: 'Endereço da loja', sem_trilha: 'Ainda no menu',
-};
 const DECISOES: Record<string, string> = {
   fluxo: 'Texto livre entendido', duvida_respondida: 'Dúvidas respondidas', fora_escopo: 'Recusadas (fora de escopo)', prefilter_bloqueou: 'Barradas pelo pré-filtro',
   duvida_sem_base: 'Dúvida sem base → humano', duvida_reprovada: 'Resposta reprovada → humano', escopo_indisponivel: 'Escopo indisponível → humano',
@@ -49,7 +33,7 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
 @Component({
   selector: 'app-ia',
   standalone: true,
-  imports: [FormsModule, CounterDirective, IconComponent, IaConteudoComponent],
+  imports: [FormsModule, CounterDirective, IconComponent, IaConteudoComponent, SheetComponent],
   template: `
     <div class="space-y-6">
       <!-- Cabeçalho: nome, estado (clique para ligar/desligar) e o propósito da tela -->
@@ -69,7 +53,7 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
         @for (t of abas; track t.key) {
           <button type="button" role="tab" class="tab" [class.tab-on]="aba() === t.key" [attr.aria-selected]="aba() === t.key" (click)="setAba(t.key)">
             <app-icon [name]="icones[t.key]" [size]="16" />{{ t.label }}
-            @if (t.key === 'conversas' && overview()?.totais?.comErro) { <span class="seg-count">{{ overview()!.totais.comErro }}</span> }
+            @if (t.key === 'conversas' && overview()?.totais?.comErro) { <span class="tab-count tab-count-alert">{{ overview()!.totais.comErro }}</span> }
           </button>
         }
       </div>
@@ -84,12 +68,12 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
                 <h2 class="sec-title mb-3">Precisa de atenção</h2>
                 <ul class="space-y-2">
                   @for (a of alertas(); track a.texto) {
-                    <li class="attn-item"><span aria-hidden="true">{{ a.icone }}</span><span class="flex-1 text-sm">{{ a.texto }}</span>
+                    <li class="attn-item"><app-icon [name]="a.icone" [size]="18" /><span class="flex-1 text-sm">{{ a.texto }}</span>
                       <button type="button" class="btn btn-secondary btn-sm" (click)="a.acao()">{{ a.botao }}</button></li>
                   }
                 </ul>
               } @else {
-                <p class="text-sm font-semibold">✅ Tudo certo: nada precisa da sua atenção agora.</p>
+                <p class="text-sm font-semibold inline-flex items-center gap-2"><app-icon name="check" [size]="16" style="color: var(--cmm-success);" /> Tudo certo: nada precisa da sua atenção agora.</p>
               }
             </section>
 
@@ -138,12 +122,12 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
               <div class="panel panel-pad xl:col-span-2">
                 <h2 class="sec-title mb-1">Onde as conversas estão</h2>
-                <p class="text-sm mb-4" style="color: var(--cmm-muted);">Funil por etapa. Clique para ver as conversas daquela etapa.</p>
+                <p class="text-sm mb-4" style="color: var(--cmm-muted);">Em que fluxo e etapa cada conversa está agora.</p>
                 <div class="space-y-2">
                   @for (e of funilList(); track e.key; let i = $index) {
-                    <button type="button" class="funnel-row" (click)="verEtapa(e.key)">
+                    <button type="button" class="funnel-row" (click)="verEtapa(e.humano ? 'HUMANO' : 'BOT')">
                       <span class="funnel-label">{{ e.label }}</span>
-                      <span class="bar flex-1"><span class="bar-fill" [class.bar-human]="e.key === 'HUMANO'" [style.width.%]="ready() ? e.pct : 0" [style.transition-delay.ms]="i * 50"></span></span>
+                      <span class="bar flex-1"><span class="bar-fill" [class.bar-human]="e.humano" [style.width.%]="ready() ? e.pct : 0" [style.transition-delay.ms]="i * 50"></span></span>
                       <span class="funnel-n">{{ e.value }}</span>
                     </button>
                   }
@@ -181,9 +165,10 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
         @case ('conversas') {
           <div class="toolbar">
             <input class="form-input toolbar-search" type="search" placeholder="Buscar por nome, telefone ou ticket…" aria-label="Buscar conversa" [(ngModel)]="busca" (keyup.enter)="aplicarFiltros()" />
-            <select class="form-input toolbar-select" aria-label="Filtrar por etapa" [(ngModel)]="filtroEtapa" (ngModelChange)="aplicarFiltros()">
-              <option value="">Todas as etapas</option>
-              @for (e of etapas; track e.key) { <option [value]="e.key">{{ e.label }}</option> }
+            <select class="form-input toolbar-select" aria-label="Filtrar por situação" [(ngModel)]="filtroEtapa" (ngModelChange)="aplicarFiltros()">
+              <option value="">Todas</option>
+              <option value="BOT">Com o bot</option>
+              <option value="HUMANO">Com atendente</option>
             </select>
             <label class="check-chip"><input type="checkbox" [(ngModel)]="soErros" (ngModelChange)="aplicarFiltros()" /> Só com erro</label>
             <button type="button" class="btn btn-primary btn-sm" (click)="aplicarFiltros()">Buscar</button>
@@ -191,7 +176,7 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
 
           <div class="table-shell">
             <table>
-              <thead><tr><th>Cliente</th><th>Etapa</th><th>Escolha</th><th>Sinais</th><th>Última mensagem</th></tr></thead>
+              <thead><tr><th>Cliente</th><th>Onde está</th><th>Caminho</th><th>Sinais</th><th>Última mensagem</th></tr></thead>
               <tbody>
                 @for (c of lista()?.itens ?? []; track c.id) {
                   <tr class="row-click" tabindex="0" (click)="abrir(c)" (keyup.enter)="abrir(c)" [class.row-on]="detalhe()?.id === c.id">
@@ -201,8 +186,11 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
                         <div class="min-w-0"><p class="font-semibold truncate">{{ c.nome || 'Sem nome' }}</p><p class="text-xs" style="color: var(--cmm-muted);">{{ c.numero }} · ticket {{ c.ticketId }}</p></div>
                       </div>
                     </td>
-                    <td><span class="badge" [class.badge-accent]="c.etapa === 'HUMANO'" [class.badge-neutral]="c.etapa !== 'HUMANO'">{{ etapaLabel(c.etapa) }}</span></td>
-                    <td class="text-sm">{{ trilhaLabel(c.trilha) }}</td>
+                    <td>
+                      @if (c.etapa === 'HUMANO') { <span class="state state-on">Com atendente</span> }
+                      @else { <span class="text-sm"><b>{{ c.onde.fluxo || 'Início' }}</b>@if (c.onde.etapa) { <span style="color: var(--cmm-muted);"> › {{ c.onde.etapa }}</span> }</span> }
+                    </td>
+                    <td class="text-sm">{{ c.trilha }}</td>
                     <td>
                       <div class="flex gap-1.5 flex-wrap">
                         @if (c.erroEntrega) { <span class="badge badge-danger">Erro</span> }
@@ -235,17 +223,17 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
           <div class="max-w-3xl space-y-3">
             <div class="sim-controls">
               <select id="sim-fluxo" class="form-input" aria-label="O que testar" [ngModel]="simFluxo()" (ngModelChange)="simEscolherFluxo($event)">
-                <option value="">Jornada completa (começa no menu)</option>
-                @for (f of simFluxos(); track f.id) { <option [value]="f.id">🧭 {{ f.nome }}{{ f.ativo ? '' : ' (desativado)' }}</option> }
+                <option value="">Jornada completa (fluxo de início)</option>
+                @for (f of simFluxos(); track f.id) { <option [value]="f.id">{{ f.nome }}{{ f.ativo ? '' : ' (desativado)' }}</option> }
               </select>
               <label class="ia-toggle" title="Interpreta texto livre, responde dúvidas e escreve no tom de cada fluxo (conta no uso)">
                 <span>IA</span>
                 <button type="button" role="switch" class="switch" [class.switch-on]="simUsarIA()" [attr.aria-checked]="simUsarIA()" aria-label="Usar a IA no teste" (click)="simUsarIA.set(!simUsarIA())"><span class="switch-knob"></span></button>
               </label>
-              <button type="button" class="btn btn-secondary btn-sm" (click)="simComecar()" [disabled]="simCarregando()">↻ Recomeçar</button>
+              <button type="button" class="btn btn-secondary btn-sm" (click)="simComecar()" [disabled]="simCarregando()"><app-icon name="atualizar" [size]="14" /> Recomeçar</button>
             </div>
 
-            <div class="panel flex flex-col" style="min-height: 28rem;">
+            <div class="panel flex flex-col sim" style="min-height: 28rem;">
               <div class="sim-bar"><span class="text-xs" style="color: var(--cmm-muted);">Cliente em</span> <b>{{ simOnde() }}</b></div>
               <div class="chat" aria-live="polite">
                 @for (m of simLog(); track $index) {
@@ -264,28 +252,17 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
               </form>
             </div>
 
-            <p class="text-xs" style="color: var(--cmm-muted);">Testa o que está <b>publicado</b>; nada é enviado, gravado nem encaminhado. Fluxo em rascunho: teste-o dentro do próprio fluxo, em Atendimento.</p>
+            <p class="text-xs" style="color: var(--cmm-muted);">Testa o que está <b>publicado</b>; nada é enviado, gravado nem encaminhado. Ferramentas (Drive, agenda) rodam em modo simulado. Fluxo em rascunho: teste-o dentro do próprio fluxo, em Atendimento.</p>
             <div class="flex gap-1.5 flex-wrap items-center">
               <span class="text-xs" style="color: var(--cmm-muted);">Atalhos:</span>
               @for (ex of exemplos; track ex) { <button type="button" class="chip chip-btn" (click)="simTexto.set(ex)" [disabled]="simTerminou()">{{ ex }}</button> }
             </div>
-            <details class="tech">
-              <summary class="text-sm font-semibold cursor-pointer" style="color: var(--cmm-muted);">Avançado: começar numa etapa do fluxo padrão</summary>
-              <div class="grid sm:grid-cols-3 gap-3 mt-3 items-end">
-                <div><label class="form-label" for="sim-etapa">Etapa</label>
-                  <select id="sim-etapa" class="form-input" [(ngModel)]="simEtapa">@for (e of etapasTeste; track e.key) { <option [value]="e.key">{{ e.label }}</option> }</select></div>
-                <div><label class="form-label" for="sim-trilha">O cliente escolheu</label>
-                  <select id="sim-trilha" class="form-input" [(ngModel)]="simTrilha"><option value="">(automático)</option>@for (t of trilhaOpcoes; track t.key) { <option [value]="t.key">{{ t.label }}</option> }</select></div>
-                <div><label class="form-label" for="sim-nome">Nome</label><input id="sim-nome" class="form-input" [(ngModel)]="simNome" placeholder="Ana Paula" /></div>
-              </div>
-              <button type="button" class="btn btn-secondary btn-sm mt-3" (click)="simComecar(true)">Começar nesta etapa</button>
-            </details>
           </div>
         }
 
         <!-- ═══════════ AJUSTES ═══════════ -->
         @case ('config') {
-          <div class="panel pb-2 mb-24">
+          <div class="panel pb-2" [class.mb-24]="alteracoes() > 0">
             @for (g of grupos; track g.key; let first = $first; let gi = $index) {
               <button type="button" class="cfg-h cfg-h-btn" [class.cfg-h-first]="first" [attr.aria-expanded]="grupoAberto(g.key, gi)" (click)="alternarGrupo(g.key, gi)">
                 <span>{{ g.titulo }}</span><span class="cfg-chev" [class.cfg-chev-open]="grupoAberto(g.key, gi)"><app-icon name="baixo" [size]="16" /></span>
@@ -298,7 +275,7 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
                   </div>
                   <div class="cfg-ctl">
                     @if (f.source === 'tela' && f.type !== 'secret') {
-                      <button type="button" class="cfg-reset" (click)="restaurar(f)" title="Alterado aqui — voltar ao padrão" [attr.aria-label]="'Voltar ao padrão de ' + f.label">↺ padrão</button>
+                      <button type="button" class="cfg-reset" (click)="restaurar(f)" title="Alterado aqui. Voltar ao padrão" [attr.aria-label]="'Voltar ao padrão de ' + f.label">↺ padrão</button>
                     }
                     @switch (f.type) {
                       @case ('boolean') {
@@ -339,27 +316,19 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
       }
     </div>
 
-    <!-- Gaveta de detalhe da conversa -->
-    @if (detalhe(); as d) {
-      <div class="drawer-backdrop" (click)="fecharDetalhe()" aria-hidden="true"></div>
-      <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
-        <header class="drawer-head">
-          <div class="min-w-0">
-            <h2 id="drawer-title" class="font-display text-xl font-bold truncate">{{ d.nome || 'Sem nome' }}</h2>
-            <p class="text-xs" style="color: var(--cmm-muted);">{{ d.numero }} · contato {{ d.contactId }} · ticket {{ d.ticketId }}</p>
-          </div>
-          <button type="button" class="btn btn-ghost btn-sm !px-2" (click)="fecharDetalhe()" aria-label="Fechar detalhes">✕</button>
-        </header>
-        <div class="drawer-body">
+    <!-- Detalhe da conversa -->
+    <app-sheet [open]="!!detalhe()" [title]="detalhe()?.nome || 'Sem nome'" [subtitle]="detalhe() ? detalhe()!.numero + ' · contato ' + detalhe()!.contactId + ' · ticket ' + detalhe()!.ticketId : ''" width="30rem" (closed)="fecharDetalhe()">
+      @if (detalhe(); as d) {
+        <div class="space-y-4">
           <div class="flex gap-2 flex-wrap">
-            <span class="badge" [class.badge-accent]="d.etapa === 'HUMANO'" [class.badge-neutral]="d.etapa !== 'HUMANO'">{{ etapaLabel(d.etapa) }}</span>
-            <span class="badge badge-neutral">{{ trilhaLabel(d.trilha) }}</span>
+            @if (d.etapa === 'HUMANO') { <span class="badge badge-accent">Com atendente</span> } @else { <span class="badge badge-neutral">{{ d.onde.fluxo || 'Início' }}{{ d.onde.etapa ? ' › ' + d.onde.etapa : '' }}</span> }
+            <span class="badge badge-neutral">{{ d.trilha }}</span>
             @if (d.pastaDrive) { <span class="badge badge-success">Pasta no Drive</span> }
             @if (d.erroEntrega) { <span class="badge badge-danger">Falha na entrega</span> }
           </div>
-          @if (d.erroEntrega) { <p class="text-sm p-3 rounded-lg" style="background: color-mix(in srgb, var(--cmm-danger) 10%, var(--cmm-panel)); color: var(--cmm-danger);">{{ d.erroEntrega }}</p> }
+          @if (d.erroEntrega) { <p class="note note-error">{{ d.erroEntrega }}</p> }
           <dl class="kv">
-            <div><dt>Ambientes de interesse</dt><dd>{{ d.categorias.length ? d.categorias.join(', ') : '—' }}</dd></div>
+            @for (r of d.respostas; track r.variavel) { <div><dt>{{ r.variavel }}</dt><dd>{{ r.valor || '—' }}</dd></div> }
             <div><dt>Arquivos enviados</dt><dd>{{ d.arquivos }}</dd></div>
             <div><dt>Respostas inválidas</dt><dd>{{ d.invalidas }}</dd></div>
             <div><dt>Advertências fora de escopo</dt><dd>{{ d.foraEscopo }}</dd></div>
@@ -367,52 +336,38 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
             <div><dt>Atendente (GOSAC)</dt><dd>{{ d.atendenteId ?? '—' }}</dd></div>
           </dl>
           <h3 class="mini-title">Conversa recente</h3>
-          <div class="chat chat-flat">
+          <div class="chat">
             @for (h of d.historico; track $index) { <div class="bubble" [class.bubble-user]="h.role === 'cliente'" [class.bubble-bot]="h.role === 'bot'">{{ h.text }}</div> }
             @if (!d.historico.length) { <p class="text-sm" style="color: var(--cmm-muted);">Histórico apagado após o encaminhamento (privacidade).</p> }
           </div>
         </div>
-        <footer class="drawer-foot">
-          @if (d.etapa !== 'HUMANO') { <button type="button" class="btn btn-secondary" (click)="silenciar(d)">Silenciar o bot (assumir)</button> }
-          <button type="button" class="btn btn-primary" (click)="devolver(d)">Devolver ao bot (recomeçar)</button>
-        </footer>
-      </aside>
-    }
+      }
+      <ng-container sheet-footer>
+        @if (detalhe(); as d) {
+          @if (d.etapa !== 'HUMANO') { <button type="button" class="btn btn-secondary flex-1" (click)="silenciar(d)">Silenciar o bot (assumir)</button> }
+          <button type="button" class="btn btn-primary flex-1" (click)="devolver(d)">Devolver ao bot</button>
+        }
+      </ng-container>
+    </app-sheet>
   `,
   styles: [`
     :host { display: block; }
     .attn { border-left: 4px solid var(--cmm-warning); background: color-mix(in srgb, var(--cmm-warning) 7%, var(--cmm-panel)); }
     .attn-ok { border-left-color: var(--cmm-success); background: color-mix(in srgb, var(--cmm-success) 7%, var(--cmm-panel)); }
-    .attn-item { display: flex; align-items: center; gap: .75rem; }
+    .attn-item { display: flex; align-items: center; gap: .75rem; color: var(--cmm-warning); }
+    .attn-item span { color: var(--cmm-ink); }
     .tech > summary { list-style: none; } .tech > summary::-webkit-details-marker { display: none; }
     .tech > summary::after { content: '▾'; float: right; color: var(--cmm-muted); transition: transform 300ms; } .tech[open] > summary::after { transform: rotate(180deg); }
-    .chip { display: inline-flex; align-items: center; padding: .15rem .65rem; border-radius: 99px; font-size: .75rem; background: var(--cmm-accent-soft); color: var(--cmm-accent); font-weight: 600; }
-    .chip-btn { border: 1px dashed color-mix(in srgb, var(--cmm-accent) 45%, transparent); cursor: pointer; }
-    .chip-btn:hover { background: var(--cmm-accent); color: var(--cmm-accent-ink); }
-    .sec-title { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; }
-    .mini-title { margin: 1.25rem 0 .5rem; font-size: .6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--cmm-muted); }
-    .mini-title span { text-transform: none; letter-spacing: 0; font-weight: 500; }
     .live-pill { display: inline-flex; align-items: center; gap: .45rem; padding: .25rem .8rem; border-radius: 999px; font-size: .75rem; font-weight: 700; border: 1px solid transparent; }
     .live-on { color: var(--cmm-success); background: color-mix(in srgb, var(--cmm-success) 14%, var(--cmm-panel)); border-color: color-mix(in srgb, var(--cmm-success) 30%, transparent); }
     .live-off { color: var(--cmm-muted); background: color-mix(in srgb, var(--cmm-border) 55%, var(--cmm-panel)); }
     .live-dot { width: 8px; height: 8px; border-radius: 99px; background: currentColor; }
     .live-on .live-dot { animation: pulse-dot 1.6s ease-in-out infinite; box-shadow: 0 0 10px currentColor; }
-    .ia-head { margin-bottom: .25rem; }
-    .tabs { display: flex; gap: 1.75rem; border-bottom: 1px solid var(--cmm-border); overflow-x: auto; margin-bottom: .5rem; }
-    .cfg-h-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; background: none; border: none; cursor: pointer; text-align: left; }
-    .cfg-chev { display: inline-flex; color: var(--cmm-muted); transition: transform 250ms var(--ease-out-expo); } .cfg-chev-open { transform: rotate(180deg); }
-    .tab { display: inline-flex; align-items: center; gap: .4rem; position: relative; padding: .75rem .1rem; border: none; background: none; color: var(--cmm-muted); font-weight: 600; font-size: .9375rem; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 200ms, border-color 250ms; }
-    .tab:hover { color: var(--cmm-ink); }
-    .tab-on { color: var(--cmm-ink); border-bottom-color: var(--cmm-accent); }
     .live-btn { cursor: pointer; transition: background-color 200ms, border-color 200ms; } .live-btn:hover { border-color: currentColor; }
     .live-hint { margin-left: .35rem; padding-left: .5rem; border-left: 1px solid color-mix(in srgb, currentColor 30%, transparent); font-weight: 600; opacity: 0; max-width: 0; overflow: hidden; white-space: nowrap; transition: opacity 200ms, max-width 300ms; }
     .live-btn:hover .live-hint, .live-btn:focus-visible .live-hint { opacity: .8; max-width: 6rem; }
-    .seg { display: inline-flex; gap: .25rem; padding: .3rem; border-radius: 999px; background: color-mix(in srgb, var(--cmm-border) 45%, var(--cmm-panel)); max-width: 100%; overflow-x: auto; }
-    .seg-btn { position: relative; padding: .5rem 1.1rem; border-radius: 999px; border: none; background: transparent; color: var(--cmm-muted); font-weight: 600; font-size: .875rem; cursor: pointer; white-space: nowrap; transition: color 200ms, background-color 250ms, box-shadow 250ms; }
-    .seg-btn:hover { color: var(--cmm-ink); }
-    .seg-on { color: var(--cmm-accent-ink); background: linear-gradient(120deg, var(--cmm-accent), var(--cmm-accent-2)); box-shadow: 0 8px 20px -10px var(--cmm-accent); }
-    .seg-on:hover { color: var(--cmm-accent-ink); }
-    .seg-count { margin-left: .4rem; padding: 0 .45rem; border-radius: 99px; background: var(--cmm-danger); color: #fff; font-size: .7rem; }
+    .ia-head { margin-bottom: .25rem; }
+    .tabs { margin-bottom: .5rem; }
     .kpi-label { font-size: .75rem; font-weight: 600; color: var(--cmm-muted); }
     .kpi-value { margin-top: .35rem; font-size: clamp(1.8rem, 1.4rem + 1vw, 2.5rem); font-weight: 800; line-height: 1; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
     .kpi-hint { margin-top: .4rem; font-size: .75rem; color: var(--cmm-muted); }
@@ -429,67 +384,20 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
     .funnel-row:hover { background: color-mix(in srgb, var(--cmm-accent) 8%, transparent); transform: translateX(4px); }
     .funnel-label { width: 10.5rem; flex-shrink: 0; font-size: .8125rem; font-weight: 500; }
     .funnel-n { width: 2.5rem; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
-    .kv > div { display: flex; justify-content: space-between; gap: 1rem; padding: .5rem 0; border-bottom: 1px dashed var(--cmm-border); font-size: .875rem; }
-    .kv dt { color: var(--cmm-muted); } .kv dd { font-weight: 600; text-align: right; }
     .plain-list li { display: flex; justify-content: space-between; gap: .75rem; padding: .3rem 0; font-size: .8125rem; }
     .plain-list b { font-variant-numeric: tabular-nums; } .plain-list .muted { color: var(--cmm-muted); }
-    .toolbar { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
-    .toolbar-search { flex: 1 1 16rem; } .toolbar-select { flex: 0 1 14rem; }
-    .check-chip { display: inline-flex; align-items: center; gap: .5rem; padding: .55rem .9rem; border: 1px solid var(--cmm-border); border-radius: .75rem; font-size: .875rem; font-weight: 500; background: var(--cmm-panel); cursor: pointer; }
-    .row-click { cursor: pointer; } .row-on td { background: color-mix(in srgb, var(--cmm-accent) 9%, var(--cmm-panel)) !important; }
     .avatar-sm { flex-shrink: 0; width: 2.25rem; height: 2.25rem; border-radius: 99px; display: grid; place-items: center; font-size: .75rem; font-weight: 800; background: var(--cmm-accent-soft); color: var(--cmm-accent); }
-    .chip { display: inline-flex; align-items: center; gap: .3rem; padding: .15rem .6rem; border-radius: 99px; font-size: .75rem; background: color-mix(in srgb, var(--cmm-border) 55%, var(--cmm-panel)); }
-    .chip-fx { background: var(--cmm-accent-soft); color: var(--cmm-accent); font-weight: 600; }
-    .chat { flex: 1; display: flex; flex-direction: column; gap: .5rem; padding: 1.25rem; overflow-y: auto; max-height: 34rem; }
-    .chat-flat { max-height: none; padding: 0; }
-    .bubble { max-width: 85%; padding: .6rem .9rem; border-radius: 1rem; font-size: .875rem; line-height: 1.45; white-space: pre-line; animation: bubble-in 420ms var(--ease-out-expo) both; }
-    @keyframes bubble-in { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
-    .bubble-user { align-self: flex-end; background: var(--cmm-ink); color: var(--cmm-panel); border-bottom-right-radius: .3rem; }
-    .bubble-bot { align-self: flex-start; background: color-mix(in srgb, var(--cmm-success) 13%, var(--cmm-panel)); border: 1px solid color-mix(in srgb, var(--cmm-success) 25%, transparent); border-bottom-left-radius: .3rem; }
-    .bubble-none { align-self: flex-start; font-style: italic; color: var(--cmm-muted); background: color-mix(in srgb, var(--cmm-border) 45%, var(--cmm-panel)); }
-    .sim-meta { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin: .15rem 0; }
-    .sim-note { font-size: .7rem; color: var(--cmm-muted); margin: 0 0 .75rem; }
-    .sim-pick { display: flex; align-items: center; gap: .75rem; padding: .75rem 1.25rem; border-bottom: 1px solid var(--cmm-border); flex-wrap: wrap; } .sim-pick select { flex: 1 1 16rem; min-width: 0; }
+    .sim .chat { flex: 1; padding: 1.25rem; overflow-y: auto; max-height: 34rem; }
     .sim-controls { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; } .sim-controls select { flex: 1 1 16rem; min-width: 0; }
     .ia-toggle { display: inline-flex; align-items: center; gap: .5rem; font-size: .8125rem; font-weight: 700; color: var(--cmm-muted); }
     .sim-bar { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem 1.25rem; border-bottom: 1px solid var(--cmm-border); flex-wrap: wrap; }
-    .sim-where { display: flex; flex-direction: column; min-width: 0; } .sim-where b { font-size: .9rem; overflow-wrap: anywhere; }
     .sim-aviso { margin: 0 1.25rem .5rem; font-size: .78rem; color: var(--cmm-warning); font-weight: 600; }
-    .bubble-fx { align-self: center; background: var(--cmm-accent-soft); color: var(--cmm-accent); font-weight: 700; font-size: .72rem; border-radius: 99px; text-align: center; }
-    .bubble-typing { letter-spacing: .2em; opacity: .7; }
     .chat-input { display: flex; gap: .5rem; padding: 1rem; border-top: 1px solid var(--cmm-border); }
-    .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: .875rem; font-weight: 600; } .switch-row small { display: block; font-weight: 400; color: var(--cmm-muted); }
-    .switch { flex-shrink: 0; width: 2.9rem; height: 1.6rem; border-radius: 99px; border: none; background: var(--cmm-border); position: relative; cursor: pointer; transition: background-color 300ms; }
-    .switch-on { background: var(--cmm-accent); }
-    .switch-knob { position: absolute; top: 3px; left: 3px; width: 1.2rem; height: 1.2rem; border-radius: 99px; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.3); transition: transform 400ms var(--ease-out-expo); }
-    .switch-on .switch-knob { transform: translateX(1.3rem); }
-    .cfg-h { margin: 0; padding: 1.4rem 1.5rem .5rem; font-size: .6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--cmm-muted); }
-    .cfg-h-first { padding-top: 1.1rem; }
-    .cfg-warn { color: var(--cmm-warning); }
-    .cfg-reset { border: none; background: none; color: var(--cmm-accent); font-size: .75rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
     .cfg-secret { display: flex; flex-direction: column; gap: .25rem; align-items: flex-end; width: 100%; }
-    .cfg-row { display: grid; grid-template-columns: 1fr; gap: .75rem; padding: 1rem 1.5rem; }
-    @media (min-width: 900px) { .cfg-row { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: center; } }
-    .cfg-ctl { display: flex; align-items: center; justify-content: flex-end; gap: .6rem; }
-    .cfg-num { max-width: 9rem; }
-    .src { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--cmm-muted); padding: .15rem .5rem; border-radius: 99px; border: 1px solid var(--cmm-border); white-space: nowrap; }
-    .src-tela { color: var(--cmm-accent); border-color: color-mix(in srgb, var(--cmm-accent) 45%, transparent); background: var(--cmm-accent-soft); }
-    .savebar { position: fixed; left: 50%; bottom: 1.25rem; transform: translateX(-50%); z-index: 90; display: flex; align-items: center; gap: 1.5rem; padding: .7rem 1rem .7rem 1.4rem; border-radius: 999px; background: var(--cmm-ink); color: var(--cmm-panel); box-shadow: 0 24px 60px -16px rgba(0,0,0,.6); font-size: .875rem; animation: bar-up 500ms var(--ease-out-expo) both; max-width: calc(100vw - 2rem); }
     @media (max-width: 640px) {
-      .savebar { left: .75rem; right: .75rem; transform: none; bottom: max(.75rem, env(safe-area-inset-bottom)); justify-content: space-between; border-radius: 1.1rem; padding: .65rem .8rem; animation: bar-up-m 500ms var(--ease-out-expo) both; }
-      .savebar > div { width: 100%; } .savebar .btn { flex: 1 1 auto; }
       .funnel-label { width: 7.5rem; }
       .chart { gap: .25rem; } .chart-num { font-size: .6rem; } .chart-day { font-size: .55rem; }
     }
-    @keyframes bar-up-m { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
-    @keyframes bar-up { from { opacity: 0; transform: translate(-50%, 30px); } to { opacity: 1; transform: translate(-50%, 0); } }
-    .drawer-backdrop { position: fixed; inset: 0; z-index: 1000; background: color-mix(in srgb, #0c0a07 50%, transparent); animation: cmm-fade-in 250ms both; }
-    .drawer { position: fixed; z-index: 1001; top: 0; right: 0; bottom: 0; width: min(30rem, 100vw); display: flex; flex-direction: column; background: var(--cmm-panel); border-left: 1px solid var(--cmm-border); box-shadow: -30px 0 80px -30px rgba(0,0,0,.5); animation: drawer-in 520ms var(--ease-out-expo) both; }
-    @keyframes drawer-in { from { transform: translateX(100%); } to { transform: none; } }
-    .drawer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--cmm-border); }
-    .drawer-body { flex: 1; overflow-y: auto; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
-    .drawer-foot { display: flex; gap: .6rem; flex-wrap: wrap; padding: 1rem 1.5rem; border-top: 1px solid var(--cmm-border); }
-    .drawer-foot .btn { flex: 1 1 auto; }
   `],
 })
 export class IaComponent implements OnInit, OnDestroy {
@@ -518,9 +426,7 @@ export class IaComponent implements OnInit, OnDestroy {
     config: 'Liga/desliga, chave da OpenAI, modelos, limites de uso e integrações.',
   };
   exemplos = ['1', '2', '3', 'quero uma cozinha', 'onde fica a loja?', '0', '10'];
-  etapas = ETAPAS;
   grupos = GRUPOS;
-  trilhaOpcoes = Object.entries(TRILHAS).filter(([k]) => k !== 'sem_trilha').map(([key, label]) => ({ key, label }));
 
   aba = signal<Aba>('visao');
   loading = signal(false);
@@ -541,9 +447,6 @@ export class IaComponent implements OnInit, OnDestroy {
   paginas = computed(() => Math.max(1, Math.ceil((this.lista()?.total ?? 0) / (this.lista()?.tamanho || 20))));
 
   // simulador
-  simEtapa = 'MENU';
-  simTrilha = '';
-  simNome = '';
   simTexto = signal('');
   simUsarIA = signal(true);
   simCarregando = signal(false);
@@ -555,7 +458,6 @@ export class IaComponent implements OnInit, OnDestroy {
   /** Fluxos próprios já publicados (os únicos que o teste consegue seguir). */
   simFluxos = signal<Array<{ id: string; nome: string; ativo: boolean }>>([]);
   simFluxo = signal('');
-  etapasTeste = ETAPAS.filter((e) => e.key !== 'HUMANO');
 
   // config
   campos = signal<IaConfigField[]>([]);
@@ -579,12 +481,15 @@ export class IaComponent implements OnInit, OnDestroy {
   funilList = computed(() => {
     const f = this.overview()?.funil ?? {};
     const max = Math.max(1, ...Object.values(f));
-    return ETAPAS.map((e) => ({ ...e, value: f[e.key] ?? 0, pct: ((f[e.key] ?? 0) / max) * 100 }));
+    return Object.entries(f)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
+      .map(([k, v]) => ({ key: k, label: k, value: v, pct: (v / max) * 100, humano: k === 'Com atendente' }));
   });
   trilhasList = computed(() => {
     const t = this.overview()?.trilhas ?? {};
     const max = Math.max(1, ...Object.values(t));
-    return Object.entries(t).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: TRILHAS[k] ?? k, value: v, pct: (v / max) * 100 }));
+    return Object.entries(t).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: k, value: v, pct: (v / max) * 100 }));
   });
   decisoes = computed(() => this.pares(this.overview()?.sistema.agentDecisions, DECISOES));
   comunicacao = computed(() => this.pares(this.overview()?.sistema.comunicacao.resultados, COMUNICACAO));
@@ -592,16 +497,16 @@ export class IaComponent implements OnInit, OnDestroy {
   alertas = computed(() => {
     const o = this.overview();
     if (!o) return [];
-    const out: Array<{ icone: string; texto: string; botao: string; acao: () => void }> = [];
+    const out: Array<{ icone: IconName; texto: string; botao: string; acao: () => void }> = [];
     const chave = this.campos().find((c) => c.key === 'OPENAI_API_KEY');
     if (!o.sistema.enabled)
-      out.push({ icone: '⏸️', texto: 'O bot está desligado: ninguém está sendo atendido automaticamente.', botao: 'Ver ajustes', acao: () => this.setAba('config') });
+      out.push({ icone: 'pausa', texto: 'O bot está desligado: ninguém está sendo atendido automaticamente.', botao: 'Ver ajustes', acao: () => this.setAba('config') });
     if (o.sistema.enabled && o.sistema.aiEnabled && chave && !chave.configured)
-      out.push({ icone: '🔑', texto: 'A IA está ligada, mas não há chave da OpenAI: o bot só usa regras fixas.', botao: 'Configurar chave', acao: () => this.setAba('config') });
+      out.push({ icone: 'chave', texto: 'A IA está ligada, mas não há chave da OpenAI: o bot só usa regras fixas.', botao: 'Configurar chave', acao: () => this.setAba('config') });
     if (o.sistema.aiBreakerOpen)
-      out.push({ icone: '⚠️', texto: 'A IA foi pausada por falhas seguidas e voltará sozinha em instantes.', botao: 'Atualizar', acao: () => this.refreshAll() });
+      out.push({ icone: 'alerta', texto: 'A IA foi pausada por falhas seguidas e voltará sozinha em instantes.', botao: 'Atualizar', acao: () => this.refreshAll() });
     if (o.totais.comErro > 0)
-      out.push({ icone: '❗', texto: `${o.totais.comErro} conversa(s) com falha na entrega ao atendente — o cliente pode estar esperando.`, botao: 'Ver conversas', acao: () => { this.soErros = true; this.filtroEtapa = ''; this.setAba('conversas'); this.aplicarFiltros(); } });
+      out.push({ icone: 'alerta', texto: `${o.totais.comErro === 1 ? '1 conversa' : o.totais.comErro + ' conversas'} com falha na entrega ao atendente. O cliente pode estar esperando.`, botao: 'Ver conversas', acao: () => { this.soErros = true; this.filtroEtapa = ''; this.setAba('conversas'); this.aplicarFiltros(); } });
     return out;
   });
 
@@ -692,10 +597,9 @@ export class IaComponent implements OnInit, OnDestroy {
   }
 
   // ───── testar (conversa simulada)
-  simComecar(avancado = false): void {
+  simComecar(): void {
     this.simLog.set([]); this.simEstado.set(null); this.simTerminou.set(false); this.simAviso.set(null); this.simTexto.set('');
-    const inicio = avancado ? { step: this.simEtapa, trilha: this.simTrilha || null, nome: this.simNome.trim() || null } : this.simFluxo() ? { fluxoId: this.simFluxo() } : undefined;
-    this.simPasso(null, '', inicio);
+    this.simPasso(null, '', this.simFluxo() ? { fluxoId: this.simFluxo() } : undefined);
   }
   simEscolherFluxo(id: string): void { this.simFluxo.set(id); this.simComecar(); }
   /** Lê os fluxos publicados (não o rascunho): é o que o cliente consegue seguir de verdade. */
@@ -718,15 +622,15 @@ export class IaComponent implements OnInit, OnDestroy {
     this.simTexto.set('');
     this.simPasso(this.simEstado(), texto);
   }
-  private simPasso(estado: Record<string, unknown> | null, texto: string, inicio?: { step?: string; trilha?: string | null; nome?: string | null }): void {
+  private simPasso(estado: Record<string, unknown> | null, texto: string, inicio?: { fluxoId?: string; nome?: string | null }): void {
     this.simCarregando.set(true);
     this.api.simulate({ texto, estado, inicio, usarIA: this.simUsarIA() }).subscribe({
       next: (r) => {
         this.simLog.update((l) => [
           ...l,
           ...r.mensagens.map((m) => ({ de: 'bot' as const, texto: m })),
-          ...r.efeitos.map((e) => ({ de: 'efeito' as const, texto: '⚙ ' + e })),
-          ...(r.terminou ? [{ de: 'efeito' as const, texto: '🤝 Conversa encaminhada a um atendente — fim do teste' }] : []),
+          ...r.efeitos.map((e) => ({ de: 'efeito' as const, texto: e })),
+          ...(r.terminou ? [{ de: 'efeito' as const, texto: 'Conversa encaminhada a um atendente. Fim do teste.' }] : []),
           ...(r.reescrita ? [{ de: 'sistema' as const, texto: 'A IA reescreveu esta resposta no tom do fluxo.' }] : []),
         ]);
         this.simEstado.set(r.estado);
@@ -745,7 +649,7 @@ export class IaComponent implements OnInit, OnDestroy {
   }
   private descreverOnde(o: IaSimResposta['onde']): string {
     if (o.fluxo) return `${o.fluxo.nome}${o.bloco ? ` › etapa ${o.bloco.numero}: ${o.bloco.titulo}` : ''}`;
-    return `Fluxo padrão › ${this.etapaLabel(o.etapa)}`;
+    return o.etapa === 'HUMANO' ? 'Com atendente' : 'Início';
   }
   private rolarChat(): void { setTimeout(() => { const el = document.querySelector('.chat'); el?.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }); }, 50); }
 
@@ -780,8 +684,6 @@ export class IaComponent implements OnInit, OnDestroy {
   }
 
   // ───── utilidades de exibição
-  etapaLabel(k: string): string { return ETAPAS.find((e) => e.key === k)?.label ?? k; }
-  trilhaLabel(k: string | null): string { return TRILHAS[k ?? 'sem_trilha'] ?? (k ?? '—'); }
   iniciais(c: IaConversationSummary): string { return (c.nome || '?').split(/\s+/).map((p) => p[0]).join('').slice(0, 2).toUpperCase(); }
   rel(iso: string): string {
     const s = Math.max(0, Math.round((this.agora() - new Date(iso).getTime()) / 1000));

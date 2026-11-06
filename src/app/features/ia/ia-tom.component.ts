@@ -52,14 +52,6 @@ const SUGESTOES = [
     :host { display: block; }
     .tone { display: flex; flex-direction: column; gap: .35rem; text-align: left; padding: 1rem; border-radius: 1rem; border: 1.5px solid var(--cmm-border); background: var(--cmm-panel); cursor: pointer; color: var(--cmm-ink); transition: border-color 200ms, background-color 200ms, transform 300ms var(--ease-out-expo); }
     .tone:hover { transform: translateY(-2px); } .tone-on { border-color: var(--cmm-accent); background: var(--cmm-accent-soft); }
-    .chip { display: inline-flex; align-items: center; padding: .15rem .65rem; border-radius: 99px; font-size: .75rem; background: var(--cmm-accent-soft); color: var(--cmm-accent); font-weight: 600; }
-    .chip-btn { border: 1px dashed color-mix(in srgb, var(--cmm-accent) 45%, transparent); cursor: pointer; text-align: left; }
-    .chip-btn:hover { background: var(--cmm-accent); color: var(--cmm-accent-ink); }
-    .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: .875rem; font-weight: 600; } .switch-row small { display: block; font-weight: 400; color: var(--cmm-muted); margin-top: .2rem; }
-    .switch { flex-shrink: 0; width: 2.9rem; height: 1.6rem; border-radius: 99px; border: none; background: var(--cmm-border); position: relative; cursor: pointer; transition: background-color 300ms; }
-    .switch-on { background: var(--cmm-accent); }
-    .switch-knob { position: absolute; top: 3px; left: 3px; width: 1.2rem; height: 1.2rem; border-radius: 99px; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.3); transition: transform 400ms var(--ease-out-expo); }
-    .switch-on .switch-knob { transform: translateX(1.3rem); }
   `],
 })
 export class IaTomComponent {

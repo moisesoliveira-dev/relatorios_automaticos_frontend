@@ -2,12 +2,13 @@ import { Component, inject, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ModalService } from '../../shared/services/modal.service';
 import { IaKb } from './ia-api.service';
+import { IconComponent } from '../../shared/components/icon.component';
 
 /** Base de conhecimento de UM fluxo: só o que está aqui pode ser afirmado pela IA ao responder dúvidas. */
 @Component({
   selector: 'app-ia-saber',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, IconComponent],
   template: `
     <div class="space-y-4">
       <p class="text-sm" style="color: var(--cmm-muted);">{{ explicacao() }}</p>
@@ -15,7 +16,7 @@ import { IaKb } from './ia-api.service';
         <article class="panel panel-pad space-y-3">
           <div class="flex items-center justify-between gap-2">
             <h3 class="font-semibold text-sm">Assunto {{ i + 1 }}</h3>
-            <button type="button" class="btn btn-ghost btn-sm" style="color: var(--cmm-danger);" (click)="remover(i)">Excluir</button>
+            <button type="button" class="icon-btn icon-danger" (click)="remover(i)" aria-label="Excluir assunto" title="Excluir assunto"><app-icon name="lixeira" [size]="16" /></button>
           </div>
           <div><label class="form-label" [attr.for]="'sb-t-' + i">O que a IA pode afirmar</label>
             <textarea class="form-input" rows="3" [id]="'sb-t-' + i" maxlength="600" [ngModel]="e.text" (ngModelChange)="editar(i, { text: $event })" placeholder="Ex.: A loja abre de segunda a sábado, das 9h às 18h."></textarea>

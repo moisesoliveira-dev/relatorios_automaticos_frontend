@@ -4,7 +4,9 @@ import { environment } from '../../../environments/environment';
 
 export interface IaOverview {
   totais: { total: number; novosHoje: number; novos7d: number; entreguesHoje: number; emHumano: number; comErro: number };
+  /** "Fluxo › Etapa" → quantidade de conversas ativas */
   funil: Record<string, number>;
+  /** Caminho escolhido no menu → quantidade */
   trilhas: Record<string, number>;
   iaHoje: number;
   foraEscopo7d: number;
@@ -27,8 +29,10 @@ export interface IaConversationSummary {
   ticketId: number;
   nome: string | null;
   numero: string | null;
-  etapa: string;
-  trilha: string | null;
+  /** BOT ou HUMANO */
+  etapa: 'BOT' | 'HUMANO';
+  onde: { fluxo: string | null; etapa: string | null };
+  trilha: string;
   emAtendimento: boolean;
   finalizouTriagem: boolean;
   invalidas: number;
@@ -41,8 +45,7 @@ export interface IaConversationSummary {
 }
 
 export interface IaConversationDetail extends IaConversationSummary {
-  local: string | null;
-  categorias: string[];
+  respostas: Array<{ variavel: string; valor: string }>;
   arquivos: number;
   pastaDrive: boolean;
   agendamento: string | null;
@@ -83,11 +86,58 @@ export interface IaConfigField {
   source: 'tela' | 'ambiente' | 'padrão';
 }
 
-export interface IaCatalog {
-  etapas: Array<{ etapa: string; descricao: string | null }>;
-  mensagens: Array<{ chave: string; texto: string; objetivo: string | null; pontosEssenciais: string[] }>;
-  categorias: Record<string, string>;
-  baseConhecimento: Array<{ id: string; texto: string }>;
+// ───────────────────────── fluxos (motor v2) ─────────────────────────
+
+export type IaNodeType = 'mensagem' | 'pergunta' | 'opcoes' | 'confirmacao' | 'multipla' | 'arquivos' | 'ferramenta' | 'condicao' | 'ir_para' | 'encaminhar' | 'fim';
+export type IaValidacao = 'texto' | 'nome' | 'numero' | 'telefone' | 'email';
+export type IaCondOp = 'igual' | 'diferente' | 'contem' | 'vazio' | 'nao_vazio';
+
+export interface IaNodeSpec {
+  objetivo?: string;
+  pontos?: string[][];
+  saudacao?: boolean;
+  usaNome?: boolean;
+  maxChars?: number;
+}
+
+export interface IaOpcao {
+  rotulo: string;
+  proximo: string | null;
+  valor?: string;
+  palavras?: string[];
+}
+
+/** Uma etapa de fluxo. Os campos valem conforme o `tipo` (ver NODE_TYPES_INFO do servidor). */
+export interface IaNode {
+  id: string;
+  tipo: IaNodeType;
+  titulo: string;
+  spec?: IaNodeSpec;
+  texto?: string;
+  textoApos?: string;
+  proximo?: string | null;
+  // pergunta
+  variavel?: string;
+  validacao?: IaValidacao;
+  // opcoes / confirmacao
+  opcoes?: IaOpcao[];
+  // multipla
+  itens?: Array<{ rotulo: string }>;
+  nenhum?: string;
+  // arquivos
+  minimo?: number;
+  // ferramenta
+  ferramenta?: string;
+  params?: Record<string, string | number | boolean | null>;
+  falha?: string | null;
+  semOpcoes?: string | null;
+  // condicao
+  regras?: Array<{ variavel: string; op: IaCondOp; valor?: string; proximo: string | null }>;
+  senao?: string | null;
+  // ir_para
+  fluxo?: string;
+  // encaminhar
+  reutilizarAtendente?: boolean;
 }
 
 export interface IaKb {
@@ -95,31 +145,19 @@ export interface IaKb {
   keywords: string[];
   text: string;
 }
-export interface IaNode {
-  id: string;
-  tipo: 'mensagem' | 'opcoes' | 'confirmacao' | 'pergunta' | 'arquivos' | 'acao' | 'encaminhar' | 'fim';
-  titulo: string;
-  texto?: string;
-  proximo?: string | null;
-  opcoes?: Array<{ rotulo: string; proximo: string | null }>;
-  variavel?: string;
-  validacao?: 'nome' | 'texto';
-  minimo?: number;
-  acao?: string;
-  armazenar?: 'drive';
-  pasta?: 'criar' | 'existente';
-}
+
 export interface IaFlow {
   id: string;
   nome: string;
   descricao?: string;
   ativo: boolean;
-  menuOpcao: number | null;
+  papel?: 'entrada' | 'reconhecimento' | null;
   nos: IaNode[];
   guidance?: { tone: string; instructions: string };
   reescrever?: boolean;
   kb?: IaKb[];
 }
+
 export interface IaFlowState {
   flowId: string;
   nodeId: string;
@@ -127,28 +165,62 @@ export interface IaFlowState {
   vars: Record<string, string>;
   arquivos: number;
   invalidos: number;
+  dinamicas?: Array<{ rotulo: string; valor: string }> | null;
+  escolhidos?: number[] | null;
 }
+
 export interface IaFlowPreview {
   estado: IaFlowState | null;
   mensagens: string[];
   efeitos: string[];
   saiu: 'menu' | 'encaminhado' | null;
 }
+
+export interface IaParamSpec {
+  key: string;
+  label: string;
+  type: 'texto' | 'numero' | 'booleano' | 'variavel' | 'escolha';
+  ajuda?: string;
+  obrigatorio?: boolean;
+  opcoes?: Array<{ value: string; label: string }>;
+  padrao?: string | number | boolean;
+  template?: boolean;
+  define?: boolean;
+}
+
 export interface IaTool {
   key: string;
   label: string;
   descricao: string;
+  grupo: string;
+  modo: 'acao' | 'escolha';
+  params: IaParamSpec[];
+  requer: { vars?: string[]; pasta?: boolean };
+  produz: { pasta?: boolean; vars?: string[] };
   disponivel: boolean;
+  motivo?: string;
 }
 
-export interface IaContentDoc {
-  messages: Record<string, string>;
-  kb: IaKb[] | null;
-  categorias: Record<string, string>;
-  guidance: { tone: string; instructions: string };
-  menuDesativado: number[];
-  fluxos: IaFlow[];
+export interface IaNodeTypeInfo {
+  tipo: IaNodeType;
+  grupo: string;
+  label: string;
+  ajuda: string;
+  regra: string;
 }
+
+export type IaSystemKey =
+  | 'invalida_generica' | 'invalida_nome' | 'invalida_arquivos' | 'invalida_lista' | 'fora_escopo' | 'fora_escopo_limite'
+  | 'audio_nao_suportado' | 'reinicio_por_pausa' | 'redirecionando' | 'redirecionando_com_nome' | 'rodape_navegacao' | 'rodape_escolha' | 'rodape_ok';
+
+export interface IaContentDoc {
+  versao: 2;
+  fluxos: IaFlow[];
+  guidance: { tone: string; instructions: string };
+  kb: IaKb[] | null;
+  sistema: Partial<Record<IaSystemKey, string>>;
+}
+
 export interface IaContent {
   published: IaContentDoc;
   publishedAt: string | null;
@@ -158,9 +230,19 @@ export interface IaContent {
   hasPrevious: boolean;
   problemas: string[];
   ferramentas: IaTool[];
-  defaults: { messages: Record<string, string>; kb: IaKb[]; categorias: Record<string, string> };
-  specs: Record<string, { objetivo: string | null; pontos: string[]; placeholders: string[] }>;
+  tipos: IaNodeTypeInfo[];
   tones: Array<{ key: string; label: string }>;
+  sistema: { padrao: Record<IaSystemKey, string>; rotulos: Record<IaSystemKey, string> };
+  defaults: { kb: IaKb[] };
+  limites: { fluxos: number; nos: number; opcoes: number; itens: number; texto: number };
+}
+
+export interface IaCatalog {
+  fluxos: Array<{ id: string; nome: string; ativo: boolean; papel: string | null; etapas: number }>;
+  tipos: IaNodeTypeInfo[];
+  ferramentas: IaTool[];
+  sistema: Record<IaSystemKey, string>;
+  baseConhecimento: Array<{ id: string; texto: string }>;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -185,11 +267,14 @@ export class IaApiService {
   devolver(id: string) {
     return this.http.post<IaConversationSummary>(`${this.base}/conversations/${id}/devolver-ao-bot`, {});
   }
-  simulate(body: { texto?: string; estado?: Record<string, unknown> | null; inicio?: { step?: string; trilha?: string | null; nome?: string | null; fluxoId?: string }; usarIA: boolean }) {
+  simulate(body: { texto?: string; estado?: Record<string, unknown> | null; inicio?: { fluxoId?: string; nome?: string | null }; usarIA: boolean }) {
     return this.http.post<IaSimResposta>(`${this.base}/simulate`, body);
   }
   catalog() {
     return this.http.get<IaCatalog>(`${this.base}/catalog`);
+  }
+  tools() {
+    return this.http.get<IaTool[]>(`${this.base}/tools`);
   }
   config() {
     return this.http.get<IaConfigField[]>(`${this.base}/config`);
@@ -209,8 +294,9 @@ export class IaApiService {
   publish() {
     return this.http.post<IaContent>(`${this.base}/content/publish`, {});
   }
-  previewFlow(fluxo: IaFlow, estado: IaFlowState | null, texto: string) {
-    return this.http.post<IaFlowPreview>(`${this.base}/content/flows/preview`, { fluxo, estado, texto });
+  /** Prévia de um fluxo em rascunho (manda todos os fluxos do rascunho, por causa de "ir para"). */
+  previewFlow(fluxos: IaFlow[], fluxoId: string, estado: IaFlowState | null, texto: string) {
+    return this.http.post<IaFlowPreview>(`${this.base}/content/flows/preview`, { fluxos, fluxoId, estado, texto });
   }
   rollback() {
     return this.http.post<IaContent>(`${this.base}/content/rollback`, {});
