@@ -8,6 +8,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { MotionService } from '../../core/motion/motion.service';
 import { ModalComponent } from '../components/modal.component';
 import { ToastHostComponent } from '../components/toast-host.component';
+import { IconComponent } from '../components/icon.component';
 
 interface MenuItem {
   label: string;
@@ -19,7 +20,7 @@ interface MenuItem {
 const TITLE_MAP: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/reports': 'Relatórios',
-  '/reports/ocorrencias': 'Ocorrências',
+  '/reports/ocorrencias': 'Relatórios',
   '/jobs': 'Automações',
   '/ia': 'IA',
   '/usuarios': 'Usuários',
@@ -31,7 +32,6 @@ const TITLE_MAP: Record<string, string> = {
   '/gosac-pontta/rodizio-pontta': 'Rodízio Pontta',
   '/gosac-pontta/pagamento-montador': 'Pagamento Montador',
   '/gosac-pontta/pcp-operacional': 'PCP Operacional',
-  '/gosac-pontta/webhooks': 'Webhooks',
 };
 
 const SIDEBAR_KEY = 'sidebar_collapsed';
@@ -39,7 +39,7 @@ const SIDEBAR_KEY = 'sidebar_collapsed';
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, ModalComponent, ToastHostComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, ModalComponent, ToastHostComponent, IconComponent],
   template: `
     <a href="#conteudo" class="skip-link" (click)="focusMain($event)">Pular para o conteúdo</a>
 
@@ -151,13 +151,10 @@ const SIDEBAR_KEY = 'sidebar_collapsed';
       <div class="flex-1 flex flex-col min-w-0 main-shell" [class.main-shell-collapsed]="sidebarCollapsed()">
         <header class="topbar sticky top-0 z-30">
           <div class="flex items-center gap-3 min-w-0">
-            <button type="button" class="btn btn-ghost btn-sm lg:hidden !px-2" (click)="mobileOpen.set(true)" aria-label="Abrir menu" [attr.aria-expanded]="mobileOpen()">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-              </svg>
+            <button type="button" class="icon-btn lg:hidden" (click)="mobileOpen.set(true)" aria-label="Abrir menu" [attr.aria-expanded]="mobileOpen()">
+              <app-icon name="menu" [size]="20" />
             </button>
             <div class="min-w-0 overflow-hidden">
-              <p class="text-[10px] uppercase tracking-[0.2em] truncate" style="color: var(--cmm-accent); font-weight: 700;">CMM System</p>
               @for (t of [pageTitle()]; track t) {
                 <h1 class="topbar-title font-display text-lg font-bold tracking-tight truncate" style="color: var(--cmm-ink);">{{ t }}</h1>
               }
@@ -168,20 +165,12 @@ const SIDEBAR_KEY = 'sidebar_collapsed';
             <button
               type="button"
               (click)="toggleDarkMode($event)"
-              class="btn btn-secondary btn-sm !px-2.5 theme-btn"
+              class="icon-btn icon-btn-outline theme-btn"
               [attr.aria-label]="isDarkMode() ? 'Mudar para o tema claro' : 'Mudar para o tema escuro'"
               [attr.aria-pressed]="isDarkMode()"
               [title]="isDarkMode() ? 'Tema escuro ativo' : 'Tema claro ativo'"
             >
-              @if (isDarkMode()) {
-                <svg class="w-4 h-4 theme-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M12 3v1m0 16v1m8.66-9H19.5m-15 0H3.34m14.02 6.36l-.7-.7m-9.32 0l-.7.7m10.02-10.02l-.7.7m-9.32 0l-.7-.7M12 7a5 5 0 100 10 5 5 0 000-10z"/>
-                </svg>
-              } @else {
-                <svg class="w-4 h-4 theme-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M20.354 15.354A9 9 0 118.646 3.646 7 7 0 1020.354 15.354z"/>
-                </svg>
-              }
+              <span class="theme-icon"><app-icon [name]="isDarkMode() ? 'sol' : 'lua'" [size]="17" /></span>
             </button>
 
             <div class="relative" data-user-menu>
@@ -333,8 +322,8 @@ const SIDEBAR_KEY = 'sidebar_collapsed';
     .topbar-title { animation: title-in 700ms var(--ease-out-expo) both; }
     @keyframes title-in { from { opacity: 0; transform: translateY(100%) rotateX(-70deg); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
 
-    .theme-btn:hover .theme-icon { transform: rotate(180deg) scale(1.2); }
-    .theme-icon { transition: transform 700ms var(--ease-out-expo); }
+    .theme-btn:hover .theme-icon { transform: rotate(180deg) scale(1.15); }
+    .theme-icon { display: inline-flex; transition: transform 700ms var(--ease-out-expo); }
 
     .user-btn {
       display: flex; align-items: center; gap: 0.6rem; padding: 0.3rem 0.5rem 0.3rem 0.3rem;
@@ -361,10 +350,7 @@ const SIDEBAR_KEY = 'sidebar_collapsed';
       transition: background-color 180ms, transform 300ms var(--ease-out-expo);
     }
     .user-item:hover { background: color-mix(in srgb, var(--cmm-accent) 10%, transparent); transform: translateX(3px); }
-    .switch { width: 2.4rem; height: 1.35rem; border-radius: 99px; background: var(--cmm-border); position: relative; transition: background-color 300ms; flex-shrink: 0; }
-    .switch-on { background: var(--cmm-accent); }
-    .switch-knob { position: absolute; top: 2px; left: 2px; width: 1.05rem; height: 1.05rem; border-radius: 99px; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.3); transition: transform 400ms var(--ease-out-expo); }
-    .switch-on .switch-knob { transform: translateX(1.05rem); }
+    .user-item .switch { width: 2.4rem; height: 1.35rem; } .user-item .switch-knob { width: 1.05rem; height: 1.05rem; top: 2px; left: 2px; } .user-item .switch-on .switch-knob { transform: translateX(1.05rem); }
   `]
 })
 export class LayoutComponent implements OnInit, AfterViewInit, OnDestroy {

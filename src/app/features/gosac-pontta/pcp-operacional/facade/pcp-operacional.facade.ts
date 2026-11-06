@@ -58,8 +58,8 @@ export class PcpOperacionalFacade {
   readonly salesOrders = computed(() => this.schedule()?.salesOrders ?? []);
 
   readonly scheduleSubtitle = computed(() => {
-    const offsets = this.areaConfig().areas.map((a) => `+${a.businessDays}`).join(' / ');
-    return `Base: prazo calculado da tarefa Aprovação do Projeto Executivo. Datas por área: ${offsets} dias úteis · Ter / Qui / Sex.`;
+    const offsets = this.areaConfig().areas.map((a) => `${a.short} +${a.businessDays}`).join(' · ');
+    return `Entregas em dias úteis a partir da aprovação do projeto executivo: ${offsets}. Só terça, quinta e sexta.`;
   });
 
   readonly totalPages = computed(() => {

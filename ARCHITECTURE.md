@@ -66,9 +66,16 @@ A Facade é fornecida no **shell da página** (`providers: [XxxApiService, XxxFa
 | Pasta | Responsabilidade |
 |-------|------------------|
 | `core/` | Auth, guards, interceptors, models globais |
-| `shared/` | Layout, modal, componentes reutilizáveis |
+| `shared/` | Layout, `app-dialog`, `app-sheet`, `app-pagination`, `app-icon`, modal de confirmação, toasts |
 | `features/` | Domínios de negócio (uma pasta por rota lazy) |
 | `services/` | Legado — preferir `features/*/data/` |
+
+## Padrões de tela (ver DESIGN.md)
+
+- Feedback: `ToastService` para sucesso/erro de ações; `ModalService.confirm` para confirmações; nunca mensagens inline temporárias.
+- Formulários e escolhas abrem em `app-dialog`; detalhes e edição longa em `app-sheet`. Nenhuma tela desenha o próprio overlay.
+- Listas usam `.table-shell` + `.list-head` + `app-pagination`. Ícones só por `app-icon`.
+- Telas de IA (`features/ia`): `ia-api.service.ts` espelha o contrato do motor de fluxos v2 do backend (`IaFlow`, `IaNode`, `IaTool`); `ia-conteudo` é a galeria de fluxos e `ia-fluxos` o editor de etapas.
 
 ## Próximos candidatos a refatorar
 

@@ -37,10 +37,9 @@ export const routes: Routes = [
                 canActivate: [tabGuard],
                 data: { tabs: ['reports'] },
                 children: [
-                    {
-                        path: '',
-                        loadComponent: () => import('./features/reports/reports-list.component').then(m => m.ReportsListComponent)
-                    },
+                    // Só existe um relatório hoje: a lista intermediária foi removida.
+                    // Quando houver outros, volte a ter uma lista em '' e mantenha os filhos abaixo.
+                    { path: '', redirectTo: 'ocorrencias', pathMatch: 'full' },
                     {
                         path: 'ocorrencias',
                         loadComponent: () => import('./features/reports/ocorrencias/ocorrencias.component').then(m => m.OcorrenciasComponent)
@@ -115,12 +114,6 @@ export const routes: Routes = [
                         canActivate: [tabGuard],
                         data: { tabs: ['gosac-pontta/pcp-operacional'] },
                         loadComponent: () => import('./features/gosac-pontta/pcp-operacional/pcp-operacional.component').then(m => m.PcpOperacionalComponent)
-                    },
-                    {
-                        path: 'webhooks',
-                        canActivate: [tabGuard],
-                        data: { tabs: ['gosac-pontta'] },
-                        loadComponent: () => import('./features/gosac-pontta/webhooks/webhooks.component').then(m => m.WebhooksComponent)
                     },
                     {
                         path: '',

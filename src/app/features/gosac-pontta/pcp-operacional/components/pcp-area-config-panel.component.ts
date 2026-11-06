@@ -1,98 +1,69 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, effect, inject, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { PcpOperacionalFacade } from '../facade/pcp-operacional.facade';
 import { PcpAreaConfig, PcpAreaConfigItem } from '../models/pcp.models';
+import { DialogComponent } from '../../../../shared/components/dialog.component';
 
+/** Prazos (dias úteis) e cores por área, numa janela. */
 @Component({
   selector: 'app-pcp-area-config-panel',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, DialogComponent],
   template: `
-    <div class="panel panel-pad space-y-4">
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <h2 class="text-sm font-semibold" style="color: var(--cmm-ink);">Configuração de áreas</h2>
-          <p class="text-xs mt-0.5" style="color: var(--cmm-muted);">
-            Dias úteis e cores por área. Base de cálculo: {{ draft.baseDateLabel }}.
-          </p>
-        </div>
-        <button type="button" class="btn btn-ghost btn-sm" (click)="facade.toggleConfigPanel()">Fechar</button>
-      </div>
-
+    <app-dialog [open]="facade.configPanelOpen()" title="Áreas do PCP" [subtitle]="'Dias úteis a partir de: ' + draft.baseDateLabel" size="md" [closable]="!facade.configSaving()" (closed)="facade.configPanelOpen.set(false)">
       <div class="space-y-3">
         @for (area of draft.areas; track area.key) {
-          <div
-            class="rounded-lg px-3 py-3 space-y-2"
-            style="background: var(--cmm-surface); border: 1px solid var(--cmm-border);"
-            [style.border-left]="'3px solid ' + area.color"
-          >
-            <p class="text-xs font-semibold" style="color: var(--cmm-ink);">{{ area.label }}</p>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div class="area" [style.border-left-color]="area.color">
+            <div class="grid grid-cols-[auto_1fr_auto] sm:grid-cols-[auto_1fr_6rem_7rem] gap-3 items-end">
               <label class="space-y-1">
-                <span class="text-[10px] uppercase tracking-wide" style="color: var(--cmm-muted);">Dias úteis</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="365"
-                  class="form-input py-1 text-sm"
-                  [(ngModel)]="area.businessDays"
-                />
+                <span class="lbl">Cor</span>
+                <input type="color" class="h-10 w-12 rounded-lg border p-0.5 cursor-pointer" [(ngModel)]="area.color" [attr.aria-label]="'Cor de ' + area.label" />
+              </label>
+              <label class="space-y-1 min-w-0">
+                <span class="lbl">Área</span>
+                <input type="text" class="form-input" [(ngModel)]="area.label" [attr.aria-label]="'Nome da área'" />
               </label>
               <label class="space-y-1">
-                <span class="text-[10px] uppercase tracking-wide" style="color: var(--cmm-muted);">Cor</span>
-                <div class="flex items-center gap-2">
-                  <input type="color" class="h-9 w-10 rounded border p-0.5 cursor-pointer" [(ngModel)]="area.color" />
-                  <input type="text" class="form-input py-1 text-sm flex-1 font-mono" [(ngModel)]="area.color" />
-                </div>
+                <span class="lbl">Sigla</span>
+                <input type="text" class="form-input" [(ngModel)]="area.short" maxlength="10" />
               </label>
               <label class="space-y-1">
-                <span class="text-[10px] uppercase tracking-wide" style="color: var(--cmm-muted);">Rótulo curto</span>
-                <input type="text" class="form-input py-1 text-sm" [(ngModel)]="area.short" />
+                <span class="lbl">Dias úteis</span>
+                <input type="number" min="0" max="365" class="form-input" [(ngModel)]="area.businessDays" />
               </label>
             </div>
           </div>
         }
+        @if (facade.configError()) { <p class="note note-error">{{ facade.configError() }}</p> }
       </div>
-
-      @if (facade.configError()) {
-        <p class="text-sm" style="color: var(--cmm-danger);">{{ facade.configError() }}</p>
-      }
-
-      <div class="flex items-center justify-end gap-2">
-        <button type="button" class="btn btn-secondary btn-sm" (click)="resetDraft()" [disabled]="facade.configSaving()">
-          Restaurar
-        </button>
-        <button type="button" class="btn btn-primary btn-sm" (click)="save()" [disabled]="facade.configSaving()">
-          @if (facade.configSaving()) {
-            Salvando...
-          } @else {
-            Salvar e recalcular
-          }
-        </button>
-      </div>
-    </div>
+      <ng-container dialog-footer>
+        <button type="button" class="btn btn-ghost btn-sm mr-auto" (click)="resetDraft()" [disabled]="facade.configSaving()">Desfazer</button>
+        <button type="button" class="btn btn-secondary" (click)="facade.configPanelOpen.set(false)" [disabled]="facade.configSaving()">Cancelar</button>
+        <button type="button" class="btn btn-primary" (click)="save()" [disabled]="facade.configSaving()">{{ facade.configSaving() ? 'Salvando…' : 'Salvar e recalcular' }}</button>
+      </ng-container>
+    </app-dialog>
   `,
+  styles: [`
+    .area { padding: .75rem .9rem; border: 1px solid var(--cmm-border); border-left-width: 4px; border-radius: .85rem; background: var(--cmm-surface); }
+    .lbl { display: block; font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--cmm-muted); }
+  `],
 })
-export class PcpAreaConfigPanelComponent implements OnInit {
+export class PcpAreaConfigPanelComponent {
   readonly facade = inject(PcpOperacionalFacade);
-  draft!: PcpAreaConfig;
+  draft: PcpAreaConfig = cloneConfig(this.facade.areaConfig());
 
-  ngOnInit(): void {
-    this.resetDraft();
+  constructor() {
+    // Cada vez que a janela abre, começa da configuração atual.
+    effect(() => {
+      const open = this.facade.configPanelOpen();
+      if (open) untracked(() => this.resetDraft());
+    });
   }
 
-  resetDraft(): void {
-    this.draft = cloneConfig(this.facade.areaConfig());
-  }
-
-  save(): void {
-    this.facade.saveAreaConfig(cloneConfig(this.draft));
-  }
+  resetDraft(): void { this.draft = cloneConfig(this.facade.areaConfig()); }
+  save(): void { this.facade.saveAreaConfig(cloneConfig(this.draft)); }
 }
 
 function cloneConfig(config: PcpAreaConfig): PcpAreaConfig {
-  return {
-    baseDateLabel: config.baseDateLabel,
-    areas: config.areas.map((area: PcpAreaConfigItem) => ({ ...area })),
-  };
+  return { baseDateLabel: config.baseDateLabel, areas: config.areas.map((area: PcpAreaConfigItem) => ({ ...area })) };
 }

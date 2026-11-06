@@ -2,7 +2,6 @@ import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { AuthService } from './core/services/auth.service';
 import { MotionService } from './core/motion/motion.service';
-import { DialogEnhancerService } from './core/ui/dialog-enhancer.service';
 import { ResponsiveTablesService } from './core/ui/responsive-tables.service';
 
 @Component({
@@ -14,7 +13,6 @@ import { ResponsiveTablesService } from './core/ui/responsive-tables.service';
 export class App implements OnInit, OnDestroy {
   private checkInterval: ReturnType<typeof setInterval> | undefined;
   private readonly motion = inject(MotionService);
-  private readonly dialogs = inject(DialogEnhancerService);
   private readonly tables = inject(ResponsiveTablesService);
 
   constructor(private authService: AuthService) { }
@@ -22,8 +20,6 @@ export class App implements OnInit, OnDestroy {
   ngOnInit() {
     // Liga o motor de movimento (revelação em cascata, spotlight, progresso de rolagem...)
     this.motion.start();
-    // Acessibilidade de todos os diálogos (foco preso, Escape, rótulos)
-    this.dialogs.start();
     // Rotula as células das tabelas para a versão em cartões do celular
     this.tables.start();
 

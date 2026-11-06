@@ -2,10 +2,12 @@ import { Component, inject } from '@angular/core';
 import { PCP_WEEK_DAYS } from '../models/pcp.constants';
 import { PcpOperacionalFacade } from '../facade/pcp-operacional.facade';
 import { formatPcpDate } from '../utils/pcp-date.utils';
+import { IconComponent } from '../../../../shared/components/icon.component';
 
 @Component({
   selector: 'app-pcp-calendar-panel',
   standalone: true,
+  imports: [IconComponent],
   styles: [
     `
       @keyframes pcp-pulse {
@@ -25,11 +27,11 @@ import { formatPcpDate } from '../utils/pcp-date.utils';
   template: `
     <div class="panel panel-pad space-y-3">
       <div class="flex items-center justify-between gap-2">
-        <h2 class="text-sm font-semibold" style="color: var(--cmm-ink);">Calendário de entregas</h2>
+        <h2 class="list-head-title">Calendário de entregas</h2>
         <div class="flex items-center gap-1">
-          <button type="button" class="btn btn-ghost btn-sm" (click)="facade.shiftCalendarMonth(-1)" [disabled]="facade.animating()">‹</button>
-          <span class="text-xs font-medium min-w-[7rem] text-center" style="color: var(--cmm-ink);">{{ facade.calendarMonthLabel() }}</span>
-          <button type="button" class="btn btn-ghost btn-sm" (click)="facade.shiftCalendarMonth(1)" [disabled]="facade.animating()">›</button>
+          <button type="button" class="icon-btn icon-btn-sm" (click)="facade.shiftCalendarMonth(-1)" [disabled]="facade.animating()" aria-label="Mês anterior"><app-icon name="seta_esq" [size]="16" /></button>
+          <span class="text-xs font-medium min-w-[7rem] text-center capitalize" style="color: var(--cmm-ink);">{{ facade.calendarMonthLabel() }}</span>
+          <button type="button" class="icon-btn icon-btn-sm" (click)="facade.shiftCalendarMonth(1)" [disabled]="facade.animating()" aria-label="Próximo mês"><app-icon name="seta_dir" [size]="16" /></button>
         </div>
       </div>
 

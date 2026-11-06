@@ -1,176 +1,84 @@
-import { Component, OnInit, computed, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import {
-  PonttaRotationApiService,
-  PonttaRotation,
-  PonttaProfile,
-  PonttaPcpArea,
-  PCP_AREA_OPTIONS,
-} from '../../../services/pontta-rotation.service';
+import { Observable } from 'rxjs';
+import { PonttaRotationApiService, PonttaRotation, PonttaPcpArea, PCP_AREA_OPTIONS } from '../../../services/pontta-rotation.service';
+import { ToastService } from '../../../core/ui/toast.service';
+import { ModalService } from '../../../shared/services/modal.service';
+import { DialogComponent } from '../../../shared/components/dialog.component';
+import { IconComponent } from '../../../shared/components/icon.component';
+import { PonttaPerfil, PonttaProfilePickerComponent } from '../components/pontta-profile-picker.component';
 
 interface FormState {
-  open: boolean;
   mode: 'create' | 'edit';
   editingId: number | null;
   projetistaid: string;
   name: string;
   turn: boolean;
-  turn_v: boolean;
   pcpArea: PonttaPcpArea | null;
-  saving: boolean;
 }
 
-interface ConfirmState {
-  open: boolean;
-  title: string;
-  message: string;
-  confirmLabel: string;
-  danger: boolean;
-  onConfirm: (() => void) | null;
-}
+const VAZIO: FormState = { mode: 'create', editingId: null, projetistaid: '', name: '', turn: false, pcpArea: null };
 
+/** Rodízio Pontta: projetistas que recebem as tarefas por vez, com a área do PCP de cada um. */
 @Component({
   selector: 'app-rodizio-pontta',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule, DialogComponent, IconComponent, PonttaProfilePickerComponent],
   template: `
     <div class="space-y-6">
       <div class="page-header">
         <div>
           <h1 class="page-title">Rodízio Pontta</h1>
-          <p class="page-subtitle">Cadastre projetistas, área PCP responsável e controle o rodízio.</p>
+          <p class="page-subtitle">Projetistas que recebem as tarefas automáticas por vez.</p>
         </div>
-        <div class="flex items-center gap-2">
-          <button type="button" (click)="load()" [disabled]="loading()" class="btn btn-secondary">
-            Atualizar
-          </button>
-          <button type="button" (click)="openCreate()" class="btn btn-primary">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-            Adicionar pessoa
-          </button>
-        </div>
+        <button type="button" (click)="openCreate()" class="btn btn-primary"><app-icon name="mais" [size]="16" /> Adicionar pessoa</button>
       </div>
 
-      <label class="panel panel-pad flex items-start gap-3 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          class="mt-0.5 h-4 w-4 rounded"
-          style="accent-color: var(--cmm-accent);"
-          [ngModel]="assignByPcpArea()"
-          (ngModelChange)="onAssignByPcpAreaChange($event)"
-          [disabled]="savingAssignSetting()"
-        />
-        <div>
-          <p class="text-sm font-semibold" style="color: var(--cmm-ink);">Atribuir tarefas por área do PCP Operacional</p>
-          <p class="text-xs mt-0.5" style="color: var(--cmm-muted);">
-            Quando ativo, o job de tarefas automáticas classifica cada ambiente (molhada, íntima, social)
-            e atribui ao projetista responsável por aquela área no rodízio.
-          </p>
-        </div>
+      <label class="panel panel-pad switch-row cursor-pointer">
+        <span>Atribuir por área do PCP<small>Ligado, cada ambiente do pedido (molhada, íntima, social) vai para o projetista responsável por aquela área. Desligado, vale o rodízio geral.</small></span>
+        <button type="button" role="switch" class="switch" [class.switch-on]="assignByPcpArea()" [attr.aria-checked]="assignByPcpArea()" [disabled]="savingAssignSetting()" (click)="onAssignByPcpAreaChange(!assignByPcpArea())"><span class="switch-knob"></span></button>
       </label>
 
-      @if (toast()) {
-        <div
-          class="px-4 py-3 rounded-lg text-sm border"
-          [style.background]="toast()!.type === 'error'
-            ? 'color-mix(in srgb, var(--cmm-danger) 12%, var(--cmm-panel))'
-            : 'color-mix(in srgb, var(--cmm-success) 12%, var(--cmm-panel))'"
-          [style.borderColor]="toast()!.type === 'error'
-            ? 'color-mix(in srgb, var(--cmm-danger) 30%, transparent)'
-            : 'color-mix(in srgb, var(--cmm-success) 30%, transparent)'"
-          [style.color]="toast()!.type === 'error' ? 'var(--cmm-danger)' : 'var(--cmm-success)'"
-        >
-          {{ toast()!.message }}
-        </div>
-      }
-
       <div class="table-shell">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-b" style="border-color: var(--cmm-border);">
-          <div>
-            <p class="text-sm font-semibold" style="color: var(--cmm-ink);">Projetistas no rodízio</p>
-            <p class="text-xs mt-0.5" style="color: var(--cmm-muted);">{{ items().length }} registro(s)</p>
+        <div class="list-head">
+          <span class="list-head-title">
+            @if (daVez(); as v) { Da vez: <b>{{ v.name }}</b> } @else { Ninguém marcado como da vez }
+            <small> · {{ items().length }} {{ items().length === 1 ? 'pessoa' : 'pessoas' }}</small>
+          </span>
+          <div class="search-field" style="min-width: 14rem;">
+            <app-icon name="busca" [size]="16" />
+            <input type="search" class="form-input !min-h-9" [ngModel]="tableFilter()" (ngModelChange)="tableFilter.set($event)" placeholder="Filtrar por nome" aria-label="Filtrar por nome" />
           </div>
-          <input
-            type="search"
-            [ngModel]="tableFilter()"
-            (ngModelChange)="tableFilter.set($event)"
-            placeholder="Filtrar por nome..."
-            class="form-input w-full max-w-xs"
-          />
         </div>
 
         @if (loading()) {
-          <div class="empty-state">
-            <svg class="w-6 h-6 animate-spin mx-auto" style="color: var(--cmm-muted);" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
-          </div>
+          <div class="loading-block"><span class="spinner"></span></div>
         } @else if (filteredItems().length === 0) {
-          <div class="empty-state">
-            {{ items().length === 0 ? 'Nenhuma pessoa cadastrada no rodízio Pontta.' : 'Nenhum resultado para o filtro.' }}
-          </div>
+          <div class="empty-state">{{ items().length === 0 ? 'Nenhuma pessoa no rodízio Pontta.' : 'Nenhum resultado para o filtro.' }}</div>
         } @else {
           <table>
             <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Projetista ID</th>
-                <th>Área PCP</th>
-                <th>Da vez</th>
-                <th>Turn V</th>
-                <th style="text-align: right;">Ações</th>
-              </tr>
+              <tr><th>Nome</th><th>Área PCP</th><th>Da vez</th><th style="text-align: right;"></th></tr>
             </thead>
             <tbody>
               @for (item of filteredItems(); track item.id) {
                 <tr>
                   <td>
-                    <div class="font-medium" style="color: var(--cmm-ink);">{{ item.name }}</div>
-                    <div class="text-xs mt-0.5" style="color: var(--cmm-muted);">ID {{ item.id }}</div>
-                  </td>
-                  <td class="text-xs font-mono truncate max-w-[240px]" style="color: var(--cmm-muted);" [title]="item.projetistaid">
-                    {{ item.projetistaid }}
+                    <div class="font-medium">{{ item.name }}</div>
+                    <div class="text-xs font-mono mt-0.5 truncate max-w-[240px]" style="color: var(--cmm-muted);" [title]="item.projetistaid">{{ item.projetistaid }}</div>
                   </td>
                   <td>
                     @if (areaMeta(item.pcpArea); as meta) {
-                      <span class="inline-flex items-center gap-1.5 text-xs font-medium" [style.color]="meta.color">
-                        <span class="w-2 h-2 rounded-full" [style.background]="meta.color"></span>
-                        {{ meta.label }}
-                      </span>
-                    } @else {
-                      <span class="text-xs" style="color: var(--cmm-muted);">—</span>
-                    }
+                      <span class="inline-flex items-center gap-1.5 text-sm font-medium" [style.color]="meta.color"><span class="w-2 h-2 rounded-full" [style.background]="meta.color"></span>{{ meta.label }}</span>
+                    } @else { <span class="text-sm" style="color: var(--cmm-muted);">Rodízio geral</span> }
                   </td>
                   <td>
-                    @if (item.turn) {
-                      <span class="badge badge-success">Sim</span>
-                    } @else {
-                      <span class="badge badge-neutral">Não</span>
-                    }
-                  </td>
-                  <td>
-                    @if (item.turn_v) {
-                      <span class="badge badge-accent">Sim</span>
-                    } @else {
-                      <span class="badge badge-neutral">Não</span>
-                    }
+                    @if (item.turn) { <span class="state state-on">Da vez</span> } @else { <button type="button" class="btn btn-ghost btn-sm" (click)="passarVez(item)">Passar a vez</button> }
                   </td>
                   <td class="text-right whitespace-nowrap">
                     <div class="flex items-center justify-end gap-1">
-                      <button type="button" (click)="openEdit(item)" class="btn btn-ghost btn-sm" title="Editar">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                        </svg>
-                      </button>
-                      <button type="button" (click)="askDelete(item)" class="btn btn-ghost btn-sm" title="Excluir" style="color: var(--cmm-danger);">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                        </svg>
-                      </button>
+                      <button type="button" (click)="openEdit(item)" class="icon-btn" title="Editar" aria-label="Editar"><app-icon name="lapis" [size]="16" /></button>
+                      <button type="button" (click)="askDelete(item)" class="icon-btn icon-danger" title="Excluir" aria-label="Excluir"><app-icon name="lixeira" [size]="16" /></button>
                     </div>
                   </td>
                 </tr>
@@ -181,264 +89,66 @@ interface ConfirmState {
       </div>
     </div>
 
-    @if (form().open) {
-      <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style="background: rgba(10, 16, 24, 0.55);" (click)="closeForm()">
-        <div
-          class="w-full sm:max-w-2xl max-h-[92vh] sm:max-h-[90vh] flex flex-col overflow-hidden sm:rounded-xl"
-          style="background: var(--cmm-panel); border: 1px solid var(--cmm-border); box-shadow: 0 18px 40px rgba(15, 26, 39, 0.18);"
-          (click)="$event.stopPropagation()"
-        >
-          <div class="flex items-center justify-between gap-3 px-5 py-4 border-b flex-shrink-0" style="border-color: var(--cmm-border);">
-            <div>
-              <h2 class="text-base font-semibold" style="color: var(--cmm-ink);">
-                {{ form().mode === 'create' ? 'Adicionar pessoa' : 'Editar pessoa' }}
-              </h2>
-              <p class="text-xs mt-0.5" style="color: var(--cmm-muted);">
-                Busque o perfil no Pontta para preencher nome e projetista.
-              </p>
-            </div>
-            <button type="button" (click)="closeForm()" class="btn btn-ghost btn-sm">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-              </svg>
-            </button>
+    <app-dialog [open]="formAberto()" [title]="form().mode === 'create' ? 'Adicionar pessoa' : 'Editar pessoa'" [subtitle]="form().mode === 'create' ? 'Busque o perfil no Pontta para preencher nome e projetista.' : form().name" [closable]="!saving()" (closed)="closeForm()">
+      <div class="space-y-5">
+        <app-pontta-profile-picker [buscarFn]="buscarPontta" [selecionadoId]="form().projetistaid" [selecionadoNome]="form().name" (escolhido)="selectPontta($event)" />
+
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label" for="rp-name">Nome exibido</label>
+            <input id="rp-name" type="text" [ngModel]="form().name" (ngModelChange)="patchForm({ name: $event })" placeholder="Como aparece no rodízio" class="form-input" />
           </div>
-
-          <div class="flex-1 overflow-y-auto p-5 space-y-5 min-h-0">
-            <div class="space-y-2">
-              <label class="form-label">Perfil no Pontta</label>
-              <div class="flex gap-2">
-                <input
-                  type="text"
-                  [(ngModel)]="ponttaQuery"
-                  placeholder="Digite o nome e pressione Enter"
-                  class="form-input flex-1 min-w-0" style="width: auto;"
-                  (keyup.enter)="searchPontta()"
-                />
-                <button
-                  type="button"
-                  (click)="searchPontta()"
-                  [disabled]="searchingPontta() || !ponttaQuery.trim()"
-                  class="btn btn-primary"
-                >
-                  {{ searchingPontta() ? 'Buscando...' : 'Buscar' }}
-                </button>
-              </div>
-
-              @if (ponttaResults().length > 0) {
-                <div class="space-y-1.5">
-                  <p class="text-xs" style="color: var(--cmm-muted);">
-                    {{ ponttaResults().length }} resultado(s) — clique para selecionar
-                  </p>
-                  <div class="space-y-2 max-h-52 overflow-y-auto pr-0.5">
-                    @for (p of ponttaResults(); track p.id) {
-                      <button
-                        type="button"
-                        (click)="selectPontta(p)"
-                        class="w-full text-left px-3 py-3 rounded-lg transition-colors flex items-start gap-3"
-                        [style.background]="form().projetistaid === p.id ? 'var(--cmm-accent-soft)' : 'var(--cmm-panel)'"
-                        [style.border]="form().projetistaid === p.id ? '2px solid var(--cmm-accent)' : '1px solid var(--cmm-border)'"
-                        [attr.aria-pressed]="form().projetistaid === p.id"
-                      >
-                        <span
-                          class="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                          [style.background]="form().projetistaid === p.id ? 'var(--cmm-accent)' : 'transparent'"
-                          [style.border]="form().projetistaid === p.id ? 'none' : '2px solid var(--cmm-border)'"
-                          [style.color]="form().projetistaid === p.id ? 'var(--cmm-accent-ink)' : 'transparent'"
-                        >
-                          @if (form().projetistaid === p.id) {
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
-                            </svg>
-                          }
-                        </span>
-                        <span class="min-w-0 flex-1">
-                          <span class="flex items-center gap-2 flex-wrap">
-                            <span class="block text-sm font-medium" style="color: var(--cmm-ink);">{{ p.name }}</span>
-                            @if (form().projetistaid === p.id) {
-                              <span class="badge badge-accent">Selecionado</span>
-                            }
-                          </span>
-                          <span class="block text-xs mt-0.5" style="color: var(--cmm-muted);">{{ p.email || 'Sem email' }}</span>
-                          <span class="block text-[11px] font-mono mt-0.5 truncate" style="color: var(--cmm-muted);">cooperatorId: {{ p.cooperatorId || p.id }}</span>
-                        </span>
-                      </button>
-                    }
-                  </div>
-                </div>
-              }
-
-              @if (form().projetistaid) {
-                <div
-                  class="flex items-start gap-3 rounded-lg px-3 py-3"
-                  style="background: var(--cmm-accent-soft); border: 1px solid color-mix(in srgb, var(--cmm-accent) 35%, transparent);"
-                >
-                  <span
-                    class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold"
-                    style="background: var(--cmm-accent); color: var(--cmm-accent-ink);"
-                  >
-                    {{ (form().name || '?').slice(0, 1).toUpperCase() }}
-                  </span>
-                  <div class="min-w-0">
-                      <p class="text-xs font-medium uppercase tracking-wide" style="color: var(--cmm-accent);">Cooperador selecionado</p>
-                      <p class="text-sm font-semibold" style="color: var(--cmm-ink);">{{ form().name || 'Selecionado' }}</p>
-                      <p class="text-xs font-mono mt-0.5 truncate" style="color: var(--cmm-muted);">{{ form().projetistaid }}</p>
-                  </div>
-                </div>
-              }
-            </div>
-
-            <div>
-              <label class="form-label">Nome exibido</label>
-              <input
-                type="text"
-                [ngModel]="form().name"
-                (ngModelChange)="patchForm({ name: $event })"
-                placeholder="Nome que aparece no rodízio"
-                class="form-input"
-              />
-            </div>
-
-            <div>
-              <label class="form-label">Área PCP responsável</label>
-              <select
-                class="form-input"
-                [ngModel]="form().pcpArea ?? ''"
-                (ngModelChange)="patchForm({ pcpArea: $event ? $event : null })"
-              >
-                <option value="">Sem área (rodízio geral)</option>
-                @for (opt of areaOptions; track opt.key) {
-                  <option [value]="opt.key">{{ opt.label }}</option>
-                }
-              </select>
-              <p class="text-xs mt-1" style="color: var(--cmm-muted);">
-                Usada quando “Atribuir tarefas por área do PCP” estiver ativo.
-              </p>
-            </div>
-
-            <label class="flex items-center gap-3 panel panel-pad cursor-pointer select-none" style="padding: 0.875rem 1rem;">
-              <input
-                type="checkbox"
-                class="h-4 w-4 rounded"
-                style="accent-color: var(--cmm-accent);"
-                [ngModel]="form().turn"
-                (ngModelChange)="patchForm({ turn: $event })"
-              />
-              <div>
-                <p class="text-sm font-medium" style="color: var(--cmm-ink);">É a pessoa da vez</p>
-                <p class="text-xs" style="color: var(--cmm-muted);">Só pode haver uma pessoa marcada. Ao salvar, as demais serão desmarcadas.</p>
-              </div>
-            </label>
-
-            <div class="flex items-center gap-3 panel panel-pad select-none opacity-80" style="padding: 0.875rem 1rem;">
-              <input
-                type="checkbox"
-                class="h-4 w-4 rounded"
-                style="accent-color: var(--cmm-accent);"
-                [checked]="true"
-                disabled
-              />
-              <div>
-                <p class="text-sm font-medium" style="color: var(--cmm-ink);">Turn V</p>
-                <p class="text-xs" style="color: var(--cmm-muted);">Sempre ativo. Não pode ser alterado.</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="flex justify-end gap-2 px-5 py-4 border-t flex-shrink-0" style="border-color: var(--cmm-border); background: color-mix(in srgb, var(--cmm-surface) 70%, var(--cmm-panel));">
-            <button type="button" (click)="closeForm()" class="btn btn-secondary">Cancelar</button>
-            <button type="button" (click)="save()" [disabled]="form().saving" class="btn btn-primary">
-              {{ form().saving ? 'Salvando...' : 'Salvar' }}
-            </button>
+          <div>
+            <label class="form-label" for="rp-area">Área PCP</label>
+            <select id="rp-area" class="form-input" [ngModel]="form().pcpArea ?? ''" (ngModelChange)="patchForm({ pcpArea: $event ? $event : null })">
+              <option value="">Rodízio geral (sem área)</option>
+              @for (opt of areaOptions; track opt.key) { <option [value]="opt.key">{{ opt.label }}</option> }
+            </select>
           </div>
         </div>
-      </div>
-    }
 
-    @if (confirm().open) {
-      <div class="fixed inset-0 z-[60] flex items-center justify-center p-4" style="background: rgba(10, 16, 24, 0.55);" (click)="closeConfirm()">
-        <div class="w-full max-w-md panel panel-pad" (click)="$event.stopPropagation()">
-          <h3 class="text-base font-semibold" style="color: var(--cmm-ink);">{{ confirm().title }}</h3>
-          <p class="text-sm mt-2 whitespace-pre-line" style="color: var(--cmm-muted);">{{ confirm().message }}</p>
-          <div class="mt-6 flex justify-end gap-2">
-            <button type="button" (click)="closeConfirm()" class="btn btn-secondary">Cancelar</button>
-            <button
-              type="button"
-              (click)="runConfirm()"
-              class="btn"
-              [class.btn-danger]="confirm().danger"
-              [class.btn-primary]="!confirm().danger"
-            >
-              {{ confirm().confirmLabel }}
-            </button>
-          </div>
-        </div>
+        <label class="switch-row">
+          <span>É a pessoa da vez<small>Só uma pessoa pode ser a da vez. Ao salvar, as demais são desmarcadas.</small></span>
+          <button type="button" role="switch" class="switch" [class.switch-on]="form().turn" [attr.aria-checked]="form().turn" (click)="patchForm({ turn: !form().turn })"><span class="switch-knob"></span></button>
+        </label>
       </div>
-    }
+      <ng-container dialog-footer>
+        <button type="button" (click)="closeForm()" class="btn btn-secondary" [disabled]="saving()">Cancelar</button>
+        <button type="button" (click)="save()" [disabled]="saving()" class="btn btn-primary">{{ saving() ? 'Salvando…' : 'Salvar' }}</button>
+      </ng-container>
+    </app-dialog>
   `,
 })
 export class RodizioPonttaComponent implements OnInit {
-  readonly areaOptions = PCP_AREA_OPTIONS;
+  private readonly api = inject(PonttaRotationApiService);
+  private readonly toast = inject(ToastService);
+  private readonly modal = inject(ModalService);
 
+  readonly areaOptions = PCP_AREA_OPTIONS;
   items = signal<PonttaRotation[]>([]);
   loading = signal(false);
-  searchingPontta = signal(false);
+  saving = signal(false);
   assignByPcpArea = signal(false);
   savingAssignSetting = signal(false);
-
-  ponttaQuery = '';
   tableFilter = signal('');
+  formAberto = signal(false);
+  form = signal<FormState>({ ...VAZIO });
 
-  ponttaResults = signal<PonttaProfile[]>([]);
-  toast = signal<{ message: string; type: 'error' | 'success' } | null>(null);
+  buscarPontta = (q: string): Observable<PonttaPerfil[]> => this.api.searchPonttaProfiles(q);
 
+  daVez = computed(() => this.items().find((i) => i.turn) ?? null);
   filteredItems = computed(() => {
     const q = this.tableFilter().trim().toLowerCase();
     if (!q) return this.items();
-    return this.items().filter((item) =>
-      [item.name, item.projetistaid, item.pcpArea || '', String(item.id)].join(' ').toLowerCase().includes(q),
-    );
+    return this.items().filter((item) => [item.name, item.projetistaid, item.pcpArea || '', String(item.id)].join(' ').toLowerCase().includes(q));
   });
-
-  form = signal<FormState>({
-    open: false,
-    mode: 'create',
-    editingId: null,
-    projetistaid: '',
-    name: '',
-    turn: false,
-    turn_v: true,
-    pcpArea: null,
-    saving: false,
-  });
-
-  confirm = signal<ConfirmState>({
-    open: false,
-    title: '',
-    message: '',
-    confirmLabel: 'Confirmar',
-    danger: false,
-    onConfirm: null,
-  });
-
-  constructor(private readonly api: PonttaRotationApiService) {}
 
   ngOnInit(): void {
     this.load();
-    this.loadAssignSetting();
+    this.api.getAssignByPcpArea().subscribe({ next: (res) => this.assignByPcpArea.set(!!res.enabled), error: () => this.assignByPcpArea.set(false) });
   }
 
-  areaMeta(area: PonttaPcpArea | null | undefined) {
-    if (!area) return null;
-    return this.areaOptions.find((o) => o.key === area) || null;
-  }
-
-  loadAssignSetting(): void {
-    this.api.getAssignByPcpArea().subscribe({
-      next: (res) => this.assignByPcpArea.set(!!res.enabled),
-      error: () => this.assignByPcpArea.set(false),
-    });
-  }
+  areaMeta(area: PonttaPcpArea | null | undefined) { return area ? this.areaOptions.find((o) => o.key === area) ?? null : null; }
 
   onAssignByPcpAreaChange(enabled: boolean): void {
     this.savingAssignSetting.set(true);
@@ -446,218 +156,57 @@ export class RodizioPonttaComponent implements OnInit {
       next: (res) => {
         this.assignByPcpArea.set(!!res.enabled);
         this.savingAssignSetting.set(false);
-        this.showToast(
-          res.enabled
-            ? 'Atribuição por área PCP ativada'
-            : 'Atribuição por área PCP desativada — volta o rodízio geral',
-          'success',
-        );
+        this.toast.success(res.enabled ? 'Atribuição por área ligada.' : 'Atribuição por área desligada. Vale o rodízio geral.');
       },
-      error: (err) => {
-        this.savingAssignSetting.set(false);
-        this.showToast(err.error?.message || 'Erro ao salvar configuração', 'error');
-      },
+      error: (err) => { this.savingAssignSetting.set(false); this.toast.error(err.error?.message || 'Não foi possível salvar.'); },
     });
   }
 
   load(): void {
     this.loading.set(true);
     this.api.findAll().subscribe({
-      next: (data) => {
-        this.items.set(data);
-        this.loading.set(false);
-      },
-      error: (err) => {
-        this.loading.set(false);
-        this.showToast(err.error?.message || 'Erro ao carregar rodízio Pontta', 'error');
-      },
+      next: (data) => { this.items.set(data); this.loading.set(false); },
+      error: (err) => { this.loading.set(false); this.toast.error(err.error?.message || 'Não foi possível carregar o rodízio.'); },
     });
   }
 
-  openCreate(): void {
-    this.ponttaQuery = '';
-    this.ponttaResults.set([]);
-    this.form.set({
-      open: true,
-      mode: 'create',
-      editingId: null,
-      projetistaid: '',
-      name: '',
-      turn: false,
-      turn_v: true,
-      pcpArea: null,
-      saving: false,
-    });
-  }
-
+  openCreate(): void { this.form.set({ ...VAZIO }); this.formAberto.set(true); }
   openEdit(item: PonttaRotation): void {
-    this.ponttaQuery = '';
-    this.ponttaResults.set([]);
-    this.form.set({
-      open: true,
-      mode: 'edit',
-      editingId: item.id,
-      projetistaid: item.projetistaid,
-      name: item.name,
-      turn: !!item.turn,
-      turn_v: item.turn_v !== false,
-      pcpArea: item.pcpArea || null,
-      saving: false,
-    });
+    this.form.set({ mode: 'edit', editingId: item.id, projetistaid: item.projetistaid, name: item.name, turn: !!item.turn, pcpArea: item.pcpArea || null });
+    this.formAberto.set(true);
   }
+  closeForm(): void { if (!this.saving()) this.formAberto.set(false); }
+  patchForm(partial: Partial<FormState>): void { this.form.update((f) => ({ ...f, ...partial })); }
 
-  closeForm(): void {
-    this.form.update((f) => ({ ...f, open: false, saving: false }));
-  }
+  selectPontta(p: PonttaPerfil): void { this.patchForm({ projetistaid: p.cooperatorId || p.id, name: p.name }); }
 
-  patchForm(partial: Partial<FormState>): void {
-    this.form.update((f) => ({ ...f, ...partial }));
-  }
-
-  searchPontta(): void {
-    const q = this.ponttaQuery.trim();
-    if (!q) return;
-    this.searchingPontta.set(true);
-    this.api.searchPonttaProfiles(q).subscribe({
-      next: (results) => {
-        this.ponttaResults.set(results || []);
-        this.searchingPontta.set(false);
-        if (!results?.length) {
-          this.showToast('Nenhum perfil encontrado no Pontta', 'error');
-        }
-      },
-      error: (err) => {
-        this.searchingPontta.set(false);
-        this.showToast(err.error?.message || 'Erro ao buscar no Pontta', 'error');
-      },
-    });
-  }
-
-  selectPontta(profile: PonttaProfile): void {
-    const cooperatorId = profile.cooperatorId || profile.id;
-    this.patchForm({
-      projetistaid: cooperatorId,
-      name: profile.name,
-    });
-  }
-
-  save(): void {
+  async save(): Promise<void> {
     const f = this.form();
-    if (!f.projetistaid || !f.name) {
-      this.showToast('Selecione um perfil Pontta', 'error');
-      return;
-    }
-
-    const currentTurn = this.items().find(
-      (item) => item.turn && item.id !== f.editingId,
-    );
-
-    if (f.turn && currentTurn) {
-      this.confirm.set({
-        open: true,
-        title: 'Alterar pessoa da vez?',
-        message: `Atualmente a vez é de "${currentTurn.name}".\n\nDeseja passar a vez para "${f.name}"?`,
-        confirmLabel: 'Sim, alterar',
-        danger: false,
-        onConfirm: () => {
-          this.closeConfirm();
-          this.persistSave();
-        },
-      });
-      return;
-    }
-
-    this.persistSave();
+    if (!f.projetistaid || !f.name.trim()) { this.toast.warning('Selecione um perfil no Pontta.'); return; }
+    const atual = this.items().find((i) => i.turn && i.id !== f.editingId);
+    if (f.turn && atual && !(await this.modal.confirm('Passar a vez?', `Hoje a vez é de ${atual.name}. Passa para ${f.name}?`, 'Passar a vez'))) return;
+    this.saving.set(true);
+    const payload = { projetistaid: f.projetistaid, name: f.name.trim(), turn: f.turn, turn_v: true, pcpArea: f.pcpArea };
+    const done = (msg: string) => { this.saving.set(false); this.formAberto.set(false); this.toast.success(msg); this.load(); };
+    const fail = (err: { error?: { message?: string } }) => { this.saving.set(false); this.toast.error(err.error?.message || 'Não foi possível salvar.'); };
+    if (f.mode === 'create') this.api.create(payload).subscribe({ next: () => done('Pessoa adicionada ao rodízio.'), error: fail });
+    else this.api.update(f.editingId!, payload).subscribe({ next: () => done('Pessoa atualizada.'), error: fail });
   }
 
-  private persistSave(): void {
-    const f = this.form();
-    this.patchForm({ saving: true });
-
-    if (f.mode === 'create') {
-      this.api
-        .create({
-          projetistaid: f.projetistaid,
-          name: f.name,
-          turn: f.turn,
-          turn_v: true,
-          pcpArea: f.pcpArea,
-        })
-        .subscribe({
-          next: () => {
-            this.closeForm();
-            this.showToast('Pessoa adicionada ao rodízio Pontta', 'success');
-            this.load();
-          },
-          error: (err) => {
-            this.patchForm({ saving: false });
-            this.showToast(err.error?.message || 'Erro ao criar', 'error');
-          },
-        });
-      return;
-    }
-
-    this.api
-      .update(f.editingId!, {
-        projetistaid: f.projetistaid,
-        name: f.name,
-        turn: f.turn,
-        turn_v: true,
-        pcpArea: f.pcpArea,
-      })
-      .subscribe({
-        next: () => {
-          this.closeForm();
-          this.showToast('Registro atualizado', 'success');
-          this.load();
-        },
-        error: (err) => {
-          this.patchForm({ saving: false });
-          this.showToast(err.error?.message || 'Erro ao atualizar', 'error');
-        },
-      });
-  }
-
-  askDelete(item: PonttaRotation): void {
-    this.confirm.set({
-      open: true,
-      title: 'Excluir do rodízio',
-      message: `Remover "${item.name}"? Esta ação não pode ser desfeita.`,
-      confirmLabel: 'Excluir',
-      danger: true,
-      onConfirm: () => {
-        this.api.remove(item.id).subscribe({
-          next: () => {
-            this.closeConfirm();
-            this.showToast('Registro excluído', 'success');
-            this.load();
-          },
-          error: (err) => {
-            this.closeConfirm();
-            this.showToast(err.error?.message || 'Erro ao excluir', 'error');
-          },
-        });
-      },
+  async passarVez(item: PonttaRotation): Promise<void> {
+    const atual = this.daVez();
+    if (!(await this.modal.confirm('Passar a vez?', atual ? `Hoje a vez é de ${atual.name}. Passa para ${item.name}?` : `${item.name} passa a ser a pessoa da vez.`, 'Passar a vez'))) return;
+    this.api.update(item.id, { turn: true }).subscribe({
+      next: () => { this.toast.success(`Agora a vez é de ${item.name}.`); this.load(); },
+      error: (err) => this.toast.error(err.error?.message || 'Não foi possível passar a vez.'),
     });
   }
 
-  closeConfirm(): void {
-    this.confirm.set({
-      open: false,
-      title: '',
-      message: '',
-      confirmLabel: 'Confirmar',
-      danger: false,
-      onConfirm: null,
+  async askDelete(item: PonttaRotation): Promise<void> {
+    if (!(await this.modal.confirm('Excluir do rodízio?', `${item.name} deixa de receber tarefas por vez.`, 'Excluir'))) return;
+    this.api.remove(item.id).subscribe({
+      next: () => { this.toast.success('Pessoa excluída.'); this.load(); },
+      error: (err) => this.toast.error(err.error?.message || 'Não foi possível excluir.'),
     });
-  }
-
-  runConfirm(): void {
-    this.confirm().onConfirm?.();
-  }
-
-  private showToast(message: string, type: 'error' | 'success'): void {
-    this.toast.set({ message, type });
-    setTimeout(() => this.toast.set(null), 4000);
   }
 }

@@ -7,7 +7,7 @@ import { formatPcpDate } from '../utils/pcp-date.utils';
   standalone: true,
   template: `
     <div class="panel panel-pad">
-      <h2 class="text-sm font-semibold mb-3" style="color: var(--cmm-ink);">
+      <h2 class="list-head-title mb-3">
         @if (facade.selectedDate()) {
           Entregas em {{ formatDate(facade.selectedDate()) }}
         } @else {

@@ -8,6 +8,7 @@ import {
 } from '../../../core/models/user.model';
 import { AuthService } from '../../../core/services/auth.service';
 import { ModalService } from '../../../shared/services/modal.service';
+import { ToastService } from '../../../core/ui/toast.service';
 import { UsersApiService } from '../data/users-api.service';
 import { UserInvite, UsersTab } from '../models/users.models';
 
@@ -17,6 +18,7 @@ export class UsersFacade {
   private readonly api = inject(UsersApiService);
   private readonly authService = inject(AuthService);
   private readonly modalService = inject(ModalService);
+  private readonly toast = inject(ToastService);
 
   readonly tabTree = TAB_TREE;
 
@@ -130,7 +132,7 @@ export class UsersFacade {
     const labels = this.getTopLevelTabLabels(tabs);
     if (!labels.length) return 'Sem acesso';
     if (labels.length <= 3) return labels.join(', ');
-    return `${labels.length} abas`;
+    return `${labels.length} seções`;
   }
 
   getTopLevelTabLabels(tabs?: string[] | null): string[] {
@@ -212,7 +214,7 @@ export class UsersFacade {
         this.closeCreateModal();
         this.loadUsers();
         this.activeTab.set('users');
-        this.modalService.success('Usuário cadastrado com sucesso!');
+        this.toast.success('Pessoa cadastrada.');
       },
       error: (err) => {
         this.createError.set(err.error?.message || 'Erro ao cadastrar usuário');
@@ -267,22 +269,22 @@ export class UsersFacade {
 
   copyInviteLink(_invite: UserInvite): void {
     navigator.clipboard.writeText(`${window.location.origin}/invite`);
-    this.modalService.success('Link copiado para a área de transferência!', 'Sucesso');
+    this.toast.success('Link copiado.');
   }
 
   async cancelInvite(invite: UserInvite): Promise<void> {
     const confirmed = await this.modalService.confirm(
-      'Cancelar Convite',
-      `Tem certeza que deseja cancelar o convite para "${invite.email}"?`,
-      'Sim, cancelar',
-      'Não',
+      'Cancelar convite?',
+      `${invite.email} não vai mais conseguir usar o link.`,
+      'Cancelar convite',
+      'Manter',
     );
     if (!confirmed) return;
 
     this.api.cancelInvite(invite.id).subscribe({
       next: () => {
         this.loadPendingInvites();
-        this.modalService.success('Convite cancelado com sucesso!');
+        this.toast.success('Convite cancelado.');
       },
       error: (err) => {
         console.error('Erro ao cancelar convite:', err);
@@ -293,7 +295,7 @@ export class UsersFacade {
 
   editUser(user: User): void {
     if (user.role === 'master') {
-      this.modalService.warning('O usuário master não pode ser editado');
+      this.toast.warning('O usuário master não pode ser editado.');
       return;
     }
     this.editingUser.set(user);
@@ -356,9 +358,7 @@ export class UsersFacade {
         this.loadUsers();
         this.closeEditModal();
         this.isLoading.set(false);
-        this.modalService.success(
-          password ? 'Usuário e senha atualizados com sucesso!' : 'Usuário atualizado com sucesso!',
-        );
+        this.toast.success(password ? 'Pessoa e senha atualizadas.' : 'Pessoa atualizada.');
       },
       error: (err) => {
         console.error('Erro ao atualizar:', err);
@@ -370,13 +370,13 @@ export class UsersFacade {
 
   async deleteUser(user: User): Promise<void> {
     if (user.role === 'master') {
-      this.modalService.warning('O usuário master não pode ser excluído');
+      this.toast.warning('O usuário master não pode ser excluído.');
       return;
     }
     const confirmed = await this.modalService.confirm(
-      'Excluir Usuário',
-      `Tem certeza que deseja excluir o usuário "${user.name}"?`,
-      'Sim, excluir',
+      'Excluir pessoa?',
+      `${user.name} perde o acesso ao sistema. Isso não pode ser desfeito.`,
+      'Excluir',
       'Cancelar',
     );
     if (!confirmed) return;
@@ -384,7 +384,7 @@ export class UsersFacade {
     this.api.delete(user.id).subscribe({
       next: () => {
         this.loadUsers();
-        this.modalService.success('Usuário excluído com sucesso!');
+        this.toast.success('Pessoa excluída.');
       },
       error: (err) => {
         console.error('Erro ao excluir:', err);
@@ -425,7 +425,7 @@ export class UsersFacade {
         this.closeApproveModal();
         this.loadPendingRegistrations();
         this.loadUsers();
-        this.modalService.success(`Usuário "${user.name || user.email}" aprovado com sucesso!`);
+        this.toast.success(`${user.name || user.email} aprovado.`);
       },
       error: (err) => {
         this.isLoading.set(false);
@@ -436,9 +436,9 @@ export class UsersFacade {
 
   async rejectRegistration(user: User): Promise<void> {
     const confirmed = await this.modalService.confirm(
-      'Rejeitar Cadastro',
-      `Deseja rejeitar o cadastro de "${user.name || user.email}"?`,
-      'Sim, rejeitar',
+      'Rejeitar cadastro?',
+      `${user.name || user.email} não terá acesso.`,
+      'Rejeitar',
       'Cancelar',
     );
     if (!confirmed) return;
@@ -446,7 +446,7 @@ export class UsersFacade {
     this.api.rejectRegistration(user.id).subscribe({
       next: () => {
         this.loadPendingRegistrations();
-        this.modalService.success('Cadastro rejeitado.');
+        this.toast.success('Cadastro rejeitado.');
       },
       error: (err) => {
         this.modalService.error(err.error?.message || 'Erro ao rejeitar cadastro');
@@ -459,11 +459,11 @@ export class UsersFacade {
   }
 
   getStatusLabel(status?: UserStatus): string {
-    if (!status) return 'Ativo';
+    if (!status) return 'Ativa';
     const labels: Record<UserStatus, string> = {
       pending: 'Pendente',
-      active: 'Ativo',
-      inactive: 'Inativo',
+      active: 'Ativa',
+      inactive: 'Inativa',
     };
     return labels[status] || status;
   }

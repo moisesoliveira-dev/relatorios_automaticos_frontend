@@ -36,7 +36,17 @@ O menu lateral é grafite nos dois temas. A borda padrão de TUDO usa `--cmm-bor
 - Alvos de toque ≥ 42px.
 
 ## Componentes (nomes de classe estáveis)
-`.btn-static` (botão sem movimento, ripple ou brilho — usado nos botões de envio das telas de autenticação) · `.btn` + `.btn-primary | .btn-accent | .btn-secondary | .btn-danger | .btn-ghost` · `.form-label` + `.form-input` · `.panel` · `.badge` · `.table-shell` · `.empty-state` · `.skeleton` · `.spinner` · `.auth-*` · `.toast`.
+`.btn-static` (botão sem movimento, ripple ou brilho — usado nos botões de envio das telas de autenticação) · `.btn` + `.btn-primary | .btn-accent | .btn-secondary | .btn-danger | .btn-ghost` · `.icon-btn` (+ `.icon-btn-sm | .icon-btn-outline | .icon-danger`) · `.form-label` + `.form-input` · `.panel` · `.badge` · `.state` (ponto + texto: `.state-on | -off | -busy | -bad | -warn`) · `.note` (+ `-error | -warn | -ok | -accent`) · `.table-shell` + `.list-head` · `.tabs` + `.tab` + `.tab-count` · `.seg` + `.seg-btn` · `.toolbar` + `.search-field` · `.switch` + `.switch-row` · `.kv` · `.cfg-h` + `.cfg-row` · `.savebar` · `.pager` · `.stat` · `.chip` + `.check-chip` · `.empty-state` · `.loading-block` + `.spinner` · `.skeleton` · `.auth-*` · `.toast`.
+
+## Sobreposições (um jeito só)
+- **`<app-dialog>`** (`shared/components/dialog.component.ts`): janela central para formulários, escolhas e prévias. Entradas `open`, `title`, `subtitle`, `size` (sm/md/lg/xl), `closable`, `flush`; rodapé via `<ng-container dialog-footer>`.
+- **`<app-sheet>`** (`shared/components/sheet.component.ts`): painel lateral para detalhes e edição longa. Entradas `open`, `title`, `subtitle`, `width`; cabeçalho próprio via `[sheet-head]`, rodapé via `[sheet-footer]`.
+- Ambos: `role=dialog`, foco preso, Escape fecha só o de cima (`OverlayStackService`), foco volta a quem abriu, rolagem da página travada, animação de entrada/saída.
+- **Conteúdo projetado dentro de `@if`**: o `@if` deve ficar *dentro* do `<ng-container sheet-footer>` (um nó-raiz por slot), senão o Angular não projeta no slot certo.
+- Confirmações simples: `ModalService.confirm`. Sucesso e erro de ações: `ToastService`. Nunca `window.confirm`, nunca mensagem inline que some sozinha, nunca overlay `fixed inset-0` artesanal.
+
+## Paginação e listas
+`<app-pagination [page] [totalPages] [label] (pageChange)>` (páginas começam em 1; `pageRange`/`pageCount` ajudam a montar o rótulo). Cabeçalho de lista: `.list-head` com `.list-head-title` e, quando houver, um `.search-field`.
 
 ## Motion — "exagerado, mas controlável"
 Motor central em `core/motion/motion.service.ts` (biblioteca `motion`) + CSS em `styles.css`. Nenhuma tela precisa declarar animação: o que aparece anima sozinho.
@@ -69,7 +79,7 @@ Motor central em `core/motion/motion.service.ts` (biblioteca `motion`) + CSS em 
 ## Telas com identidade própria
 - **Dashboard**: central de comando — selo de saúde geral, blocos por serviço com latência, linha do tempo de relatórios e atalhos.
 - **Usuários**: faixa de panorama (pessoas, ativas, administradores, aguardando decisão).
-- **IA** (`/ia`): cinco abas por objetivo, cada uma com uma frase de propósito sob o título. **Painel** (como está agora + "Precisa de atenção"), **Conversas** (cliente a cliente, gaveta de detalhe), **Atendimento**, **Testar** (simulador) e **Ajustes** (liga/desliga, chave, limites). Botão Ligar/Desligar o bot sempre no cabeçalho. **Atendimento** é uma *galeria de cartões* (um por fluxo: padrão + próprios + "criar novo"); abrir um fluxo mostra três áreas — *Etapas* (quadro de cartões; clicar abre o painel lateral `.sheet`), *Jeito de falar* e *O que ela sabe*, cada fluxo com as suas. Rascunho → publicar na barra inferior. Regra: sem listas longas empilhadas — itens são cartões que abrem num painel lateral; no máximo dois níveis (galeria → fluxo).
+- **IA** (`/ia`): cinco abas por objetivo, cada uma com uma frase de propósito sob o título. **Painel** (+ "Precisa de atenção"), **Conversas** (cliente a cliente, detalhe em `app-sheet`), **Atendimento**, **Testar** (simulador) e **Ajustes**. Botão Ligar/Desligar o bot sempre no cabeçalho. **Atendimento** é uma *galeria de cartões*, um por fluxo (o atendimento da Vera é um fluxo como os outros; o marcado "Início" recebe todo cliente novo); abrir um fluxo mostra *Etapas* (linha do tempo; clicar abre o `app-sheet` da etapa), *Jeito de falar* e *O que ela sabe*. "Avisos e padrões" (mensagens do sistema, tom e base padrão) abre num `app-sheet` a partir da galeria. Rascunho → publicar na barra inferior. Regra: sem listas longas empilhadas; no máximo dois níveis (galeria → fluxo).
 
 ## Responsividade
 - **Pontos de corte:** menu lateral fixo só a partir de 1024px (abaixo vira gaveta); tabelas viram cartões até 860px; ajustes de espaçamento/formulário até 640px; alvos de toque de 44px em telas sensíveis ao toque (`pointer: coarse`).
@@ -80,7 +90,9 @@ Motor central em `core/motion/motion.service.ts` (biblioteca `motion`) + CSS em 
 - Verificação: `resp.js` abre todas as rotas em 320/360/768/1024 e acusa elementos que passam da largura.
 
 ## Menos é mais (regras de limpeza)
-- **Uma camada de cabeçalho:** título + um estado + uma frase. Sem botões de "Atualizar" nem carimbos de hora (a tela se atualiza sozinha).
+- **Uma camada de cabeçalho:** título + um estado + uma frase. Sem botões de "Atualizar" nem carimbos de hora (a tela se atualiza sozinha). Ações raras (logotipo, prazos das áreas, horários) ficam atrás de um `.icon-btn` no cabeçalho que abre um `app-dialog`.
+- **Caixa de frase** em títulos, botões e rótulos ("Cadastrar pessoa", não "Cadastrar Pessoa"). Textos para a pessoa, não para o programador: nunca nomes de tabela, variáveis de ambiente ou "(ões)".
+- **Ícones só pelo `<app-icon>`**: nenhum SVG inline nem emoji nas telas.
 - **Uma barra de abas** (sublinhada) por tela. Abas internas, quando existirem, usam o estilo neutro (`.seg`), nunca duas barras coloridas empilhadas.
 - **O conteúdo começa logo abaixo das abas.** Explicações longas viram uma linha discreta ou um `<details>`; passo a passo só aparece quando há algo a fazer (ex.: barra de rascunho).
 - **Selos só quando mudam uma decisão.** Estados repetidos viram texto/ponto (`● Ativo · opção 6`), não chips.

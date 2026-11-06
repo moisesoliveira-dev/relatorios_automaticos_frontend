@@ -16,7 +16,7 @@ const ROUTE_PRIORITY = [
 
 const ROUTE_BY_TAB: Record<string, string> = {
   dashboard: '/dashboard',
-  reports: '/reports',
+  reports: '/reports/ocorrencias',
   jobs: '/jobs',
   ia: '/ia',
   'gosac-pontta': '/gosac-pontta/grupos',
@@ -67,6 +67,7 @@ export class AccessService {
               'gosac-pontta/rodizio-pontta',
               'gosac-pontta/pagamento-montador',
               'gosac-pontta/pcp-operacional',
+              'ia',
               'usuarios',
               'configuracoes',
             ],

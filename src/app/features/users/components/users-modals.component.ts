@@ -2,167 +2,128 @@ import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { UsersFacade } from '../facade/users.facade';
 import { UserTabPickerComponent } from './user-tab-picker.component';
+import { DialogComponent } from '../../../shared/components/dialog.component';
+import { IconComponent } from '../../../shared/components/icon.component';
 
 @Component({
   selector: 'app-users-modals',
   standalone: true,
-  imports: [FormsModule, UserTabPickerComponent],
+  imports: [FormsModule, UserTabPickerComponent, DialogComponent, IconComponent],
   template: `
-    @if (facade.showCreateModal()) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(10, 16, 24, 0.55);">
-        <div class="panel panel-pad max-w-lg w-full" style="max-height: 90vh; overflow-y: auto;">
-          <div class="flex items-center justify-between mb-6">
-            <h3 class="text-lg font-semibold" style="color: var(--cmm-ink);">Cadastrar Usuário</h3>
-            <button type="button" (click)="facade.closeCreateModal()" class="btn btn-ghost btn-sm">✕</button>
-          </div>
-          <form (ngSubmit)="facade.createUser()" class="space-y-4">
-            @if (facade.createError()) {
-              <div class="p-3 rounded-lg text-sm" style="background: color-mix(in srgb, var(--cmm-danger) 12%, var(--cmm-panel)); color: var(--cmm-danger);">
-                {{ facade.createError() }}
-              </div>
-            }
-            <div>
-              <label class="form-label">Nome</label>
-              <input type="text" [(ngModel)]="facade.createData.name" name="createName" required class="form-input" />
-            </div>
-            <div>
-              <label class="form-label">Email</label>
-              <input type="email" [(ngModel)]="facade.createData.email" name="createEmail" required class="form-input" />
-            </div>
-            <div>
-              <label class="form-label">Senha</label>
-              <input type="password" [(ngModel)]="facade.createData.password" name="createPassword" required minlength="8" class="form-input" autocomplete="new-password" />
-            </div>
-            <div>
-              <label class="form-label">Confirmar senha</label>
-              <input type="password" [(ngModel)]="facade.createData.confirmPassword" name="createConfirmPassword" required minlength="8" class="form-input" autocomplete="new-password" />
-            </div>
-            <app-user-tab-picker />
-            <div class="flex gap-3 pt-2">
-              <button type="button" (click)="facade.closeCreateModal()" class="btn btn-secondary flex-1">Cancelar</button>
-              <button type="submit" [disabled]="facade.isLoading()" class="btn btn-primary flex-1">
-                {{ facade.isLoading() ? 'Cadastrando...' : 'Cadastrar' }}
-              </button>
-            </div>
-          </form>
+    <!-- Cadastrar -->
+    <app-dialog [open]="facade.showCreateModal()" title="Cadastrar pessoa" subtitle="Cria o acesso com senha definida por você." [closable]="!facade.isLoading()" (closed)="facade.closeCreateModal()">
+      <form id="form-create" (ngSubmit)="facade.createUser()" class="space-y-4">
+        @if (facade.createError()) { <p class="note note-error" role="alert">{{ facade.createError() }}</p> }
+        <div>
+          <label class="form-label" for="cu-name">Nome</label>
+          <input id="cu-name" type="text" [(ngModel)]="facade.createData.name" name="createName" required class="form-input" autocomplete="off" />
         </div>
-      </div>
-    }
-
-    @if (facade.showInviteModal()) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(10, 16, 24, 0.55);">
-        <div class="panel panel-pad max-w-lg w-full" style="max-height: 90vh; overflow-y: auto;">
-          <div class="flex items-center justify-between mb-6">
-            <h3 class="text-lg font-semibold" style="color: var(--cmm-ink);">Convidar Novo Usuário</h3>
-            <button type="button" (click)="facade.closeInviteModal()" class="btn btn-ghost btn-sm">✕</button>
+        <div>
+          <label class="form-label" for="cu-email">E-mail</label>
+          <input id="cu-email" type="email" [(ngModel)]="facade.createData.email" name="createEmail" required class="form-input" autocomplete="off" />
+        </div>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label" for="cu-pw">Senha</label>
+            <input id="cu-pw" type="password" [(ngModel)]="facade.createData.password" name="createPassword" required minlength="8" class="form-input" autocomplete="new-password" />
           </div>
-          @if (facade.inviteSuccess()) {
-            <div class="py-2 space-y-4">
-              @if (facade.inviteEmailSent()) {
-                <p class="text-sm text-center" style="color: var(--cmm-muted);">Convite enviado por email com sucesso.</p>
-              } @else {
-                <p class="text-sm" style="color: var(--cmm-warning);">Email não entregue — compartilhe manualmente.</p>
-                @if (facade.inviteCodeResult()) {
-                  <p class="text-2xl font-semibold tracking-widest text-center">{{ facade.inviteCodeResult() }}</p>
-                }
-              }
-              <p class="text-sm p-3 rounded-lg break-all" style="background: var(--cmm-surface);">{{ facade.inviteLink() }}</p>
-              <button type="button" (click)="facade.closeInviteModal()" class="btn btn-primary w-full">Fechar</button>
-            </div>
+          <div>
+            <label class="form-label" for="cu-pw2">Confirmar senha</label>
+            <input id="cu-pw2" type="password" [(ngModel)]="facade.createData.confirmPassword" name="createConfirmPassword" required minlength="8" class="form-input" autocomplete="new-password" />
+          </div>
+        </div>
+        <app-user-tab-picker />
+      </form>
+      <ng-container dialog-footer>
+        <button type="button" (click)="facade.closeCreateModal()" class="btn btn-secondary" [disabled]="facade.isLoading()">Cancelar</button>
+        <button type="submit" form="form-create" [disabled]="facade.isLoading()" class="btn btn-primary">{{ facade.isLoading() ? 'Cadastrando…' : 'Cadastrar' }}</button>
+      </ng-container>
+    </app-dialog>
+
+    <!-- Convidar -->
+    <app-dialog [open]="facade.showInviteModal()" title="Convidar pessoa" subtitle="A pessoa recebe um link e cria a própria senha." [closable]="!facade.isLoading()" (closed)="facade.closeInviteModal()">
+      @if (facade.inviteSuccess()) {
+        <div class="space-y-4">
+          @if (facade.inviteEmailSent()) {
+            <p class="note note-ok">Convite enviado por e-mail. O link também foi copiado.</p>
           } @else {
-            <form (ngSubmit)="facade.sendInvite()" class="space-y-4">
-              @if (facade.inviteError()) {
-                <div class="p-3 rounded-lg text-sm" style="color: var(--cmm-danger);">{{ facade.inviteError() }}</div>
-              }
-              <div>
-                <label class="form-label">Email</label>
-                <input type="email" [(ngModel)]="facade.inviteEmail" name="email" required class="form-input" />
-              </div>
-              <app-user-tab-picker />
-              <div class="flex gap-3 pt-2">
-                <button type="button" (click)="facade.closeInviteModal()" class="btn btn-secondary flex-1">Cancelar</button>
-                <button type="submit" [disabled]="facade.isLoading()" class="btn btn-primary flex-1">
-                  {{ facade.isLoading() ? 'Enviando...' : 'Enviar Convite' }}
-                </button>
-              </div>
-            </form>
+            <p class="note note-warn">O e-mail não foi entregue. Compartilhe o link ou o código abaixo.</p>
+            @if (facade.inviteCodeResult()) { <p class="font-display text-2xl font-bold tracking-widest text-center">{{ facade.inviteCodeResult() }}</p> }
           }
-        </div>
-      </div>
-    }
-
-    @if (facade.showEditModal()) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(10, 16, 24, 0.55);">
-        <div class="panel panel-pad max-w-lg w-full" style="max-height: 90vh; overflow-y: auto;">
-          <div class="flex items-center justify-between mb-6">
-            <h3 class="text-lg font-semibold" style="color: var(--cmm-ink);">Editar Usuário</h3>
-            <button type="button" (click)="facade.closeEditModal()" class="btn btn-ghost btn-sm">✕</button>
+          <div class="flex items-center gap-2">
+            <p class="note text-xs break-all flex-1 font-mono">{{ facade.inviteLink() }}</p>
+            <button type="button" class="icon-btn icon-btn-outline" (click)="copiar(facade.inviteLink())" aria-label="Copiar link" title="Copiar link"><app-icon name="copiar" [size]="16" /></button>
           </div>
-          <form (ngSubmit)="facade.saveUser()" class="space-y-4">
-            @if (facade.editError()) {
-              <div class="p-3 rounded-lg text-sm" style="color: var(--cmm-danger);">{{ facade.editError() }}</div>
-            }
-            <div>
-              <label class="form-label">Nome</label>
-              <input type="text" [(ngModel)]="facade.editData.name" name="name" required class="form-input" />
-            </div>
-            <div>
-              <label class="form-label">Email</label>
-              <input type="email" [value]="facade.editData.email" disabled class="form-input" />
-            </div>
-            <div>
-              <label class="form-label">Status</label>
-              <select [(ngModel)]="facade.editData.status" name="status" class="form-input">
-                <option value="active">Ativo</option>
-                <option value="inactive">Inativo</option>
-              </select>
-            </div>
-            @if (facade.isMaster()) {
-              <div class="rounded-lg p-3 space-y-3" style="background: var(--cmm-surface); border: 1px solid var(--cmm-border);">
-                <p class="text-sm font-medium">Alterar senha (opcional)</p>
-                <input type="password" [(ngModel)]="facade.editData.password" name="password" class="form-input" minlength="8" autocomplete="new-password" placeholder="Nova senha" />
-                <input type="password" [(ngModel)]="facade.editData.confirmPassword" name="confirmPassword" class="form-input" minlength="8" autocomplete="new-password" placeholder="Confirmar senha" />
-              </div>
-            }
-            <app-user-tab-picker />
-            <div class="flex gap-3 pt-2">
-              <button type="button" (click)="facade.closeEditModal()" class="btn btn-secondary flex-1">Cancelar</button>
-              <button type="submit" [disabled]="facade.isLoading()" class="btn btn-primary flex-1">
-                {{ facade.isLoading() ? 'Salvando...' : 'Salvar' }}
-              </button>
-            </div>
-          </form>
         </div>
-      </div>
-    }
-
-    @if (facade.showApproveModal()) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(10, 16, 24, 0.55);">
-        <div class="panel panel-pad max-w-lg w-full" style="max-height: 90vh; overflow-y: auto;">
-          <div class="flex items-center justify-between mb-6">
-            <h3 class="text-lg font-semibold" style="color: var(--cmm-ink);">Definir abas e aprovar</h3>
-            <button type="button" (click)="facade.closeApproveModal()" class="btn btn-ghost btn-sm">✕</button>
+      } @else {
+        <form id="form-invite" (ngSubmit)="facade.sendInvite()" class="space-y-4">
+          @if (facade.inviteError()) { <p class="note note-error" role="alert">{{ facade.inviteError() }}</p> }
+          <div>
+            <label class="form-label" for="inv-email">E-mail</label>
+            <input id="inv-email" type="email" [(ngModel)]="facade.inviteEmail" name="email" required class="form-input" autocomplete="off" />
           </div>
-          @if (facade.approvingUser(); as reg) {
-            <p class="text-sm mb-4" style="color: var(--cmm-muted);">
-              Selecione as abas para <span class="font-medium" style="color: var(--cmm-ink);">{{ reg.name || reg.email }}</span>
-            </p>
-          }
-          @if (facade.approveError()) {
-            <div class="mb-4 p-3 rounded-lg text-sm" style="color: var(--cmm-danger);">{{ facade.approveError() }}</div>
-          }
           <app-user-tab-picker />
-          <div class="flex gap-3 pt-4">
-            <button type="button" (click)="facade.closeApproveModal()" class="btn btn-secondary flex-1">Cancelar</button>
-            <button type="button" (click)="facade.confirmApproveRegistration()" [disabled]="facade.isLoading()" class="btn btn-accent flex-1">
-              {{ facade.isLoading() ? 'Aprovando...' : 'Aprovar' }}
-            </button>
+        </form>
+      }
+      <ng-container dialog-footer>
+        @if (facade.inviteSuccess()) {
+          <button type="button" (click)="facade.closeInviteModal()" class="btn btn-primary">Fechar</button>
+        } @else {
+          <button type="button" (click)="facade.closeInviteModal()" class="btn btn-secondary" [disabled]="facade.isLoading()">Cancelar</button>
+          <button type="submit" form="form-invite" [disabled]="facade.isLoading()" class="btn btn-primary">{{ facade.isLoading() ? 'Enviando…' : 'Enviar convite' }}</button>
+        }
+      </ng-container>
+    </app-dialog>
+
+    <!-- Editar -->
+    <app-dialog [open]="facade.showEditModal()" title="Editar pessoa" [subtitle]="facade.editData.email" [closable]="!facade.isLoading()" (closed)="facade.closeEditModal()">
+      <form id="form-edit" (ngSubmit)="facade.saveUser()" class="space-y-4">
+        @if (facade.editError()) { <p class="note note-error" role="alert">{{ facade.editError() }}</p> }
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label" for="ed-name">Nome</label>
+            <input id="ed-name" type="text" [(ngModel)]="facade.editData.name" name="name" required class="form-input" />
+          </div>
+          <div>
+            <label class="form-label" for="ed-status">Situação</label>
+            <select id="ed-status" [(ngModel)]="facade.editData.status" name="status" class="form-input">
+              <option value="active">Ativa</option>
+              <option value="inactive">Inativa</option>
+            </select>
           </div>
         </div>
-      </div>
-    }
+        <app-user-tab-picker />
+        @if (facade.isMaster()) {
+          <details class="adv">
+            <summary><app-icon name="cadeado" [size]="14" /> Definir nova senha</summary>
+            <div class="grid sm:grid-cols-2 gap-3">
+              <input type="password" [(ngModel)]="facade.editData.password" name="password" class="form-input" minlength="8" autocomplete="new-password" placeholder="Nova senha" aria-label="Nova senha" />
+              <input type="password" [(ngModel)]="facade.editData.confirmPassword" name="confirmPassword" class="form-input" minlength="8" autocomplete="new-password" placeholder="Confirmar senha" aria-label="Confirmar senha" />
+            </div>
+          </details>
+        }
+      </form>
+      <ng-container dialog-footer>
+        <button type="button" (click)="facade.closeEditModal()" class="btn btn-secondary" [disabled]="facade.isLoading()">Cancelar</button>
+        <button type="submit" form="form-edit" [disabled]="facade.isLoading()" class="btn btn-primary">{{ facade.isLoading() ? 'Salvando…' : 'Salvar' }}</button>
+      </ng-container>
+    </app-dialog>
+
+    <!-- Aprovar cadastro -->
+    <app-dialog [open]="facade.showApproveModal()" title="Aprovar cadastro" [subtitle]="facade.approvingUser() ? 'Escolha o que ' + (facade.approvingUser()!.name || facade.approvingUser()!.email) + ' pode abrir.' : ''" [closable]="!facade.isLoading()" (closed)="facade.closeApproveModal()">
+      @if (facade.approveError()) { <p class="note note-error mb-4" role="alert">{{ facade.approveError() }}</p> }
+      <app-user-tab-picker />
+      <ng-container dialog-footer>
+        <button type="button" (click)="facade.closeApproveModal()" class="btn btn-secondary" [disabled]="facade.isLoading()">Cancelar</button>
+        <button type="button" (click)="facade.confirmApproveRegistration()" [disabled]="facade.isLoading()" class="btn btn-accent">{{ facade.isLoading() ? 'Aprovando…' : 'Aprovar' }}</button>
+      </ng-container>
+    </app-dialog>
   `,
 })
 export class UsersModalsComponent {
   readonly facade = inject(UsersFacade);
+
+  copiar(texto: string): void {
+    void navigator.clipboard.writeText(texto);
+  }
 }

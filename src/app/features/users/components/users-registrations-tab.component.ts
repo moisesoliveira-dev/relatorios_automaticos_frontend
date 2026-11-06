@@ -9,33 +9,28 @@ import { UsersFacade } from '../facade/users.facade';
       <table>
         <thead>
           <tr>
-            <th>Nome</th>
-            <th>Email</th>
-            <th>Data</th>
-            <th style="text-align: right;">Ações</th>
+            <th>Pessoa</th>
+            <th>Pediu em</th>
+            <th style="text-align: right;"></th>
           </tr>
         </thead>
         <tbody>
           @for (reg of facade.pendingRegistrations(); track reg.id) {
             <tr>
-              <td class="font-medium">{{ reg.name || '—' }}</td>
-              <td style="color: var(--cmm-muted);">{{ reg.email }}</td>
+              <td>
+                <p class="font-medium">{{ reg.name || '—' }}</p>
+                <p class="text-xs" style="color: var(--cmm-muted);">{{ reg.email }}</p>
+              </td>
               <td class="text-sm" style="color: var(--cmm-muted);">{{ facade.formatDate(reg.createdAt) }}</td>
               <td style="text-align: right;">
                 <div class="flex items-center justify-end gap-2">
-                  <button type="button" (click)="facade.openApproveModal(reg)" class="btn btn-sm btn-accent">
-                    Definir abas e aprovar
-                  </button>
-                  <button type="button" (click)="facade.rejectRegistration(reg)" class="btn btn-sm btn-danger">
-                    Rejeitar
-                  </button>
+                  <button type="button" (click)="facade.rejectRegistration(reg)" class="btn btn-sm btn-ghost" style="color: var(--cmm-danger);">Rejeitar</button>
+                  <button type="button" (click)="facade.openApproveModal(reg)" class="btn btn-sm btn-accent">Aprovar</button>
                 </div>
               </td>
             </tr>
           } @empty {
-            <tr>
-              <td colspan="4"><div class="empty-state">Nenhum cadastro pendente de aprovação</div></td>
-            </tr>
+            <tr><td colspan="3"><div class="empty-state">Nenhum cadastro aguardando aprovação.</div></td></tr>
           }
         </tbody>
       </table>
