@@ -725,11 +725,10 @@ export class IaComponent implements OnInit, OnDestroy {
     return n;
   }
   adicionarNumero(f: IaConfigField): void {
-    const d = this.novoNumero().replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
-    if (d.length !== 10 && d.length !== 11) { this.toast.warning('Informe o telefone com DDD, ex.: (92) 99123-4567.'); return; }
-    const n = `55${d}`;
+    const n = this.novoNumero().replace(/@.*$/, '').replace(/\D/g, '');
+    if (n.length < 8 || n.length > 15) { this.toast.warning('Informe o telefone (pelo menos 8 números), ex.: 92 99123-4567.'); return; }
+    if (this.listaDe(f).some((x) => x.slice(-8) === n.slice(-8))) { this.toast.info('Esse número já está na lista.'); this.novoNumero.set(''); return; }
     const atual = this.listaDe(f);
-    if (atual.includes(n)) { this.toast.info('Esse número já está na lista.'); this.novoNumero.set(''); return; }
     this.setCampo(f, [...atual, n].join(','));
     this.novoNumero.set('');
   }
