@@ -16,6 +16,8 @@ export interface IaOverview {
     aiEnabled: boolean;
     aiBreakerOpen: boolean;
     crmEnabled: boolean;
+    testMode: boolean;
+    testNumbers: number;
     model: string;
     agentDecisions: Record<string, number>;
     comunicacao: { humanizada: boolean; resultados: Record<string, number>; reprovacoes: Record<string, number> };
@@ -74,7 +76,7 @@ export interface IaConfigField {
   key: string;
   label: string;
   group: 'geral' | 'ia' | 'comunicacao' | 'limites' | 'atendimento' | 'integracoes';
-  type: 'boolean' | 'number' | 'text' | 'secret';
+  type: 'boolean' | 'number' | 'text' | 'secret' | 'list';
   description: string;
   min?: number;
   max?: number;

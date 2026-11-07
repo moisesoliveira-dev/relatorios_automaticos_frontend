@@ -435,6 +435,11 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
     .tree-ctl { display: flex; align-items: center; gap: .75rem; margin-top: 1.25rem; max-width: 28rem; } .tree-ctl .form-input { width: 100%; } .tree-ctl .cfg-num { max-width: 9rem; }
     .tree-meta { display: flex; align-items: center; gap: .75rem; margin-top: 1rem; }
     @media (max-width: 760px) { .cfg-tree { grid-template-columns: 1fr; } .tree { border-right: none; border-bottom: 1px solid var(--cmm-border); max-height: 20rem; } }
+    .num-list { display: flex; flex-direction: column; gap: .6rem; width: 100%; }
+    .num-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .num-chip { display: inline-flex; align-items: center; gap: .35rem; font-variant-numeric: tabular-nums; }
+    .num-x { border: none; background: transparent; cursor: pointer; color: var(--cmm-muted); font-size: 1rem; line-height: 1; padding: 0 .1rem; } .num-x:hover { color: var(--cmm-danger); }
+    .num-add { display: flex; gap: .5rem; } .num-add .form-input { flex: 1; min-width: 0; }
     .cfg-secret { display: flex; flex-direction: column; gap: .25rem; align-items: flex-end; width: 100%; }
     @media (max-width: 640px) {
       .funnel-label { width: 7.5rem; }
@@ -545,6 +550,8 @@ export class IaComponent implements OnInit, OnDestroy {
       out.push({ icone: 'pausa', texto: 'O bot está desligado: ninguém está sendo atendido automaticamente.', botao: 'Ver ajustes', acao: () => this.setAba('config') });
     if (o.sistema.enabled && o.sistema.aiEnabled && chave && !chave.configured)
       out.push({ icone: 'chave', texto: 'A IA está ligada, mas não há chave da OpenAI: o bot só usa regras fixas.', botao: 'Configurar chave', acao: () => this.setAba('config') });
+    if (o.sistema.testMode)
+      out.push({ icone: 'alerta', texto: `Modo teste ligado: o bot só atende ${o.sistema.testNumbers === 1 ? '1 número' : o.sistema.testNumbers + ' números'}. Os demais clientes não recebem resposta do bot.`, botao: 'Ver ajustes', acao: () => this.setAba('config') });
     if (o.sistema.aiBreakerOpen)
       out.push({ icone: 'alerta', texto: 'A IA foi pausada por falhas seguidas e voltará sozinha em instantes.', botao: 'Atualizar', acao: () => this.refreshAll() });
     if (o.totais.comErro > 0)
@@ -709,12 +716,31 @@ export class IaComponent implements OnInit, OnDestroy {
     });
   }
   selecionado = signal<string | null>(null);
+  novoNumero = signal('');
+  listaDe(f: IaConfigField): string[] { return String(this.valorCampo(f) ?? '').split(',').map((x) => x.trim()).filter(Boolean); }
+  formatarNumero(n: string): string {
+    const d = n.replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
+    if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+    if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+    return n;
+  }
+  adicionarNumero(f: IaConfigField): void {
+    const d = this.novoNumero().replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
+    if (d.length !== 10 && d.length !== 11) { this.toast.warning('Informe o telefone com DDD, ex.: (92) 99123-4567.'); return; }
+    const n = `55${d}`;
+    const atual = this.listaDe(f);
+    if (atual.includes(n)) { this.toast.info('Esse número já está na lista.'); this.novoNumero.set(''); return; }
+    this.setCampo(f, [...atual, n].join(','));
+    this.novoNumero.set('');
+  }
+  removerNumero(f: IaConfigField, n: string): void { this.setCampo(f, this.listaDe(f).filter((x) => x !== n).join(',')); }
   campoSel = computed(() => { const c = this.campos(); return c.find((x) => x.key === this.selecionado()) ?? c.find((x) => x.group === GRUPOS[0].key) ?? c[0]; });
   alterado(f: IaConfigField): boolean { return f.key in this.draft(); }
   alteradosDo(g: IaConfigField['group']): number { return this.camposDo(g).filter((f) => this.alterado(f)).length; }
   tituloGrupo(g: IaConfigField['group']): string { return GRUPOS.find((x) => x.key === g)?.titulo ?? g; }
   resumo(f: IaConfigField): string {
     if (f.type === 'boolean') return this.valorBool(f) ? 'Ligado' : 'Desligado';
+    if (f.type === 'list') { const t = this.listaDe(f).length; return t ? `${t} ${t === 1 ? 'número' : 'números'}` : '—'; }
     if (f.type === 'secret') return f.key in this.draft() ? 'nova chave' : f.configured ? '••••••••' : 'não configurada';
     const v = this.valorCampo(f);
     return v === null || v === undefined || v === '' ? '—' : String(v);
