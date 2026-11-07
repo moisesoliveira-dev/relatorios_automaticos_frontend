@@ -16,6 +16,7 @@ export interface IaOverview {
     aiEnabled: boolean;
     aiBreakerOpen: boolean;
     ponttaEnabled: boolean;
+    crmEnabled: boolean;
     model: string;
     agentDecisions: Record<string, number>;
     comunicacao: { humanizada: boolean; resultados: Record<string, number>; reprovacoes: Record<string, number> };

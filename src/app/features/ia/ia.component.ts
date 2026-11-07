@@ -139,7 +139,8 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
                 <div class="mt-4">
                 <dl class="kv">
                   <div><dt>Modelo</dt><dd class="font-mono text-xs">{{ o.sistema.model }}</dd></div>
-                  <div><dt>Pontta</dt><dd>{{ o.sistema.ponttaEnabled ? 'Ligado' : 'Desligado' }}</dd></div>
+                  <div><dt>Funil comercial (CMSYS)</dt><dd>{{ o.sistema.crmEnabled ? 'Ligado' : 'Desligado' }}</dd></div>
+                  <div><dt>Pontta (agenda)</dt><dd>{{ o.sistema.ponttaEnabled ? 'Ligado' : 'Desligado' }}</dd></div>
                   <div><dt>Mensagens naturais</dt><dd>{{ o.sistema.comunicacao.humanizada ? 'Ligadas' : 'Desligadas' }}</dd></div>
                   <div><dt>Falhas de entrega</dt><dd [style.color]="o.totais.comErro ? 'var(--cmm-danger)' : ''">{{ o.totais.comErro }}</dd></div>
                 </dl>
