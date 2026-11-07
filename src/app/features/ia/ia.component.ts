@@ -262,42 +262,65 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
 
         <!-- ═══════════ AJUSTES ═══════════ -->
         @case ('config') {
-          <div class="panel pb-2" [class.mb-24]="alteracoes() > 0">
-            @for (g of grupos; track g.key; let first = $first; let gi = $index) {
-              <button type="button" class="cfg-h cfg-h-btn" [class.cfg-h-first]="first" [attr.aria-expanded]="grupoAberto(g.key, gi)" (click)="alternarGrupo(g.key, gi)">
-                <span>{{ g.titulo }}</span><span class="cfg-chev" [class.cfg-chev-open]="grupoAberto(g.key, gi)"><app-icon name="baixo" [size]="16" /></span>
-              </button>
-              @if (grupoAberto(g.key, gi)) { @for (f of camposDo(g.key); track f.key) {
-                <div class="cfg-row">
-                  <div class="min-w-0">
-                    <label class="font-semibold text-sm" [attr.for]="'cfg-' + f.key">{{ f.label }}@if (f.sensitive) { <span class="cfg-warn" title="Afeta o atendimento aos clientes na hora"> ⚠</span> }</label>
-                    <p class="text-xs mt-0.5" style="color: var(--cmm-muted);">{{ f.description }}</p>
-                  </div>
-                  <div class="cfg-ctl">
-                    @if (f.source === 'tela' && f.type !== 'secret') {
-                      <button type="button" class="cfg-reset" (click)="restaurar(f)" title="Alterado aqui. Voltar ao padrão" [attr.aria-label]="'Voltar ao padrão de ' + f.label">↺ padrão</button>
-                    }
-                    @switch (f.type) {
-                      @case ('boolean') {
-                        <button type="button" role="switch" [id]="'cfg-' + f.key" class="switch" [class.switch-on]="valorBool(f)" [attr.aria-checked]="valorBool(f)" (click)="setCampo(f, !valorBool(f))"><span class="switch-knob"></span></button>
+          <div class="cfg-tree panel" [class.mb-24]="alteracoes() > 0">
+            <nav class="tree" role="tree" aria-label="Ajustes da IA">
+              @for (g of grupos; track g.key; let gi = $index) {
+                <div class="tree-grp" role="treeitem" [attr.aria-expanded]="grupoAberto(g.key, gi)">
+                  <button type="button" class="tree-node tree-parent" (click)="alternarGrupo(g.key, gi)">
+                    <span class="tree-chev" [class.tree-chev-open]="grupoAberto(g.key, gi)"><app-icon name="baixo" [size]="14" /></span>
+                    <span class="tree-name">{{ g.titulo }}</span>
+                    @if (alteradosDo(g.key)) { <span class="tree-badge">{{ alteradosDo(g.key) }}</span> }
+                  </button>
+                  @if (grupoAberto(g.key, gi)) {
+                    <div class="tree-kids" role="group">
+                      @for (f of camposDo(g.key); track f.key) {
+                        <button type="button" role="treeitem" class="tree-node tree-leaf" [class.tree-sel]="campoSel().key === f.key" [attr.aria-selected]="campoSel().key === f.key" (click)="selecionado.set(f.key)">
+                          <span class="tree-name">{{ f.label }}@if (f.sensitive) { <span class="cfg-warn" title="Afeta o atendimento aos clientes na hora"> ⚠</span> }</span>
+                          @if (alterado(f)) { <span class="tree-dot" title="Alterado, ainda sem salvar"></span> }
+                          <span class="tree-val" [class.tree-on]="f.type === 'boolean' && valorBool(f)" [class.tree-warn]="f.type === 'secret' && !f.configured">{{ resumo(f) }}</span>
+                        </button>
                       }
-                      @case ('number') {
-                        <input class="form-input cfg-num" type="number" [id]="'cfg-' + f.key" [min]="f.min ?? null" [max]="f.max ?? null" [ngModel]="valorCampo(f)" (ngModelChange)="setCampo(f, $event)" />
-                      }
-                      @case ('secret') {
-                        <div class="cfg-secret">
-                          <input class="form-input" type="password" autocomplete="new-password" [id]="'cfg-' + f.key" [placeholder]="f.configured ? '•••••••• configurada' : f.placeholder || ''" [ngModel]="draft()[f.key] ?? ''" (ngModelChange)="setCampo(f, $event)" />
-                          @if (!f.configured) { <span class="text-xs" style="color: var(--cmm-danger);">Nenhuma chave configurada</span> }
-                        </div>
-                      }
-                      @default {
-                        <input class="form-input" type="text" [id]="'cfg-' + f.key" [placeholder]="f.placeholder || ''" [ngModel]="valorCampo(f) ?? ''" (ngModelChange)="setCampo(f, $event)" />
-                      }
-                    }
-                  </div>
+                    </div>
+                  }
                 </div>
-              } }
-            }
+              }
+            </nav>
+
+            <section class="tree-detail" aria-live="polite">
+              @if (campoSel(); as f) {
+                <p class="text-xs" style="color: var(--cmm-muted);">{{ tituloGrupo(f.group) }} <span aria-hidden="true">›</span></p>
+                <h2 class="sec-title mt-1">{{ f.label }}@if (f.sensitive) { <span class="cfg-warn" title="Afeta o atendimento aos clientes na hora"> ⚠</span> }</h2>
+                <p class="text-sm mt-1" style="color: var(--cmm-muted);">{{ f.description }}</p>
+                <div class="tree-ctl">
+                  @switch (f.type) {
+                    @case ('boolean') {
+                      <button type="button" role="switch" [id]="'cfg-' + f.key" class="switch" [class.switch-on]="valorBool(f)" [attr.aria-checked]="valorBool(f)" [attr.aria-label]="f.label" (click)="setCampo(f, !valorBool(f))"><span class="switch-knob"></span></button>
+                      <span class="text-sm font-semibold">{{ valorBool(f) ? 'Ligado' : 'Desligado' }}</span>
+                    }
+                    @case ('number') {
+                      <input class="form-input cfg-num" type="number" [id]="'cfg-' + f.key" [attr.aria-label]="f.label" [min]="f.min ?? null" [max]="f.max ?? null" [ngModel]="valorCampo(f)" (ngModelChange)="setCampo(f, $event)" />
+                    }
+                    @case ('secret') {
+                      <div class="cfg-secret" style="align-items: stretch;">
+                        <input class="form-input" type="password" autocomplete="new-password" [id]="'cfg-' + f.key" [attr.aria-label]="f.label" [placeholder]="f.configured ? '•••••••• configurada' : f.placeholder || ''" [ngModel]="draft()[f.key] ?? ''" (ngModelChange)="setCampo(f, $event)" />
+                        @if (!f.configured) { <span class="text-xs" style="color: var(--cmm-danger);">Nenhuma chave configurada</span> }
+                      </div>
+                    }
+                    @default {
+                      <input class="form-input" type="text" [id]="'cfg-' + f.key" [attr.aria-label]="f.label" [placeholder]="f.placeholder || ''" [ngModel]="valorCampo(f) ?? ''" (ngModelChange)="setCampo(f, $event)" />
+                    }
+                  }
+                </div>
+                <div class="tree-meta">
+                  <span class="text-xs" style="color: var(--cmm-muted);">Origem do valor: <b>{{ f.source }}</b></span>
+                  @if (f.source === 'tela' && f.type !== 'secret') {
+                    <button type="button" class="cfg-reset" (click)="restaurar(f)" [attr.aria-label]="'Voltar ao padrão de ' + f.label">↺ padrão</button>
+                  }
+                </div>
+              } @else {
+                <p class="text-sm" style="color: var(--cmm-muted);">Carregando…</p>
+              }
+            </section>
           </div>
 
           @if (alteracoes() > 0) {
@@ -393,6 +416,25 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
     .sim-bar { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem 1.25rem; border-bottom: 1px solid var(--cmm-border); flex-wrap: wrap; }
     .sim-aviso { margin: 0 1.25rem .5rem; font-size: .78rem; color: var(--cmm-warning); font-weight: 600; }
     .chat-input { display: flex; gap: .5rem; padding: 1rem; border-top: 1px solid var(--cmm-border); }
+    .cfg-tree { display: grid; grid-template-columns: minmax(15rem, 21rem) minmax(0, 1fr); padding: 0; overflow: hidden; }
+    .tree { padding: .75rem; border-right: 1px solid var(--cmm-border); max-height: 38rem; overflow-y: auto; }
+    .tree-node { display: flex; align-items: center; gap: .5rem; width: 100%; padding: .4rem .55rem; border: none; border-radius: .55rem; background: transparent; color: inherit; text-align: left; cursor: pointer; font-size: .8125rem; transition: background-color 150ms; }
+    .tree-node:hover { background: color-mix(in srgb, var(--cmm-accent) 7%, transparent); }
+    .tree-parent { font-weight: 700; margin-top: .25rem; }
+    .tree-chev { display: inline-flex; color: var(--cmm-muted); transform: rotate(-90deg); transition: transform 200ms; } .tree-chev-open { transform: rotate(0); }
+    .tree-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tree-badge { font-size: .65rem; font-weight: 800; padding: 0 .4rem; border-radius: 99px; background: var(--cmm-accent-soft); color: var(--cmm-accent); }
+    .tree-kids { margin-left: 1.05rem; padding-left: .5rem; border-left: 1px solid var(--cmm-border); }
+    .tree-leaf { font-weight: 500; position: relative; }
+    .tree-leaf::before { content: ''; position: absolute; left: -.5rem; top: 50%; width: .4rem; border-top: 1px solid var(--cmm-border); }
+    .tree-sel { background: var(--cmm-accent-soft); color: var(--cmm-accent); font-weight: 700; }
+    .tree-val { flex-shrink: 0; max-width: 6rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .7rem; color: var(--cmm-muted); }
+    .tree-on { color: var(--cmm-success); font-weight: 700; } .tree-warn { color: var(--cmm-danger); }
+    .tree-dot { width: 7px; height: 7px; border-radius: 99px; background: var(--cmm-warning); flex-shrink: 0; }
+    .tree-detail { padding: 1.5rem; min-width: 0; }
+    .tree-ctl { display: flex; align-items: center; gap: .75rem; margin-top: 1.25rem; max-width: 28rem; } .tree-ctl .form-input { width: 100%; } .tree-ctl .cfg-num { max-width: 9rem; }
+    .tree-meta { display: flex; align-items: center; gap: .75rem; margin-top: 1rem; }
+    @media (max-width: 760px) { .cfg-tree { grid-template-columns: 1fr; } .tree { border-right: none; border-bottom: 1px solid var(--cmm-border); max-height: 20rem; } }
     .cfg-secret { display: flex; flex-direction: column; gap: .25rem; align-items: flex-end; width: 100%; }
     @media (max-width: 640px) {
       .funnel-label { width: 7.5rem; }
@@ -406,9 +448,9 @@ export class IaComponent implements OnInit, OnDestroy {
   private readonly modal = inject(ModalService);
 
   private gruposAbertos = signal<Set<string> | null>(null);
-  grupoAberto(k: string, i: number): boolean { const s = this.gruposAbertos(); return s ? s.has(k) : i < 2; }
+  grupoAberto(k: string, _i: number): boolean { const s = this.gruposAbertos(); return s ? s.has(k) : true; }
   alternarGrupo(k: string, i: number): void {
-    const atual = new Set(this.gruposAbertos() ?? this.grupos.slice(0, 2).map((g) => g.key));
+    const atual = new Set(this.gruposAbertos() ?? this.grupos.map((g) => g.key));
     if (atual.has(k)) atual.delete(k); else atual.add(k);
     this.gruposAbertos.set(atual);
   }
@@ -665,6 +707,17 @@ export class IaComponent implements OnInit, OnDestroy {
       if (igual || (f.type === 'secret' && !v)) delete next[f.key]; else next[f.key] = v;
       return next;
     });
+  }
+  selecionado = signal<string | null>(null);
+  campoSel = computed(() => { const c = this.campos(); return c.find((x) => x.key === this.selecionado()) ?? c.find((x) => x.group === GRUPOS[0].key) ?? c[0]; });
+  alterado(f: IaConfigField): boolean { return f.key in this.draft(); }
+  alteradosDo(g: IaConfigField['group']): number { return this.camposDo(g).filter((f) => this.alterado(f)).length; }
+  tituloGrupo(g: IaConfigField['group']): string { return GRUPOS.find((x) => x.key === g)?.titulo ?? g; }
+  resumo(f: IaConfigField): string {
+    if (f.type === 'boolean') return this.valorBool(f) ? 'Ligado' : 'Desligado';
+    if (f.type === 'secret') return f.key in this.draft() ? 'nova chave' : f.configured ? '••••••••' : 'não configurada';
+    const v = this.valorCampo(f);
+    return v === null || v === undefined || v === '' ? '—' : String(v);
   }
   restaurar(f: IaConfigField): void { this.draft.update((d) => ({ ...d, [f.key]: null })); }
   descartar(): void { this.draft.set({}); }
