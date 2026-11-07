@@ -15,7 +15,6 @@ export interface IaOverview {
     enabled: boolean;
     aiEnabled: boolean;
     aiBreakerOpen: boolean;
-    ponttaEnabled: boolean;
     crmEnabled: boolean;
     model: string;
     agentDecisions: Record<string, number>;
@@ -49,7 +48,6 @@ export interface IaConversationDetail extends IaConversationSummary {
   respostas: Array<{ variavel: string; valor: string }>;
   arquivos: number;
   pastaDrive: boolean;
-  agendamento: string | null;
   historico: Array<{ role: 'cliente' | 'bot'; text: string }>;
 }
 

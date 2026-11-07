@@ -32,21 +32,8 @@ export interface TabNode {
 }
 
 export const TAB_TREE: TabNode[] = [
-    { key: 'dashboard', label: 'Dashboard' },
-    { key: 'reports', label: 'Relatórios' },
-    { key: 'jobs', label: 'Automações' },
+    { key: 'rodizio', label: 'Rodízio' },
     { key: 'ia', label: 'IA' },
-    {
-        key: 'gosac-pontta',
-        label: 'Gosac / Pontta',
-        children: [
-            { key: 'gosac-pontta/grupos', label: 'Grupos' },
-            { key: 'gosac-pontta/rodizio', label: 'Rodízio GOSAC' },
-            { key: 'gosac-pontta/rodizio-pontta', label: 'Rodízio Pontta' },
-            { key: 'gosac-pontta/pagamento-montador', label: 'Pagamento Montador' },
-            { key: 'gosac-pontta/pcp-operacional', label: 'PCP Operacional' },
-        ],
-    },
     { key: 'usuarios', label: 'Usuários' },
     { key: 'configuracoes', label: 'Configurações' },
 ];

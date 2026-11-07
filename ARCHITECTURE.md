@@ -77,12 +77,6 @@ A Facade é fornecida no **shell da página** (`providers: [XxxApiService, XxxFa
 - Listas usam `.table-shell` + `.list-head` + `app-pagination`. Ícones só por `app-icon`.
 - Telas de IA (`features/ia`): `ia-api.service.ts` espelha o contrato do motor de fluxos v2 do backend (`IaFlow`, `IaNode`, `IaTool`); `ia-conteudo` é a galeria de fluxos e `ia-fluxos` o editor de etapas.
 
-## Próximos candidatos a refatorar
-
-- `gosac-pontta/grupos` → `GosacGroupsFacade`
-- `gosac-pontta/pagamento-montador` → `PagamentoMontadorFacade`
-- `reports/ocorrencias` → `OcorrenciasFacade` + `ReportApiService`
-
 ## Stack
 
 - Angular 21 standalone · Signals · RxJS (HTTP)

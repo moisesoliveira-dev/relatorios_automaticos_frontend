@@ -27,41 +27,16 @@ export const routes: Routes = [
         loadComponent: () => import('./shared/layout/layout.component').then(m => m.LayoutComponent),
         children: [
             {
-                path: 'dashboard',
-                canActivate: [tabGuard],
-                data: { tabs: ['dashboard'] },
-                loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent)
-            },
-            {
-                path: 'reports',
-                canActivate: [tabGuard],
-                data: { tabs: ['reports'] },
-                children: [
-                    // Só existe um relatório hoje: a lista intermediária foi removida.
-                    // Quando houver outros, volte a ter uma lista em '' e mantenha os filhos abaixo.
-                    { path: '', redirectTo: 'ocorrencias', pathMatch: 'full' },
-                    {
-                        path: 'ocorrencias',
-                        loadComponent: () => import('./features/reports/ocorrencias/ocorrencias.component').then(m => m.OcorrenciasComponent)
-                    }
-                ]
-            },
-            {
-                path: 'relatorios',
-                redirectTo: 'reports',
-                pathMatch: 'prefix'
-            },
-            {
                 path: 'usuarios',
                 canActivate: [tabGuard],
                 data: { tabs: ['usuarios'] },
                 loadComponent: () => import('./features/users/users.component').then(m => m.UsersComponent)
             },
             {
-                path: 'jobs',
+                path: 'rodizio',
                 canActivate: [tabGuard],
-                data: { tabs: ['jobs'] },
-                loadComponent: () => import('./features/jobs/jobs.component').then(m => m.JobsComponent)
+                data: { tabs: ['rodizio'] },
+                loadComponent: () => import('./features/rodizio/rodizio.component').then(m => m.RodizioComponent)
             },
             {
                 path: 'ia',
@@ -80,51 +55,8 @@ export const routes: Routes = [
                 loadComponent: () => import('./features/settings/settings.component').then(m => m.SettingsComponent)
             },
             {
-                path: 'gosac-pontta',
-                canActivate: [tabGuard],
-                data: { tabs: ['gosac-pontta'] },
-                loadComponent: () => import('./features/gosac-pontta/gosac-pontta.component').then(m => m.GosacPonttaComponent),
-                children: [
-                    {
-                        path: 'grupos',
-                        canActivate: [tabGuard],
-                        data: { tabs: ['gosac-pontta/grupos'] },
-                        loadComponent: () => import('./features/gosac-pontta/grupos/grupos.component').then(m => m.GruposComponent)
-                    },
-                    {
-                        path: 'rodizio',
-                        canActivate: [tabGuard],
-                        data: { tabs: ['gosac-pontta/rodizio'] },
-                        loadComponent: () => import('./features/gosac-pontta/rodizio/rodizio.component').then(m => m.RodizioComponent)
-                    },
-                    {
-                        path: 'rodizio-pontta',
-                        canActivate: [tabGuard],
-                        data: { tabs: ['gosac-pontta/rodizio-pontta'] },
-                        loadComponent: () => import('./features/gosac-pontta/rodizio-pontta/rodizio-pontta.component').then(m => m.RodizioPonttaComponent)
-                    },
-                    {
-                        path: 'pagamento-montador',
-                        canActivate: [tabGuard],
-                        data: { tabs: ['gosac-pontta/pagamento-montador'] },
-                        loadComponent: () => import('./features/gosac-pontta/pagamento-montador/pagamento-montador.component').then(m => m.PagamentoMontadorComponent)
-                    },
-                    {
-                        path: 'pcp-operacional',
-                        canActivate: [tabGuard],
-                        data: { tabs: ['gosac-pontta/pcp-operacional'] },
-                        loadComponent: () => import('./features/gosac-pontta/pcp-operacional/pcp-operacional.component').then(m => m.PcpOperacionalComponent)
-                    },
-                    {
-                        path: '',
-                        redirectTo: 'grupos',
-                        pathMatch: 'full'
-                    }
-                ]
-            },
-            {
                 path: '',
-                redirectTo: 'dashboard',
+                redirectTo: 'ia',
                 pathMatch: 'full'
             }
         ]

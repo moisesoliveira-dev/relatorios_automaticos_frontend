@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
@@ -24,18 +24,6 @@ export interface UpdateRotationPayload {
   identificacao?: number;
   queueid?: number;
   turn?: boolean;
-}
-
-export interface PonttaProfile {
-  id: string; // cooperatorId (valor associado ao rodízio)
-  cooperatorId?: string;
-  userId?: string;
-  name: string;
-  email?: string;
-  position?: string;
-  activated?: boolean;
-  blocked?: boolean;
-  [key: string]: any;
 }
 
 export interface GosacUser {
@@ -76,11 +64,6 @@ export class RotationService {
 
   remove(id: string): Observable<{ success: boolean }> {
     return this.http.delete<{ success: boolean }>(`${this.apiUrl}/${id}`);
-  }
-
-  searchPonttaProfiles(query: string): Observable<PonttaProfile[]> {
-    const params = new HttpParams().set('query', query);
-    return this.http.get<PonttaProfile[]>(`${this.apiUrl}/lookup/pontta-profiles`, { params });
   }
 
   listGosacUsers(): Observable<GosacUser[]> {

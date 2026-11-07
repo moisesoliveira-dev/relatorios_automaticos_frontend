@@ -1,12 +1,10 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Observable } from 'rxjs';
-import { RotationService, Rotation, GosacUser, GosacQueue } from '../../../services/rotation.service';
-import { ToastService } from '../../../core/ui/toast.service';
-import { ModalService } from '../../../shared/services/modal.service';
-import { DialogComponent } from '../../../shared/components/dialog.component';
-import { IconComponent } from '../../../shared/components/icon.component';
-import { PonttaPerfil, PonttaProfilePickerComponent } from '../components/pontta-profile-picker.component';
+import { RotationService, Rotation, GosacUser, GosacQueue } from '../../services/rotation.service';
+import { ToastService } from '../../core/ui/toast.service';
+import { ModalService } from '../../shared/services/modal.service';
+import { DialogComponent } from '../../shared/components/dialog.component';
+import { IconComponent } from '../../shared/components/icon.component';
 
 interface FormState {
   mode: 'create' | 'edit';
@@ -24,7 +22,7 @@ const VAZIO: FormState = { mode: 'create', editingId: null, id: '', name: '', id
 @Component({
   selector: 'app-rodizio',
   standalone: true,
-  imports: [FormsModule, DialogComponent, IconComponent, PonttaProfilePickerComponent],
+  imports: [FormsModule, DialogComponent, IconComponent],
   template: `
     <div class="space-y-6">
       <div class="page-header">
@@ -61,7 +59,6 @@ const VAZIO: FormState = { mode: 'create', editingId: null, id: '', name: '', id
                 <tr>
                   <td>
                     <div class="font-medium">{{ item.name }}</div>
-                    <div class="text-xs font-mono mt-0.5 truncate max-w-[220px]" style="color: var(--cmm-muted);" [title]="item.id">{{ item.id }}</div>
                   </td>
                   <td style="color: var(--cmm-muted);">{{ userLabel(item.identificacao) }}</td>
                   <td style="color: var(--cmm-muted);">{{ queueLabel(item.queueid) }}</td>
@@ -82,17 +79,8 @@ const VAZIO: FormState = { mode: 'create', editingId: null, id: '', name: '', id
       </div>
     </div>
 
-    <app-dialog [open]="formAberto()" [title]="form().mode === 'create' ? 'Adicionar pessoa' : 'Editar pessoa'" [subtitle]="form().mode === 'create' ? 'Busque no Pontta e vincule ao usuário e à fila do GOSAC.' : form().name" [closable]="!saving()" (closed)="closeForm()">
+    <app-dialog [open]="formAberto()" [title]="form().mode === 'create' ? 'Adicionar pessoa' : 'Editar pessoa'" [subtitle]="form().mode === 'create' ? 'Vincule ao usuário e à fila do GOSAC.' : form().name" [closable]="!saving()" (closed)="closeForm()">
       <div class="space-y-5">
-        @if (form().mode === 'create') {
-          <app-pontta-profile-picker [buscarFn]="buscarPontta" [selecionadoId]="form().id" [selecionadoNome]="selectedPonttaName" (escolhido)="selectPontta($event)" />
-        } @else {
-          <div>
-            <label class="form-label">ID Pontta</label>
-            <input type="text" [value]="form().id" disabled class="form-input font-mono" />
-          </div>
-        }
-
         <div class="grid sm:grid-cols-2 gap-4">
           <div>
             <label class="form-label" for="rg-user">Usuário no GOSAC</label>
@@ -144,13 +132,10 @@ export class RodizioComponent implements OnInit {
   loadingLookups = signal(false);
   saving = signal(false);
   tableFilter = signal('');
-  selectedPonttaName = '';
   gosacUsers = signal<GosacUser[]>([]);
   gosacQueues = signal<GosacQueue[]>([]);
   formAberto = signal(false);
   form = signal<FormState>({ ...VAZIO });
-
-  buscarPontta = (q: string): Observable<PonttaPerfil[]> => this.rotationService.searchPonttaProfiles(q);
 
   daVez = computed(() => this.items().find((i) => i.turn) ?? null);
 
@@ -199,24 +184,17 @@ export class RodizioComponent implements OnInit {
   userLabel(identificacao: number): string { return this.gosacUsers().find((x) => x.id === identificacao)?.name ?? `ID ${identificacao}`; }
 
   openCreate(): void {
-    this.selectedPonttaName = '';
     this.form.set({ ...VAZIO });
     this.formAberto.set(true);
   }
 
   openEdit(item: Rotation): void {
-    this.selectedPonttaName = item.name;
     this.form.set({ mode: 'edit', editingId: item.id, id: item.id, name: item.name, identificacao: item.identificacao, queueid: item.queueid, turn: !!item.turn });
     this.formAberto.set(true);
   }
 
   closeForm(): void { if (!this.saving()) this.formAberto.set(false); }
   patchForm(partial: Partial<FormState>): void { this.form.update((f) => ({ ...f, ...partial })); }
-
-  selectPontta(p: PonttaPerfil): void {
-    this.selectedPonttaName = p.name;
-    this.patchForm({ id: p.cooperatorId || p.id, name: this.form().name || p.name });
-  }
 
   onUserChange(userId: number | null): void {
     if (userId == null) { this.patchForm({ identificacao: null }); return; }
@@ -226,8 +204,8 @@ export class RodizioComponent implements OnInit {
 
   async save(): Promise<void> {
     const f = this.form();
-    if (!f.id || !f.name.trim() || f.identificacao == null || f.queueid == null) {
-      this.toast.warning('Selecione o perfil no Pontta, o usuário e a fila do GOSAC.');
+    if (!f.name.trim() || f.identificacao == null || f.queueid == null) {
+      this.toast.warning('Informe o nome, o usuário e a fila do GOSAC.');
       return;
     }
     const atual = this.items().find((i) => i.turn && i.id !== (f.editingId || f.id));
@@ -241,7 +219,7 @@ export class RodizioComponent implements OnInit {
     const done = (msg: string) => { this.saving.set(false); this.formAberto.set(false); this.toast.success(msg); this.load(); };
     const fail = (err: { error?: { message?: string } }) => { this.saving.set(false); this.toast.error(err.error?.message || 'Não foi possível salvar.'); };
     if (f.mode === 'create') {
-      this.rotationService.create({ id: f.id, name: f.name.trim(), identificacao: f.identificacao!, queueid: f.queueid!, turn: f.turn }).subscribe({ next: () => done('Pessoa adicionada ao rodízio.'), error: fail });
+      this.rotationService.create({ id: `gosac-${f.identificacao}-${f.queueid}`, name: f.name.trim(), identificacao: f.identificacao!, queueid: f.queueid!, turn: f.turn }).subscribe({ next: () => done('Pessoa adicionada ao rodízio.'), error: fail });
     } else {
       this.rotationService.update(f.editingId!, { name: f.name.trim(), identificacao: f.identificacao!, queueid: f.queueid!, turn: f.turn }).subscribe({ next: () => done('Pessoa atualizada.'), error: fail });
     }

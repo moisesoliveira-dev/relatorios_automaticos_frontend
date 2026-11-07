@@ -27,7 +27,7 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
   { key: 'comunicacao', titulo: 'Comunicação', texto: 'Como as mensagens chegam ao cliente.' },
   { key: 'limites', titulo: 'Limites e custo', texto: 'Proteções contra abuso e gasto.' },
   { key: 'atendimento', titulo: 'Atendimento humano', texto: 'Para onde o cliente vai quando o bot passa a vez.' },
-  { key: 'integracoes', titulo: 'Integrações', texto: 'Drive e Pontta.' },
+  { key: 'integracoes', titulo: 'Integrações', texto: 'Google Drive e funil comercial (CMSYS).' },
 ];
 
 @Component({
@@ -140,7 +140,6 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
                 <dl class="kv">
                   <div><dt>Modelo</dt><dd class="font-mono text-xs">{{ o.sistema.model }}</dd></div>
                   <div><dt>Funil comercial (CMSYS)</dt><dd>{{ o.sistema.crmEnabled ? 'Ligado' : 'Desligado' }}</dd></div>
-                  <div><dt>Pontta (agenda)</dt><dd>{{ o.sistema.ponttaEnabled ? 'Ligado' : 'Desligado' }}</dd></div>
                   <div><dt>Mensagens naturais</dt><dd>{{ o.sistema.comunicacao.humanizada ? 'Ligadas' : 'Desligadas' }}</dd></div>
                   <div><dt>Falhas de entrega</dt><dd [style.color]="o.totais.comErro ? 'var(--cmm-danger)' : ''">{{ o.totais.comErro }}</dd></div>
                 </dl>

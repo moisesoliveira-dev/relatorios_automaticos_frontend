@@ -255,7 +255,7 @@ export class RegisterComponent implements OnInit {
         localStorage.setItem('access_token', response.access_token);
         this.authService.setUser(response.user);
 
-        this.router.navigate(['/dashboard']);
+        this.router.navigate(['/ia']);
       },
       error: (error) => {
         this.isLoading.set(false);

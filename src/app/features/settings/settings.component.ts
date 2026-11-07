@@ -18,12 +18,10 @@ interface Secao { key: string; titulo: string; texto: string }
 
 /** Ordem e nomes das seções (o que o servidor não conhece fica no fim, com o nome da categoria). */
 const SECOES: Secao[] = [
-  { key: 'email', titulo: 'E-mail', texto: 'Por onde os relatórios saem. "smtp" para servidor próprio, "resend" para nuvem.' },
+  { key: 'email', titulo: 'E-mail', texto: 'Por onde saem os e-mails do sistema (convites). "smtp" para servidor próprio, "resend" para nuvem.' },
   { key: 'general', titulo: 'Geral', texto: '' },
-  { key: 'api', titulo: 'Pontta', texto: 'Acesso à API do Pontta.' },
-  { key: 'jobs', titulo: 'Automações', texto: '' },
   { key: 'drive', titulo: 'Google Drive', texto: 'Credenciais OAuth 2.0 do Google Cloud. O ID da pasta raiz é o trecho final da URL da pasta no Drive.' },
-  { key: 'access', titulo: 'Acesso por perfil', texto: 'Abas liberadas para cada perfil, separadas por vírgula (ex.: dashboard,reports,jobs).' },
+  { key: 'access', titulo: 'Acesso por perfil', texto: 'Abas liberadas para cada perfil, separadas por vírgula (ex.: rodizio,ia).' },
 ];
 
 /**

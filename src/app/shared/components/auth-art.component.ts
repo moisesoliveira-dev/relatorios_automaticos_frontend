@@ -25,7 +25,7 @@ import { Component } from '@angular/core';
           }
         </h2>
         <p class="mt-6 max-w-md text-base opacity-70 art-in" style="--d: 9">
-          Relatórios, rodízios e automações do GOSAC e do Pontta, num só lugar.
+          Atendimento por WhatsApp com IA e rodízio de atendentes, num só lugar.
         </p>
 
         <div class="mt-8 flex flex-wrap gap-2.5">
@@ -67,5 +67,5 @@ import { Component } from '@angular/core';
 })
 export class AuthArtComponent {
   headline = ['Operação', 'sem', 'atrito.'];
-  chips = ['Relatórios', 'Rodízio GOSAC', 'Pontta', 'PCP', 'Automações'];
+  chips = ['Atendimento IA', 'Rodízio GOSAC', 'Funil comercial', 'Fluxos'];
 }

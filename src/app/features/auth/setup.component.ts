@@ -232,7 +232,7 @@ export class SetupComponent implements OnInit {
       next: (response) => {
         localStorage.setItem('access_token', response.access_token);
         localStorage.setItem('user', JSON.stringify(response.user));
-        this.router.navigate(['/dashboard']);
+        this.router.navigate(['/ia']);
       },
       error: (error) => {
         this.isLoading.set(false);

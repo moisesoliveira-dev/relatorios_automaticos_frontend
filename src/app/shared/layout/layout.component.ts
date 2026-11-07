@@ -18,20 +18,11 @@ interface MenuItem {
 }
 
 const TITLE_MAP: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/reports': 'Relatórios',
-  '/reports/ocorrencias': 'Relatórios',
-  '/jobs': 'Automações',
   '/ia': 'IA',
   '/usuarios': 'Usuários',
   '/perfil': 'Meu perfil',
   '/configuracoes': 'Configurações',
-  '/gosac-pontta': 'Gosac / Pontta',
-  '/gosac-pontta/grupos': 'Grupos',
-  '/gosac-pontta/rodizio': 'Rodízio GOSAC',
-  '/gosac-pontta/rodizio-pontta': 'Rodízio Pontta',
-  '/gosac-pontta/pagamento-montador': 'Pagamento Montador',
-  '/gosac-pontta/pcp-operacional': 'PCP Operacional',
+  '/rodizio': 'Rodízio',
 };
 
 const SIDEBAR_KEY = 'sidebar_collapsed';
@@ -113,7 +104,7 @@ const SIDEBAR_KEY = 'sidebar_collapsed';
                   <a
                     [routerLink]="item.route"
                     routerLinkActive="nav-active"
-                    [routerLinkActiveOptions]="{ exact: item.route === '/dashboard' }"
+                    [routerLinkActiveOptions]="{ exact: false }"
                     (isActiveChange)="schedulePill()"
                     (click)="closeMobile()"
                     class="nav-link"
@@ -371,7 +362,7 @@ export class LayoutComponent implements OnInit, AfterViewInit, OnDestroy {
   mobileOpen = signal(false);
   isMobile = signal(false);
   userMenuOpen = signal(false);
-  pageTitle = signal('Dashboard');
+  pageTitle = signal('IA');
   isDarkMode = signal(false);
   motionOn = signal(true);
   allowedTabs = signal<string[]>([]);
@@ -379,36 +370,14 @@ export class LayoutComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private allMenuItems: MenuItem[] = [
     {
-      label: 'Dashboard',
-      icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
-      route: '/dashboard',
-    },
-    {
-      label: 'Relatórios',
-      icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
-      route: '/reports',
-    },
-    {
-      label: 'Automações',
-      icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
-      route: '/jobs',
-    },
-    {
       label: 'IA',
       icon: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z',
       route: '/ia',
     },
     {
-      label: 'Gosac / Pontta',
-      icon: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1',
-      route: '/gosac-pontta',
-      children: [
-        { label: 'Grupos', route: '/gosac-pontta/grupos' },
-        { label: 'Rodízio GOSAC', route: '/gosac-pontta/rodizio' },
-        { label: 'Rodízio Pontta', route: '/gosac-pontta/rodizio-pontta' },
-        { label: 'Pagamento Montador', route: '/gosac-pontta/pagamento-montador' },
-        { label: 'PCP Operacional', route: '/gosac-pontta/pcp-operacional' },
-      ],
+      label: 'Rodízio',
+      icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15',
+      route: '/rodizio',
     },
     {
       label: 'Usuários',
@@ -634,7 +603,7 @@ export class LayoutComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private menuKeyFromRoute(route: string): string {
-    return route.replace(/^\//, '').split('/')[0] || 'dashboard';
+    return route.replace(/^\//, '').split('/')[0] || 'ia';
   }
 
   private isCurrentRouteAllowed(url: string): boolean {
@@ -643,7 +612,7 @@ export class LayoutComponent implements OnInit, AfterViewInit, OnDestroy {
     const path = url.replace(/^\//, '').split('?')[0];
     if (path.startsWith('perfil')) return true;
     if (allowed.has(path)) return true;
-    const top = path.split('/')[0] || 'dashboard';
+    const top = path.split('/')[0] || 'ia';
     if (allowed.has(top)) {
       // Se há filhos específicos, exige match do filho
       const hasSpecificChild = [...allowed].some((k) => k.startsWith(`${top}/`));

@@ -4,27 +4,11 @@ import { Observable, of, tap, catchError, map, shareReplay } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 
-const ROUTE_PRIORITY = [
-  'dashboard',
-  'reports',
-  'jobs',
-  'ia',
-  'gosac-pontta',
-  'usuarios',
-  'configuracoes',
-] as const;
+const ROUTE_PRIORITY = ['ia', 'rodizio', 'usuarios', 'configuracoes'] as const;
 
 const ROUTE_BY_TAB: Record<string, string> = {
-  dashboard: '/dashboard',
-  reports: '/reports/ocorrencias',
-  jobs: '/jobs',
   ia: '/ia',
-  'gosac-pontta': '/gosac-pontta/grupos',
-  'gosac-pontta/grupos': '/gosac-pontta/grupos',
-  'gosac-pontta/rodizio': '/gosac-pontta/rodizio',
-  'gosac-pontta/rodizio-pontta': '/gosac-pontta/rodizio-pontta',
-  'gosac-pontta/pagamento-montador': '/gosac-pontta/pagamento-montador',
-  'gosac-pontta/pcp-operacional': '/gosac-pontta/pcp-operacional',
+  rodizio: '/rodizio',
   usuarios: '/usuarios',
   configuracoes: '/configuracoes',
 };
@@ -57,23 +41,10 @@ export class AccessService {
         catchError(() => {
           const role = this.auth.user()?.role;
           const defaults: Record<string, string[]> = {
-            master: [
-              'dashboard',
-              'reports',
-              'jobs',
-              'gosac-pontta',
-              'gosac-pontta/grupos',
-              'gosac-pontta/rodizio',
-              'gosac-pontta/rodizio-pontta',
-              'gosac-pontta/pagamento-montador',
-              'gosac-pontta/pcp-operacional',
-              'ia',
-              'usuarios',
-              'configuracoes',
-            ],
-            admin: ['dashboard', 'reports', 'jobs', 'gosac-pontta', 'usuarios'],
-            manager: ['dashboard', 'reports', 'gosac-pontta'],
-            user: ['dashboard', 'reports'],
+            master: ['ia', 'rodizio', 'usuarios', 'configuracoes'],
+            admin: ['rodizio', 'ia', 'usuarios'],
+            manager: ['rodizio', 'ia'],
+            user: ['ia'],
           };
           return of(defaults[role || 'user'] || defaults['user']);
         }),
@@ -95,11 +66,11 @@ export class AccessService {
 
   firstAllowedRoute(): string {
     const tabs = this.tabsSignal() || [];
-    if (this.auth.user()?.role === 'master') return '/dashboard';
+    if (this.auth.user()?.role === 'master') return '/ia';
 
     for (const key of ROUTE_PRIORITY) {
       if (this.matches(tabs, key)) {
-        return ROUTE_BY_TAB[key] || '/dashboard';
+        return ROUTE_BY_TAB[key] || '/ia';
       }
     }
 
@@ -111,13 +82,6 @@ export class AccessService {
   }
 
   private matches(userTabs: string[], required: string): boolean {
-    const set = new Set(userTabs);
-    if (set.has(required)) return true;
-    // Parent section: any child grants access. Child tabs require exact match
-    // (parent alone is expanded to all children by the API normalizeTabs).
-    if (!required.includes('/')) {
-      return [...set].some((t) => t.startsWith(`${required}/`));
-    }
-    return false;
+    return userTabs.includes(required);
   }
 }
