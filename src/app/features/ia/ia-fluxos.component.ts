@@ -5,7 +5,7 @@ import { HintComponent } from '../../shared/components/hint.component';
 import { IconComponent, IconName } from '../../shared/components/icon.component';
 import { DialogComponent } from '../../shared/components/dialog.component';
 import { SheetComponent } from '../../shared/components/sheet.component';
-import { IaApiService, IaCondOp, IaFlow, IaFlowState, IaNode, IaNodeType, IaNodeTypeInfo, IaTool } from './ia-api.service';
+import { IaApiService, IaCondOp, IaFlow, IaFlowState, IaNode, IaNodeType, IaNodeTypeInfo, IaTool, IaModoMensagem } from './ia-api.service';
 
 const ICONE: Record<IaNodeType, IconName> = {
   mensagem: 'mensagem', confirmacao: 'confirmacao', opcoes: 'escolha', multipla: 'lista', pergunta: 'pergunta', arquivos: 'arquivo',
@@ -30,6 +30,8 @@ const DICAS = {
   semOpcoes: 'Ferramentas de escolha: quando não há nada para oferecer (ex.: sem horários livres).',
   condicao: 'A primeira regra que valer decide o caminho. Compara o que o cliente já respondeu.',
   ir_para: 'A conversa continua no outro fluxo, da primeira etapa. As respostas já dadas continuam disponíveis.',
+  modo: 'Escolha quanto a IA pode mexer: reescrever o texto, manter o texto exato e escrever só em volta, ou criar a mensagem a partir de uma instrução. Use o simulador (Testar, com IA ligada) para comparar.',
+  levar: 'Tudo o que o cliente respondeu até aqui segue junto para o próximo fluxo. Lá, essas respostas podem ser citadas nos textos com {chaves} e usadas em Condições.',
   variaveis: 'Cada Pergunta, Escolha com variável ou Lista cria uma variável. Dentro de qualquer texto, escreva-a entre chaves para o bot trocar pelo que o cliente respondeu.',
   picker: 'Cada tipo já vem pronto. Algumas etapas dependem de outras: o aviso em âmbar mostra o que ainda falta antes deste ponto.',
   spec: 'Quando a IA reescreve a mensagem com voz natural, ela precisa manter estes pontos. Uma linha por ponto; alternativas separadas por “/”. Vazio = a IA só pode mudar o jeito de dizer.',
@@ -148,6 +150,14 @@ const sucessores = (n: IaNode): Array<string | null | undefined> => {
             }
           </ul>
         } @else { <p class="text-sm" style="color: var(--cmm-muted);">Ainda não há respostas guardadas. Adicione uma Pergunta, uma Lista ou uma Escolha com variável.</p> }
+        @if (recebidas().length) {
+          <h4 class="vl-h">Recebidas de outros fluxos</h4>
+          <ul class="vlist">@for (r of recebidas(); track r.nome) { <li><code>{{ '{' + r.nome + '}' }}</code><span class="vl-main"><b>Veio do fluxo “{{ r.origem }}”</b><small>Já pode ser citada em qualquer etapa deste fluxo.</small></span></li> }</ul>
+        }
+        @if (saidas().length) {
+          <h4 class="vl-h">Vão para o próximo fluxo</h4>
+          <ul class="vlist">@for (s of saidas(); track s.destino) { <li><span class="vl-main"><b>→ {{ s.destino }}</b><small>{{ s.vars.length ? 'Leva: ' + s.vars.join(', ') : 'Nenhuma resposta guardada até aqui.' }}</small></span></li> }</ul>
+        }
         <p class="text-xs mt-3" style="color: var(--cmm-muted);">A ordem das etapas decide o que existe em cada ponto: uma variável só pode ser citada depois de respondida.</p>
       </app-dialog>
 
@@ -226,7 +236,7 @@ const sucessores = (n: IaNode): Array<string | null | undefined> => {
                     <option value="texto">Texto livre</option><option value="nome">Nome de pessoa</option><option value="numero">Número</option><option value="telefone">Telefone</option><option value="email">E-mail</option>
                   </select></div>
               </div>
-              <p class="text-xs" style="color: var(--cmm-muted);">Depois você pode citar a resposta nos textos escrevendo {{ '{' }}{{ n.variavel || 'nome' }}{{ '}' }}.</p>
+              <p class="text-xs" style="color: var(--cmm-muted);">Depois você pode citar a resposta nos textos escrevendo {{ '{' }}{{ n.variavel || 'nome' }}{{ '}' }}, nesta conversa e nos próximos fluxos dela.</p>
             }
 
             <!-- arquivos -->
@@ -410,6 +420,12 @@ const sucessores = (n: IaNode): Array<string | null | undefined> => {
                   <option value="">escolha o fluxo</option>
                   @for (o of outrosFluxos(); track o.id) { <option [value]="o.id">{{ o.nome }}{{ o.ativo ? '' : ' (desativado)' }}</option> }
                 </select>
+                <div class="leva-box">
+                  <p class="vars-t"><b>O que vai junto para o próximo fluxo</b> <app-hint [texto]="dicas.levar" /></p>
+                  @if (levaDe(n).length) {
+                    <div class="vars-chips">@for (v of levaDe(n); track v) { <code class="leva-chip">{{ '{' + v + '}' }}</code> }</div>
+                  } @else { <p class="text-xs" style="color: var(--cmm-muted);">Nenhuma resposta guardada até aqui. Só o nome do cliente segue, quando já é conhecido.</p> }
+                </div>
               </div>
             }
 
@@ -454,17 +470,35 @@ const sucessores = (n: IaNode): Array<string | null | undefined> => {
               <p class="text-sm next-box">{{ n.tipo === 'fim' ? 'O fluxo termina aqui e o cliente volta ao fluxo de início.' : 'O fluxo termina aqui: um atendente assume (rodízio).' }}</p>
             }
 
-            <!-- pontos essenciais (IA) -->
+            <!-- como a IA trata a mensagem -->
             @if (temTexto(n.tipo)) {
-              <details class="adv">
-                <summary><app-icon name="brilho" [size]="14" />O que a IA precisa manter ao reescrever <app-hint [texto]="dicas.spec" /></summary>
-                <div class="space-y-3">
-                  <div><label class="form-label" for="nsobj">Objetivo da mensagem</label>
-                    <input class="form-input" id="nsobj" maxlength="300" [ngModel]="n.spec?.objetivo ?? ''" (ngModelChange)="setSpec('objetivo', $event)" placeholder="Ex.: Pedir o nome do cliente antes de seguir" /></div>
-                  <div><label class="form-label" for="nspts">Pontos essenciais (um por linha; alternativas com /)</label>
-                    <textarea class="form-input" id="nspts" rows="3" [ngModel]="pontosTexto(n)" (change)="setPontos($any($event.target).value)" placeholder="nome&#10;projeto / planta"></textarea></div>
+              <div class="modo-box">
+                <p class="form-label"><app-icon name="brilho" [size]="14" /> Como a IA usa esta mensagem <app-hint [texto]="dicas.modo" /></p>
+                <div class="modo-opts" role="radiogroup" aria-label="Como a IA usa esta mensagem">
+                  @for (m of modos; track m.key) {
+                    <button type="button" role="radio" class="modo-opt" [class.modo-on]="modoDe(n) === m.key" [attr.aria-checked]="modoDe(n) === m.key" (click)="setModo(m.key)"><b>{{ m.titulo }}</b><small>{{ m.texto }}</small></button>
+                  }
                 </div>
-              </details>
+                @if (modoDe(n) === 'instrucao') {
+                  <div><label class="form-label" for="nsobj">Instrução para a IA</label>
+                    <textarea class="form-input" id="nsobj" rows="3" maxlength="600" [ngModel]="n.spec?.objetivo ?? ''" (ngModelChange)="setSpec('objetivo', $event)" placeholder="Ex.: Pergunte qual o melhor dia para a visita, de forma simpática. Pode citar {nome}."></textarea></div>
+                  <p class="text-xs" style="color: var(--cmm-muted);">O texto da etapa fica só de reserva: é o que vai se a IA estiver desligada ou fora do ar.</p>
+                } @else if (modoDe(n) === 'obrigatorio') {
+                  <div><label class="form-label" for="nsobj">Orientação para a frase da IA (opcional)</label>
+                    <input class="form-input" id="nsobj" maxlength="600" [ngModel]="n.spec?.objetivo ?? ''" (ngModelChange)="setSpec('objetivo', $event)" placeholder="Ex.: Avise que é importante antes de passar o recado" /></div>
+                  <p class="text-xs" style="color: var(--cmm-muted);">O texto da etapa vai exatamente como está escrito. A IA só acrescenta uma frase natural em volta.</p>
+                } @else {
+                  <details class="adv">
+                    <summary>O que a IA precisa manter ao reescrever <app-hint [texto]="dicas.spec" /></summary>
+                    <div class="space-y-3">
+                      <div><label class="form-label" for="nsobj">Objetivo da mensagem</label>
+                        <input class="form-input" id="nsobj" maxlength="600" [ngModel]="n.spec?.objetivo ?? ''" (ngModelChange)="setSpec('objetivo', $event)" placeholder="Ex.: Pedir o nome do cliente antes de seguir" /></div>
+                      <div><label class="form-label" for="nspts">Pontos essenciais (um por linha; alternativas com /)</label>
+                        <textarea class="form-input" id="nspts" rows="3" [ngModel]="pontosTexto(n)" (change)="setPontos($any($event.target).value)" placeholder="nome&#10;projeto / planta"></textarea></div>
+                    </div>
+                  </details>
+                }
+              </div>
             }
           </div>
         }
@@ -536,6 +570,15 @@ const sucessores = (n: IaNode): Array<string | null | undefined> => {
     .tl-end { display: inline-flex; align-items: center; gap: .45rem; margin-left: .5rem; padding: .5rem .9rem; border: 1.5px dashed var(--cmm-border); border-radius: 99px; background: transparent; color: var(--cmm-muted); font-weight: 600; font-size: .85rem; cursor: pointer; transition: border-color 180ms, color 180ms, background-color 180ms; }
     .tl-end:hover:not(:disabled) { border-color: var(--cmm-accent); color: var(--cmm-accent); background: var(--cmm-accent-soft); }
     .pick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem; }
+    .modo-box { display: flex; flex-direction: column; gap: .6rem; padding-top: .75rem; border-top: 1px solid var(--cmm-border); }
+    .modo-opts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4rem; }
+    .modo-opt { display: flex; flex-direction: column; gap: .15rem; text-align: left; padding: .55rem .6rem; border: 1px solid var(--cmm-border); border-radius: .6rem; background: transparent; color: inherit; cursor: pointer; font-size: .8rem; }
+    .modo-opt small { color: var(--cmm-muted); font-size: .7rem; line-height: 1.25; }
+    .modo-on { border-color: var(--cmm-accent); background: var(--cmm-accent-soft); }
+    @media (max-width: 520px) { .modo-opts { grid-template-columns: 1fr; } }
+    .leva-box { margin-top: .75rem; padding-top: .6rem; border-top: 1px dashed var(--cmm-border); }
+    .leva-chip { font-size: .75rem; padding: .1rem .4rem; border-radius: .4rem; background: var(--cmm-accent-soft); color: var(--cmm-accent); }
+    .vl-h { margin: .9rem 0 .3rem; font-size: .75rem; font-weight: 700; color: var(--cmm-muted); text-transform: uppercase; letter-spacing: .04em; }
     .pick-grupo { grid-column: 1 / -1; font-size: .7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--cmm-muted); margin: .5rem 0 0; }
     .pick-grupo:first-child { margin-top: 0; }
     .pick { display: flex; align-items: center; gap: .65rem; text-align: left; padding: .6rem .7rem; border: 1px solid var(--cmm-border); border-radius: .9rem; background: var(--cmm-panel); color: var(--cmm-ink); cursor: pointer; transition: border-color 160ms, background-color 160ms; }
@@ -629,7 +672,7 @@ export class IaFluxosComponent {
     const alvo = (id: string | null | undefined) => { const k = f.nos.findIndex((x) => x.id === id); return k < 0 ? null : k + 1; };
     const i = f.nos.findIndex((x) => x.id === n.id);
     if (n.tipo === 'encaminhar' || n.tipo === 'fim') return [];
-    if (n.tipo === 'ir_para') { const o = this.fluxos().find((x) => x.id === n.fluxo); return [{ texto: o ? `→ fluxo “${o.nome}”` : 'sem fluxo de destino', ruim: !o }]; }
+    if (n.tipo === 'ir_para') { const o = this.fluxos().find((x) => x.id === n.fluxo); const leva = this.levaDe(n); return [{ texto: o ? `→ fluxo “${o.nome}”${leva.length ? ' · leva ' + leva.map((v) => `{${v}}`).join(', ') : ''}` : 'sem fluxo de destino', ruim: !o }]; }
     if (n.tipo === 'opcoes' || n.tipo === 'confirmacao') {
       return (n.opcoes ?? []).map((o, j) => { const k = alvo(o.proximo); return { texto: `${n.tipo === 'confirmacao' ? o.rotulo : `${j + 1}. ${o.rotulo || '…'}`} → ${k ? 'etapa ' + k : 'sem destino'}`, ruim: !k }; });
     }
@@ -684,7 +727,7 @@ export class IaFluxosComponent {
     const ent = new Map<string, Ctx>();
     if (!f?.nos.length) return ent;
     const por = new Map(f.nos.map((n) => [n.id, n]));
-    ent.set(f.nos[0].id, { vars: new Set(), pasta: false });
+    ent.set(f.nos[0].id, { vars: new Set(this.recebidas().map((r) => r.nome)), pasta: false });
     const fila = [f.nos[0].id];
     for (let g = 0; fila.length && g < 5000; g++) {
       const n = por.get(fila.shift()!)!;
@@ -721,6 +764,40 @@ export class IaFluxosComponent {
     return null;
   }
 
+  /** Fluxos que levam a este, direta ou indiretamente, por "Ir para outro fluxo". */
+  private anteriores(id: string): IaFlow[] {
+    const todos = this.fluxos();
+    const achados = new Map<string, IaFlow>();
+    const fila = [id];
+    while (fila.length) {
+      const alvo = fila.pop()!;
+      for (const f of todos) {
+        if (f.id === id || achados.has(f.id)) continue;
+        if (f.nos.some((x) => x.tipo === 'ir_para' && x.fluxo === alvo)) { achados.set(f.id, f); fila.push(f.id); }
+      }
+    }
+    return [...achados.values()];
+  }
+  /** Respostas que chegam de fluxos anteriores. */
+  recebidas = computed(() => {
+    const f = this.atual();
+    if (!f) return [] as Array<{ nome: string; origem: string }>;
+    const out = new Map<string, string>();
+    for (const a of this.anteriores(f.id)) for (const x of a.nos) for (const v of this.produz(x).vars) if (!out.has(v)) out.set(v, a.nome);
+    return [...out].map(([nome, origem]) => ({ nome, origem }));
+  });
+  /** O que segue para o próximo fluxo a partir desta etapa "Ir para outro fluxo". */
+  levaDe(n: IaNode): string[] {
+    const c = this.analise().get(n.id);
+    return [...new Set([...(c?.vars ?? []), ...this.recebidas().map((r) => r.nome)])];
+  }
+  /** Saídas deste fluxo para outros, com o que cada uma leva. */
+  saidas = computed(() => {
+    const f = this.atual();
+    if (!f) return [] as Array<{ destino: string; vars: string[] }>;
+    return f.nos.filter((x) => x.tipo === 'ir_para' && x.fluxo).map((x) => ({ destino: this.fluxos().find((o) => o.id === x.fluxo)?.nome ?? 'fluxo removido', vars: this.levaDe(x) }));
+  });
+
   variaveisEm(n: IaNode): Variavel[] {
     const f = this.atual();
     if (!f) return [];
@@ -732,6 +809,7 @@ export class IaFluxosComponent {
         out.push({ nome: v, origem: `Etapa ${i + 1} · ${x.titulo || this.info(x.tipo).label}`, usavel: x.id !== n.id && !!ctx?.vars.has(v) });
       }
     });
+    for (const r of this.recebidas()) if (!out.some((o) => o.nome === r.nome)) out.push({ nome: r.nome, origem: `Veio do fluxo “${r.origem}”`, usavel: true });
     if (!out.some((o) => o.nome === 'nome')) out.unshift({ nome: 'nome', origem: 'Cadastro do cliente (quando já é conhecido)', usavel: true });
     else { const k = out.findIndex((o) => o.nome === 'nome'); const [nm] = out.splice(k, 1); out.unshift(nm); }
     return out;
@@ -818,6 +896,7 @@ export class IaFluxosComponent {
     }
     if (n.tipo === 'multipla' && !(n.itens?.length)) out.push('Adicione ao menos um item.');
     if (n.tipo === 'ir_para' && !this.fluxos().some((x) => x.id === n.fluxo)) out.push('Escolha o fluxo de destino.');
+    if (n.spec?.modo === 'instrucao' && !n.spec.objetivo?.trim()) out.push('Escreva a instrução para a IA.');
     if (n.tipo === 'condicao') {
       (n.regras ?? []).forEach((r, j) => { if (!r.variavel) out.push(`Escolha a variável da regra ${j + 1}.`); if (!r.proximo) out.push(`Escolha o destino da regra ${j + 1}.`); });
       if (!n.senao) out.push('Escolha para onde ir se nenhuma regra valer.');
@@ -828,6 +907,7 @@ export class IaFluxosComponent {
     for (const m of (n.texto ?? '').matchAll(/\{(\w+)\}/g)) {
       const definida = f.nos.some((x) => this.produz(x).vars.includes(m[1]));
       if (m[1] !== 'nome' && definida && !c.vars.has(m[1])) out.push(`{${m[1]}} ainda não foi respondida aqui: coloque a pergunta antes.`);
+      if (m[1] !== 'nome' && !definida && !this.recebidas().some((r) => r.nome === m[1])) out.push(`{${m[1]}} não existe neste fluxo nem nos que levam até ele.`);
     }
     return out;
   }
@@ -852,6 +932,13 @@ export class IaFluxosComponent {
       if (t?.modo === 'escolha' && !x.variavel) x.variavel = 'escolha';
     });
   }
+  modos: Array<{ key: IaModoMensagem; titulo: string; texto: string }> = [
+    { key: 'ajustar', titulo: 'IA reescreve', texto: 'Ela adapta o texto ao jeito da conversa.' },
+    { key: 'obrigatorio', titulo: 'Texto obrigatório', texto: 'O texto vai exato; ela só escreve em volta.' },
+    { key: 'instrucao', titulo: 'Só instrução', texto: 'Ela cria a mensagem a partir do que você pedir.' },
+  ];
+  modoDe(n: IaNode): IaModoMensagem { return n.spec?.modo ?? 'ajustar'; }
+  setModo(m: IaModoMensagem): void { this.editarNo(this.noAberto()!, (x) => { x.spec = { ...(x.spec ?? {}), modo: m === 'ajustar' ? undefined : m }; }); }
   setSpec(k: 'objetivo', v: string): void { this.editarNo(this.noAberto()!, (x) => { x.spec = { ...(x.spec ?? {}), [k]: v }; }); }
   pontosTexto(n: IaNode): string { return (n.spec?.pontos ?? []).map((p) => p.join(' / ')).join('\n'); }
   setPontos(v: string): void {

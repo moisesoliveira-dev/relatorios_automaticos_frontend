@@ -14,7 +14,7 @@ type Aba = 'visao' | 'conversas' | 'atendimento' | 'simulador' | 'config';
 
 const DECISOES: Record<string, string> = {
   fluxo: 'Texto livre entendido', duvida_respondida: 'Dúvidas respondidas', fora_escopo: 'Recusadas (fora de escopo)', prefilter_bloqueou: 'Barradas pelo pré-filtro',
-  duvida_sem_base: 'Dúvida sem base → humano', duvida_reprovada: 'Resposta reprovada → humano', escopo_indisponivel: 'Escopo indisponível → humano',
+  duvida_sem_base: 'Dúvida sem base → retomou a etapa', duvida_reprovada: 'Resposta reprovada → retomou a etapa', escopo_indisponivel: 'Escopo indisponível → retomou a etapa',
   ia_indisponivel: 'IA indisponível (regras fixas)', sem_interpretacao: 'Sem interpretação',
 };
 const COMUNICACAO: Record<string, string> = {
@@ -221,6 +221,20 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
         <!-- ═══════════ TESTAR ═══════════ -->
         @case ('simulador') {
           <div class="max-w-3xl space-y-3">
+            <section class="panel panel-pad wa-card" aria-label="Testar pelo WhatsApp de verdade">
+              <h2 class="sec-title">Testar pelo WhatsApp de verdade</h2>
+              <p class="text-xs mt-1" style="color: var(--cmm-muted);">O WhatsApp Web não aceita ser embutido em outra página (ele bloqueia iframes), então abrimos numa janela ao lado. Entre nele com <b>outro</b> WhatsApp (o seu, não o do bot) e mande mensagem para o número do bot.</p>
+              <div class="wa-row">
+                <input class="form-input" type="tel" inputmode="tel" aria-label="Número do WhatsApp do bot" placeholder="Número do bot, ex.: 92 99123-4567" [ngModel]="waNumero()" (ngModelChange)="waSalvar($event)" />
+                <button type="button" class="btn btn-primary btn-sm" (click)="waAbrirWeb()" [disabled]="!waValido()">Abrir WhatsApp Web</button>
+                <button type="button" class="btn btn-secondary btn-sm" (click)="waAbrirCelular()" [disabled]="!waValido()">Abrir no celular</button>
+              </div>
+              @if (overview()?.sistema?.testMode) {
+                <p class="text-xs mt-2" style="color: var(--cmm-warning);">Modo teste ligado: o bot só responde aos números da lista em Ajustes. Confira se o seu WhatsApp está nela.</p>
+              } @else if (overview() && !overview()!.sistema.enabled) {
+                <p class="text-xs mt-2" style="color: var(--cmm-warning);">O chatbot está desligado: ele não vai responder pelo WhatsApp até ser ligado.</p>
+              }
+            </section>
             <div class="sim-controls">
               <select id="sim-fluxo" class="form-input" aria-label="O que testar" [ngModel]="simFluxo()" (ngModelChange)="simEscolherFluxo($event)">
                 <option value="">Jornada completa (fluxo de início)</option>
@@ -433,6 +447,7 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
     .num-chip { display: inline-flex; align-items: center; gap: .35rem; font-variant-numeric: tabular-nums; }
     .num-x { border: none; background: transparent; cursor: pointer; color: var(--cmm-muted); font-size: 1rem; line-height: 1; padding: 0 .1rem; } .num-x:hover { color: var(--cmm-danger); }
     .num-add { display: flex; gap: .5rem; } .num-add .form-input { flex: 1; min-width: 0; }
+    .wa-row { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .75rem; } .wa-row .form-input { flex: 1 1 14rem; min-width: 0; }
     .cfg-secret { display: flex; flex-direction: column; gap: .25rem; align-items: flex-end; width: 100%; }
     @media (max-width: 640px) {
       .funnel-label { width: 7.5rem; }
@@ -704,6 +719,21 @@ export class IaComponent implements OnInit, OnDestroy {
     });
   }
   novoNumero = signal('');
+  // ───── teste pelo WhatsApp (abre o WhatsApp Web numa janela, pois ele não pode ser embutido)
+  waNumero = signal(this.waLer());
+  private waLer(): string { try { return localStorage.getItem('ia_wa_numero') ?? ''; } catch { return ''; } }
+  waSalvar(v: string): void { this.waNumero.set(v); try { localStorage.setItem('ia_wa_numero', v); } catch { /* sem armazenamento: segue sem lembrar */ } }
+  private waDigitos(): string {
+    const d = this.waNumero().replace(/@.*$/, '').replace(/\D/g, '');
+    return d.length === 10 || d.length === 11 ? `55${d}` : d;
+  }
+  waValido(): boolean { const d = this.waDigitos(); return d.length >= 10 && d.length <= 15; }
+  waAbrirWeb(): void {
+    if (!this.waValido()) return;
+    const w = Math.min(1100, window.screen.availWidth), h = Math.min(850, window.screen.availHeight);
+    window.open(`https://web.whatsapp.com/send?phone=${this.waDigitos()}`, 'whatsapp-teste', `popup=yes,width=${w},height=${h},noopener`);
+  }
+  waAbrirCelular(): void { if (this.waValido()) window.open(`https://wa.me/${this.waDigitos()}`, '_blank', 'noopener'); }
   listaDe(f: IaConfigField): string[] { return String(this.valorCampo(f) ?? '').split(',').map((x) => x.trim()).filter(Boolean); }
   formatarNumero(n: string): string {
     const d = n.replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');

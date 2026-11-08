@@ -93,7 +93,10 @@ export type IaNodeType = 'mensagem' | 'pergunta' | 'opcoes' | 'confirmacao' | 'm
 export type IaValidacao = 'texto' | 'nome' | 'numero' | 'telefone' | 'email';
 export type IaCondOp = 'igual' | 'diferente' | 'contem' | 'vazio' | 'nao_vazio';
 
+export type IaModoMensagem = 'ajustar' | 'obrigatorio' | 'instrucao';
+
 export interface IaNodeSpec {
+  modo?: IaModoMensagem;
   objetivo?: string;
   pontos?: string[][];
   saudacao?: boolean;
