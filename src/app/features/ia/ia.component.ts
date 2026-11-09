@@ -18,7 +18,7 @@ const DECISOES: Record<string, string> = {
   ia_indisponivel: 'IA indisponível (regras fixas)', sem_interpretacao: 'Sem interpretação',
 };
 const COMUNICACAO: Record<string, string> = {
-  escrita_ok: 'Mensagens naturais enviadas', fallback_validacao: 'Reprovadas pelo revisor → texto padrão', fallback_erro: 'IA falhou → texto padrão',
+  turno_ok: 'Respostas da atendente enviadas', escrita_ok: 'Mensagens naturais enviadas', fallback_validacao: 'Reprovadas pelo revisor → texto padrão', fallback_erro: 'IA falhou → texto padrão',
   fallback_limite: 'Limite diário → texto padrão', sem_spec: 'Texto livre (sem revisão)',
 };
 const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string }> = [
