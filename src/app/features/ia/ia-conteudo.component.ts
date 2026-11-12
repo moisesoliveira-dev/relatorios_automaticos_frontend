@@ -83,7 +83,7 @@ type AbaGeral = 'avisos' | 'jeito' | 'saber';
 
           @switch (aba()) {
             @case ('etapas') {
-              <app-ia-fluxos [fluxos]="doc().fluxos" [indice]="aberto()!" [ferramentas]="c.ferramentas" [tipos]="c.tipos" (mudou)="setFluxos($event)" />
+              <app-ia-fluxos [rascunho]="doc()" [fluxos]="doc().fluxos" [indice]="aberto()!" [ferramentas]="c.ferramentas" [tipos]="c.tipos" (mudou)="setFluxos($event)" />
             }
             @case ('jeito') {
               <app-ia-tom [guidance]="f.guidance ?? doc().guidance" [tones]="c.tones" [mostrarReescrever]="true" [reescrever]="!!f.reescrever"

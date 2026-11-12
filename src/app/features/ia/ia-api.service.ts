@@ -70,6 +70,9 @@ export interface IaSimResposta {
   terminou: boolean;
   onde: { etapa: string; fluxo: { id: string; nome: string } | null; bloco: { numero: number; titulo: string } | null };
   aviso: string | null;
+  versao: 'publicado' | 'rascunho';
+  /** O que ainda impediria de publicar o rascunho testado. */
+  problemas: string[];
 }
 
 export interface IaConfigField {
@@ -176,8 +179,34 @@ export interface IaFlowState {
 export interface IaFlowPreview {
   estado: IaFlowState | null;
   mensagens: string[];
+  /** A IA mudou o texto das etapas (tom e reescrita do rascunho). */
+  reescrita: boolean;
+  /** Por que a IA não foi usada, quando pedida. */
+  aviso: string | null;
+  conversa: Array<{ role: 'cliente' | 'bot'; text: string }>;
   efeitos: string[];
   saiu: 'menu' | 'encaminhado' | null;
+}
+
+export interface IaUsoTotais {
+  usd: number; brl: number; chamadas: number; falhas: number;
+  tokensEntrada: number; tokensCache: number; tokensSaida: number; latenciaMediaMs: number;
+}
+export interface IaPreco { modelo: string; entrada: number; cache: number; saida: number; padrao: boolean }
+export interface IaUso {
+  periodo: { dias: number; inicio: string; fim: string };
+  origem: 'cliente' | 'teste' | 'todas';
+  cotacao: number;
+  totais: IaUsoTotais;
+  conversas: number;
+  custoPorConversaUsd: number;
+  custoPorConversaBrl: number;
+  mes: { gastoUsd: number; gastoBrl: number; previsaoUsd: number; previsaoBrl: number };
+  porDia: Array<{ dia: string; usd: number; brl: number; chamadas: number }>;
+  porAgente: Array<IaUsoTotais & { agente: string }>;
+  porModelo: Array<IaUsoTotais & { modelo: string; precificado: boolean }>;
+  semPreco: string[];
+  precos: IaPreco[];
 }
 
 export interface IaParamSpec {
@@ -271,7 +300,7 @@ export class IaApiService {
   devolver(id: string) {
     return this.http.post<IaConversationSummary>(`${this.base}/conversations/${id}/devolver-ao-bot`, {});
   }
-  simulate(body: { texto?: string; estado?: Record<string, unknown> | null; inicio?: { fluxoId?: string; nome?: string | null }; usarIA: boolean }) {
+  simulate(body: { texto?: string; estado?: Record<string, unknown> | null; inicio?: { fluxoId?: string; nome?: string | null }; usarIA: boolean; versao?: 'publicado' | 'rascunho'; rascunho?: IaContentDoc }) {
     return this.http.post<IaSimResposta>(`${this.base}/simulate`, body);
   }
   catalog() {
@@ -299,8 +328,14 @@ export class IaApiService {
     return this.http.post<IaContent>(`${this.base}/content/publish`, {});
   }
   /** Prévia de um fluxo em rascunho (manda todos os fluxos do rascunho, por causa de "ir para"). */
-  previewFlow(fluxos: IaFlow[], fluxoId: string, estado: IaFlowState | null, texto: string) {
-    return this.http.post<IaFlowPreview>(`${this.base}/content/flows/preview`, { fluxos, fluxoId, estado, texto });
+  previewFlow(fluxos: IaFlow[], fluxoId: string, estado: IaFlowState | null, texto: string, usarIA = false, conversa: IaFlowPreview['conversa'] = []) {
+    return this.http.post<IaFlowPreview>(`${this.base}/content/flows/preview`, { fluxos, fluxoId, estado, texto, usarIA, conversa });
+  }
+  usage(dias: number, origem: 'cliente' | 'teste' | 'todas') {
+    return this.http.get<IaUso>(`${this.base}/usage`, { params: { dias, origem } });
+  }
+  saveUsagePrices(body: { cotacao?: number; precos?: Record<string, { entrada: number; cache: number; saida: number }> }) {
+    return this.http.put<IaUso>(`${this.base}/usage/prices`, body);
   }
   rollback() {
     return this.http.post<IaContent>(`${this.base}/content/rollback`, {});

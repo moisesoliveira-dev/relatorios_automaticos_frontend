@@ -5,7 +5,7 @@ import { HintComponent } from '../../shared/components/hint.component';
 import { IconComponent, IconName } from '../../shared/components/icon.component';
 import { DialogComponent } from '../../shared/components/dialog.component';
 import { SheetComponent } from '../../shared/components/sheet.component';
-import { IaApiService, IaCondOp, IaFlow, IaFlowState, IaNode, IaNodeType, IaNodeTypeInfo, IaTool, IaModoMensagem } from './ia-api.service';
+import { IaApiService, IaCondOp, IaContentDoc, IaFlow, IaNode, IaNodeType, IaNodeTypeInfo, IaTool, IaModoMensagem } from './ia-api.service';
 
 const ICONE: Record<IaNodeType, IconName> = {
   mensagem: 'mensagem', confirmacao: 'confirmacao', opcoes: 'escolha', multipla: 'lista', pergunta: 'pergunta', arquivos: 'arquivo',
@@ -511,7 +511,12 @@ const sucessores = (n: IaNode): Array<string | null | undefined> => {
       </app-sheet>
 
       <!-- Testar (painel lateral) -->
-      <app-sheet [open]="testando()" title="Testar este fluxo" subtitle="Roda o rascunho sem enviar nada a clientes. Ferramentas rodam em modo simulado." width="28rem" (closed)="testando.set(false)">
+      <app-sheet [open]="testando()" title="Testar este fluxo" subtitle="É o atendimento de verdade rodando o que está na tela, mesmo sem salvar. Nada é enviado a clientes e as ferramentas rodam em modo simulado." width="28rem" (closed)="testando.set(false)">
+        <label class="switch-row test-ia" title="Passa as mensagens pela IA, com o tom e a reescrita deste fluxo (conta no uso da OpenAI)">
+          <span>Com a IA, como no atendimento real<small>Entende texto livre, responde dúvidas pela base e escreve no tom do fluxo. Desligado, só valem as regras fixas e o texto exato das etapas.</small></span>
+          <button type="button" role="switch" class="switch" [class.switch-on]="usarIA()" [attr.aria-checked]="usarIA()" aria-label="Usar a IA no teste" (click)="alternarIA()"><span class="switch-knob"></span></button>
+        </label>
+        @if (aviso()) { <p class="note note-warn" role="status">{{ aviso() }}</p> }
         <div class="test-chat chat">
           @for (m of log(); track $index) { <div class="bubble" [class.bubble-user]="m.de === 'cliente'" [class.bubble-bot]="m.de === 'bot'" [class.bubble-fx]="m.de === 'efeito'">{{ m.texto }}</div> }
           @if (!log().length) { <p class="text-sm" style="color: var(--cmm-muted);">Clique em “Começar” para ver a primeira mensagem.</p> }
@@ -532,6 +537,7 @@ const sucessores = (n: IaNode): Array<string | null | undefined> => {
   `,
   styles: [`
     :host { display: block; }
+    .test-ia { margin-bottom: .75rem; }
     .fx { display: flex; flex-direction: column; gap: 1rem; max-width: 46rem; }
     .fx-bar { display: flex; align-items: center; gap: .6rem .9rem; flex-wrap: wrap; padding: .55rem .75rem; border: 1px solid var(--cmm-border); border-radius: 1rem; background: var(--cmm-panel); }
     .fx-state { font-size: .8125rem; font-weight: 600; }
@@ -626,6 +632,8 @@ export class IaFluxosComponent {
   private readonly modal = inject(ModalService);
 
   fluxos = input.required<IaFlow[]>();
+  /** Conteúdo completo da tela (inclui o que ainda não foi salvo): é o que o teste executa. */
+  rascunho = input.required<IaContentDoc>();
   ferramentas = input<IaTool[]>([]);
   tipos = input<IaNodeTypeInfo[]>([]);
   indice = input.required<number>();
@@ -647,12 +655,14 @@ export class IaFluxosComponent {
   gruposFerramentas = computed(() => [...new Set(this.ferramentas().map((t) => t.grupo))]);
 
   // teste
-  estado = signal<IaFlowState | null>(null);
+  estado = signal<Record<string, unknown> | null>(null);
   log = signal<Array<{ de: 'cliente' | 'bot' | 'efeito'; texto: string }>>([]);
   erros = signal<string[]>([]);
   terminou = signal(false);
   carregando = signal(false);
   texto = signal('');
+  usarIA = signal(true);
+  aviso = signal<string | null>(null);
 
   icone(t: IaNodeType): IconName { return ICONE[t] ?? 'mensagem'; }
   info(t: IaNodeType): IaNodeTypeInfo { return this.tipos().find((x) => x.tipo === t) ?? { tipo: t, grupo: '', label: t, ajuda: '', regra: '' }; }
@@ -1000,7 +1010,8 @@ export class IaFluxosComponent {
 
   // ───── teste
   abrirTeste(): void { this.testando.set(true); if (!this.log().length) this.comecar(); }
-  private zerarTeste(): void { this.estado.set(null); this.log.set([]); this.erros.set([]); this.terminou.set(false); }
+  private zerarTeste(): void { this.estado.set(null); this.log.set([]); this.erros.set([]); this.terminou.set(false); this.aviso.set(null); }
+  alternarIA(): void { this.usarIA.update((v) => !v); this.comecar(); }
   comecar(): void { this.zerarTeste(); this.rodar(null, ''); }
   enviar(ev?: Event): void {
     const t = this.texto().trim();
@@ -1011,21 +1022,24 @@ export class IaFluxosComponent {
     this.texto.set('');
     this.rodar(this.estado(), t);
   }
-  private rodar(estado: IaFlowState | null, texto: string): void {
+  private rodar(estado: Record<string, unknown> | null, texto: string): void {
     const f = this.atual();
     if (!f) return;
     this.carregando.set(true);
-    this.api.previewFlow(this.fluxos(), f.id, estado, texto).subscribe({
+    // O mesmo atendimento do cliente real, rodando o que está na tela (mesmo sem salvar):
+    // fluxos, mensagens do sistema, jeito de falar e base de conhecimento.
+    this.api.simulate({ texto, estado, inicio: estado ? undefined : { fluxoId: f.id }, usarIA: this.usarIA(), rascunho: this.rascunho() }).subscribe({
       next: (r) => {
         this.erros.set([]);
+        this.aviso.set(r.aviso);
         this.log.update((l) => [
           ...l,
           ...r.mensagens.map((m) => ({ de: 'bot' as const, texto: m })),
           ...r.efeitos.map((e) => ({ de: 'efeito' as const, texto: e })),
-          ...(r.saiu ? [{ de: 'efeito' as const, texto: r.saiu === 'encaminhado' ? 'Cliente encaminhado a um atendente' : 'Volta ao fluxo de início' }] : []),
+          ...(r.terminou ? [{ de: 'efeito' as const, texto: 'Cliente encaminhado a um atendente' }] : []),
         ]);
         this.estado.set(r.estado);
-        this.terminou.set(!!r.saiu);
+        this.terminou.set(r.terminou);
         this.carregando.set(false);
         setTimeout(() => { const el = document.querySelector('.test-chat')?.closest('.sheet-body'); el?.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }); }, 50);
       },

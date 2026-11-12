@@ -5,12 +5,13 @@ import { CounterDirective } from '../../core/motion/counter.directive';
 import { ToastService } from '../../core/ui/toast.service';
 import { ModalService } from '../../shared/services/modal.service';
 import { IaConteudoComponent } from './ia-conteudo.component';
+import { IaGastosComponent } from './ia-gastos.component';
 import { SheetComponent } from '../../shared/components/sheet.component';
 import {
   IaApiService, IaConfigField, IaConversationDetail, IaConversationSummary, IaList, IaOverview, IaSimResposta,
 } from './ia-api.service';
 
-type Aba = 'visao' | 'conversas' | 'atendimento' | 'simulador' | 'config';
+type Aba = 'visao' | 'conversas' | 'atendimento' | 'simulador' | 'gastos' | 'config';
 
 const DECISOES: Record<string, string> = {
   fluxo: 'Texto livre entendido', duvida_respondida: 'Dúvidas respondidas', fora_escopo: 'Recusadas (fora de escopo)', prefilter_bloqueou: 'Barradas pelo pré-filtro',
@@ -33,7 +34,7 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
 @Component({
   selector: 'app-ia',
   standalone: true,
-  imports: [FormsModule, CounterDirective, IconComponent, IaConteudoComponent, SheetComponent],
+  imports: [FormsModule, CounterDirective, IconComponent, IaConteudoComponent, IaGastosComponent, SheetComponent],
   template: `
     <div class="space-y-6">
       <!-- Cabeçalho: nome, estado (clique para ligar/desligar) e o propósito da tela -->
@@ -235,6 +236,18 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
                 <p class="text-xs mt-2" style="color: var(--cmm-warning);">O chatbot está desligado: ele não vai responder pelo WhatsApp até ser ligado.</p>
               }
             </section>
+            @if (simTemRascunho()) {
+              <div class="toolbar" style="margin-bottom: 0;">
+                <div class="seg" role="group" aria-label="Versão testada">
+                  <button type="button" class="seg-btn" [class.seg-on]="simVersao() === 'rascunho'" [attr.aria-pressed]="simVersao() === 'rascunho'" (click)="simEscolherVersao('rascunho')">Rascunho</button>
+                  <button type="button" class="seg-btn" [class.seg-on]="simVersao() === 'publicado'" [attr.aria-pressed]="simVersao() === 'publicado'" (click)="simEscolherVersao('publicado')">Publicado</button>
+                </div>
+                <span class="text-xs" style="color: var(--cmm-muted);">{{ simVersao() === 'rascunho' ? 'Testando o que você configurou e ainda não publicou: fluxos, avisos, tom e base de conhecimento. Os clientes não veem nada disso.' : 'Testando o que os clientes estão vendo agora.' }}</span>
+              </div>
+              @if (simVersao() === 'rascunho' && simProblemas().length) {
+                <p class="note note-warn" role="status">O rascunho ainda tem pendências que impedem publicar: {{ simProblemas().join(' ') }}</p>
+              }
+            }
             <div class="sim-controls">
               <select id="sim-fluxo" class="form-input" aria-label="O que testar" [ngModel]="simFluxo()" (ngModelChange)="simEscolherFluxo($event)">
                 <option value="">Jornada completa (fluxo de início)</option>
@@ -352,6 +365,7 @@ const GRUPOS: Array<{ key: IaConfigField['group']; titulo: string; texto: string
 
         <!-- ═══════════ ATENDIMENTO ═══════════ -->
         @case ('atendimento') { <app-ia-conteudo /> }
+        @case ('gastos') { <app-ia-gastos /> }
       }
     </div>
 
@@ -462,10 +476,10 @@ export class IaComponent implements OnInit, OnDestroy {
 
   grupoAtivo = signal<string>(GRUPOS[0].key);
   grupoSel = computed(() => GRUPOS.find((g) => g.key === this.grupoAtivo()) ?? GRUPOS[0]);
-  icones: Record<Aba, IconName> = { visao: 'painel', conversas: 'conversas', atendimento: 'fluxo', simulador: 'teste', config: 'ajustes' };
+  icones: Record<Aba, IconName> = { visao: 'painel', conversas: 'conversas', atendimento: 'fluxo', simulador: 'teste', gastos: 'dinheiro', config: 'ajustes' };
   abas: Array<{ key: Aba; label: string }> = [
     { key: 'visao', label: 'Painel' }, { key: 'conversas', label: 'Conversas' }, { key: 'atendimento', label: 'Atendimento' },
-    { key: 'simulador', label: 'Testar' }, { key: 'config', label: 'Ajustes' },
+    { key: 'simulador', label: 'Testar' }, { key: 'gastos', label: 'Gastos' }, { key: 'config', label: 'Ajustes' },
   ];
   /** O que cada tela serve — aparece sob o título e muda junto com a aba. */
   propositos: Record<Aba, string> = {
@@ -473,6 +487,7 @@ export class IaComponent implements OnInit, OnDestroy {
     conversas: 'Veja cada cliente, leia a conversa e assuma ou devolva ao bot.',
     atendimento: 'Monte os caminhos de conversa e o jeito de falar. Nada vale para o cliente até você publicar.',
     simulador: 'Escreva como um cliente e veja a resposta do bot, sem enviar nada a ninguém.',
+    gastos: 'Quanto a IA está custando: por dia, por agente e por modelo, em reais.',
     config: 'Liga/desliga, chave da OpenAI, modelos, limites de uso e integrações.',
   };
   exemplos = ['1', '2', '3', 'quero uma cozinha', 'onde fica a loja?', '0', '10'];
@@ -499,6 +514,13 @@ export class IaComponent implements OnInit, OnDestroy {
   // simulador
   simTexto = signal('');
   simUsarIA = signal(true);
+  simTemRascunho = signal(false);
+  /** Qual conteúdo o teste roda: o rascunho salvo (quando existe) ou o publicado, que os clientes veem. */
+  simVersao = signal<'publicado' | 'rascunho'>('publicado');
+  private simVersaoEscolhida = false;
+  simProblemas = signal<string[]>([]);
+  private simFluxosPub = signal<Array<{ id: string; nome: string; ativo: boolean }>>([]);
+  private simFluxosRasc = signal<Array<{ id: string; nome: string; ativo: boolean }>>([]);
   simCarregando = signal(false);
   simLog = signal<Array<{ de: 'cliente' | 'bot' | 'efeito' | 'sistema'; texto: string }>>([]);
   simEstado = signal<Record<string, unknown> | null>(null);
@@ -506,7 +528,7 @@ export class IaComponent implements OnInit, OnDestroy {
   simAviso = signal<string | null>(null);
   simTerminou = signal(false);
   /** Fluxos próprios já publicados (os únicos que o teste consegue seguir). */
-  simFluxos = signal<Array<{ id: string; nome: string; ativo: boolean }>>([]);
+  simFluxos = computed(() => (this.simVersao() === 'rascunho' ? this.simFluxosRasc() : this.simFluxosPub()));
   simFluxo = signal('');
 
   // config
@@ -599,7 +621,7 @@ export class IaComponent implements OnInit, OnDestroy {
   setAba(a: Aba): void {
     this.aba.set(a);
     if (a === 'conversas' && !this.lista()) this.carregarLista();
-    if (a === 'simulador') { this.simCarregarFluxos(); if (!this.simEstado() && !this.simLog().length) this.simComecar(); }
+    if (a === 'simulador') this.simCarregarFluxos(() => { if (!this.simEstado() && !this.simLog().length) this.simComecar(); });
     if (a === 'config' && !this.campos().length) this.carregarConfig();
     if (a === 'visao') this.carregarOverview();
   }
@@ -654,14 +676,26 @@ export class IaComponent implements OnInit, OnDestroy {
     this.simPasso(null, '', this.simFluxo() ? { fluxoId: this.simFluxo() } : undefined);
   }
   simEscolherFluxo(id: string): void { this.simFluxo.set(id); this.simComecar(); }
-  /** Lê os fluxos publicados (não o rascunho): é o que o cliente consegue seguir de verdade. */
-  private simCarregarFluxos(): void {
+  simEscolherVersao(v: 'publicado' | 'rascunho'): void {
+    this.simVersaoEscolhida = true;
+    this.simVersao.set(v);
+    this.simFluxo.set('');
+    this.simComecar();
+  }
+  /** Lê o conteúdo salvo: o publicado e, se houver, o rascunho. Sem escolha do usuário, testa o rascunho. */
+  private simCarregarFluxos(depois?: () => void): void {
     this.api.content().subscribe({
       next: (c) => {
-        this.simFluxos.set((c.published.fluxos ?? []).map((f) => ({ id: f.id, nome: f.nome, ativo: f.ativo })));
+        const lista = (d: { fluxos?: Array<{ id: string; nome: string; ativo: boolean }> } | null) => (d?.fluxos ?? []).map((f) => ({ id: f.id, nome: f.nome, ativo: f.ativo }));
+        this.simTemRascunho.set(!!c.draft);
+        this.simFluxosPub.set(lista(c.published));
+        this.simFluxosRasc.set(lista(c.draft));
+        if (!c.draft) this.simVersao.set('publicado');
+        else if (!this.simVersaoEscolhida) this.simVersao.set('rascunho');
         if (this.simFluxo() && !this.simFluxos().some((f) => f.id === this.simFluxo())) this.simFluxo.set('');
+        depois?.();
       },
-      error: () => undefined,
+      error: () => depois?.(),
     });
   }
   simEnviar(ev?: Event): void {
@@ -676,8 +710,9 @@ export class IaComponent implements OnInit, OnDestroy {
   }
   private simPasso(estado: Record<string, unknown> | null, texto: string, inicio?: { fluxoId?: string; nome?: string | null }): void {
     this.simCarregando.set(true);
-    this.api.simulate({ texto, estado, inicio, usarIA: this.simUsarIA() }).subscribe({
+    this.api.simulate({ texto, estado, inicio, usarIA: this.simUsarIA(), versao: this.simVersao() }).subscribe({
       next: (r) => {
+        this.simProblemas.set(r.problemas ?? []);
         this.simLog.update((l) => [
           ...l,
           ...r.mensagens.map((m) => ({ de: 'bot' as const, texto: m })),
